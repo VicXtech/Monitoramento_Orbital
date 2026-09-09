@@ -142,9 +142,9 @@ export const DIAGNOSTICO_SETORES = {
   3: {
     titulo: "DETRITOS ESPACIAIS",
     itens: [
-      { rotulo: "Risco de Impacto", desc: "766 fragmentos sem propulsão ou controle" },
-      { rotulo: "Ponto Crítico", desc: "Concentração máxima entre 700 km e 900 km" },
-      { rotulo: "Dinâmica", desc: "Detritos não manobráveis sujeitos a decaimento natural" }
+      { rotulo: "Risco de Impacto", desc: "Mais de 12.500 fragmentos sem propulsão ou controle" },
+      { rotulo: "Ponto Crítico", desc: "Concentração máxima entre 750 km e 950 km (LEO)" },
+      { rotulo: "Dinâmica", desc: "Fragmentos hipersônicos a 27.000 km/h sem manobra evasiva" }
     ]
   },
   4: {
@@ -155,12 +155,20 @@ export const DIAGNOSTICO_SETORES = {
       { rotulo: "Manobras Evasivas", desc: "Requerem queima periódica de propulsores contra detritos" }
     ]
   },
+  5: {
+    titulo: "CORPOS DE FOGUETES",
+    itens: [
+      { rotulo: "Massa Crítica", desc: "Estágios superiores descartados (Falcon, Soyuz, Centaur, CZ)" },
+      { rotulo: "Risco de Explosão", desc: "Propelente residual e pressurização em tanques esgotados" },
+      { rotulo: "Cinturão Kessler", desc: "Alvos massivos que amplificam potencial de fragmentação" }
+    ]
+  },
   todos: {
     titulo: "SATÉLITES ATIVOS",
     itens: [
-      { rotulo: "Densidade Crítica", desc: "87% operando em Órbita Baixa (LEO)" },
-      { rotulo: "Taxa de Ocupação", desc: "83,7% de satélites funcionais no censo atual" },
-      { rotulo: "Alerta de Tráfego", desc: "Alta densidade de megaconstelações comerciais" }
+      { rotulo: "Densidade Crítica", desc: "Mais de 16.500 satélites operacionais catalogados" },
+      { rotulo: "Taxa de Ocupação", desc: "Predominância em Órbita Baixa (LEO) e Geoestacionária" },
+      { rotulo: "Alerta de Tráfego", desc: "Crescimento exponencial de megaconstelações comerciais" }
     ]
   }
 };

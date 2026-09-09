@@ -66,24 +66,31 @@ export function calcularParametrosOrbitais(linha1, linha2, dataReferencia = new 
     const posAndVel = satellite.propagate(satrec, dataReferencia);
 
     let altitudeInstantaneaKm = Math.round((perigeuKm + apogeuKm) / 2);
-    let velocidadeKmS = 0;
-    let velocidadeKmH = 0;
+    // Estimativa teórica da velocidade orbital circular baseada no semi-eixo maior: v = sqrt(mu / r)
+    const rMedio = Math.max(RAIO_TERRA_KM + 100, semiEixoMaior);
+    let velocidadeKmS = parseFloat(Math.sqrt(MU_TERRA / rMedio).toFixed(2));
+    let velocidadeKmH = Math.round(velocidadeKmS * 3600);
 
     if (posAndVel && posAndVel.position && posAndVel.velocity) {
-      const posGd = satellite.eciToGeodetic(posAndVel.position, gmst);
-      altitudeInstantaneaKm = Math.round(posGd.height);
-
-      // Módulo do vetor velocidade instantânea em km/s
       const vx = posAndVel.velocity.x;
       const vy = posAndVel.velocity.y;
       const vz = posAndVel.velocity.z;
-      velocidadeKmS = parseFloat(Math.sqrt(vx * vx + vy * vy + vz * vz).toFixed(2));
-      velocidadeKmH = Math.round(velocidadeKmS * 3600);
-    } else {
-      // Estimativa teórica da velocidade circular: v = sqrt(mu / r)
-      const rMedio = semiEixoMaior;
-      velocidadeKmS = parseFloat(Math.sqrt(MU_TERRA / rMedio).toFixed(2));
-      velocidadeKmH = Math.round(velocidadeKmS * 3600);
+      const vMag = Math.sqrt(vx * vx + vy * vy + vz * vz);
+
+      const posGd = satellite.eciToGeodetic(posAndVel.position, gmst);
+      const altSgp4 = Math.round(posGd.height);
+
+      // Validação física de consistência orbital:
+      // A velocidade de escape da Terra é ~11.2 km/s. Nenhuma órbita fechada pode ter v > 11.5 km/s ou v < 1.0 km/s.
+      // Além disso, a altitude não pode ser negativa nem exceder apogeu + 1500 km por divergência secular do SGP4.
+      const vValida = !isNaN(vMag) && vMag >= 1.0 && vMag <= 11.5;
+      const altValida = !isNaN(altSgp4) && altSgp4 >= 0 && altSgp4 <= (apogeuKm + 1500);
+
+      if (vValida && altValida) {
+        altitudeInstantaneaKm = altSgp4;
+        velocidadeKmS = parseFloat(vMag.toFixed(2));
+        velocidadeKmH = Math.round(velocidadeKmS * 3600);
+      }
     }
 
     // 6. Classificação de Regime Orbital
@@ -91,18 +98,18 @@ export function calcularParametrosOrbitais(linha1, linha2, dataReferencia = new 
     let regimeNome = 'Órbita Terrestre Baixa (LEO)';
     let regimeDescricao = 'Altitude inferior a 2.000 km. Região de maior concentração operacional e maior densidade de lixo espacial.';
 
-    if (altitudeInstantaneaKm >= 35000 && altitudeInstantaneaKm <= 36500) {
-      regimeCodigo = 'GEO';
-      regimeNome = 'Órbita Geoestacionária (GEO)';
-      regimeDescricao = 'Altitude de ~35.786 km. O satélite acompanha a rotação exata da Terra, permanecendo fixo sobre o mesmo ponto do equador.';
-    } else if (altitudeInstantaneaKm >= 2000 && altitudeInstantaneaKm < 35000) {
-      regimeCodigo = 'MEO';
-      regimeNome = 'Órbita Terrestre Média (MEO)';
-      regimeDescricao = 'Altitude entre 2.000 km e 35.000 km. Região estratégica utilizada por constelações de posicionamento global (GPS, Galileo, Glonass).';
-    } else if (excentricidade > 0.25) {
+    if (excentricidade > 0.25) {
       regimeCodigo = 'HEO';
       regimeNome = 'Órbita Altamente Elíptica (HEO)';
       regimeDescricao = 'Trajetória com formato muito alongado, alternando passagens rápidas no perigeu e permanência prolongada no apogeu.';
+    } else if (altitudeInstantaneaKm >= 35000) {
+      regimeCodigo = 'GEO';
+      regimeNome = 'Órbita Geoestacionária (GEO)';
+      regimeDescricao = 'Altitude de ~35.786 km. O satélite acompanha a rotação exata da Terra, permanecendo fixo sobre o mesmo ponto do equador.';
+    } else if (altitudeInstantaneaKm >= 2000) {
+      regimeCodigo = 'MEO';
+      regimeNome = 'Órbita Terrestre Média (MEO)';
+      regimeDescricao = 'Altitude entre 2.000 km e 35.000 km. Região estratégica utilizada por constelações de posicionamento global (GPS, Galileo, Glonass).';
     }
 
     // 7. Descrição Didática da Inclinação
@@ -184,51 +191,51 @@ export function calcularParametrosOrbitais(linha1, linha2, dataReferencia = new 
 
 /**
  * Gera os pontos cartesianos 3D de uma volta orbital completa para exibição no Cesium.
- * Amostra pontos distribuídos ao longo de um período orbital T.
+ * Utiliza mecânica kepleriana analítica 3D exata para garantir que a elipse seja
+ * matematicamente suave, fechada e perfeitamente estável, imune a distorções do SGP4.
  * 
  * @param {string} linha1 - Linha 1 do TLE
  * @param {string} linha2 - Linha 2 do TLE
  * @param {Date} [dataBase] - Data inicial de referência
- * @param {number} [amostras=90] - Quantidade de pontos na elipse
+ * @param {number} [amostras=120] - Quantidade de pontos na elipse
  * @returns {Array<object>|null} Array de Cesium.Cartesian3 ou null
  */
 export function gerarPontosOrbita(linha1, linha2, dataBase = new Date(), amostras = 120) {
   if (!window.Cesium || !linha1 || !linha2) return null;
 
   try {
-    const satrec = satellite.twoline2satrec(linha1, linha2);
-    
-    // Obter período orbital em minutos (padrão 95 min se indefinido)
-    let movimentoMedio = parseFloat(linha2.substring(52, 63).trim());
-    if (!movimentoMedio || movimentoMedio <= 0) movimentoMedio = 15;
-    
-    const periodoMinutos = 1440 / movimentoMedio;
-    const passoMinutos = periodoMinutos / amostras;
+    const inc = (parseFloat(linha2.substring(8, 16)) || 0) * Math.PI / 180;
+    const raan = (parseFloat(linha2.substring(17, 25)) || 0) * Math.PI / 180;
+    const eccStr = '0.' + linha2.substring(26, 33).trim();
+    const ecc = parseFloat(eccStr) || 0;
+    const argP = (parseFloat(linha2.substring(34, 42)) || 0) * Math.PI / 180;
+    const mm = parseFloat(linha2.substring(52, 63).trim()) || 15;
+    const nRadS = (mm * 2 * Math.PI) / 86400;
+    const a = Math.cbrt(MU_TERRA / (nRadS * nRadS));
 
     const pontosCartesianos = [];
-    const tempoBaseMs = dataBase.getTime();
-    // GMST fixado no instante de referência para manter a órbita fechada no espaço inercial tridimensional
     const gmstFixo = satellite.gstime(dataBase);
-
     const cosG = Math.cos(gmstFixo);
     const sinG = Math.sin(gmstFixo);
 
     for (let i = 0; i <= amostras; i++) {
-      const dataAmostra = new Date(tempoBaseMs + i * passoMinutos * 60000);
-      const posAndVel = satellite.propagate(satrec, dataAmostra);
+      const theta = (i / amostras) * 2 * Math.PI;
+      const r = (a * (1 - ecc * ecc)) / (1 + ecc * Math.cos(theta));
+      const u = argP + theta;
 
-      if (posAndVel && posAndVel.position) {
-        const posEci = posAndVel.position;
-        // Rotação analítica inercial pura ECI -> ECEF no instante de referência (Z-axis rotation por GMST)
-        const xMeters = (posEci.x * cosG + posEci.y * sinG) * 1000;
-        const yMeters = (-posEci.x * sinG + posEci.y * cosG) * 1000;
-        const zMeters = posEci.z * 1000;
+      // Coordenadas inerciais ECI
+      const xEci = r * (Math.cos(raan) * Math.cos(u) - Math.sin(raan) * Math.sin(u) * Math.cos(inc));
+      const yEci = r * (Math.sin(raan) * Math.cos(u) + Math.cos(raan) * Math.sin(u) * Math.cos(inc));
+      const zEci = r * Math.sin(u) * Math.sin(inc);
 
-        pontosCartesianos.push(new window.Cesium.Cartesian3(xMeters, yMeters, zMeters));
-      }
+      // Rotação analítica inercial ECI -> ECEF no instante de referência (em metros)
+      const xMeters = (xEci * cosG + yEci * sinG) * 1000;
+      const yMeters = (-xEci * sinG + yEci * cosG) * 1000;
+      const zMeters = zEci * 1000;
+
+      pontosCartesianos.push(new window.Cesium.Cartesian3(xMeters, yMeters, zMeters));
     }
 
-    // Fechar o laço perfeitamente ligando o último ponto ao primeiro
     if (pontosCartesianos.length > 10) {
       pontosCartesianos.push(pontosCartesianos[0]);
     }
@@ -237,6 +244,95 @@ export function gerarPontosOrbita(linha1, linha2, dataBase = new Date(), amostra
   } catch (err) {
     console.warn('Erro ao gerar elipse orbital tridimensional:', err);
     return null;
+  }
+}
+
+/**
+ * Calcula a posição geográfica (longitude, latitude, altitude em metros) via propagador kepleriano analítico.
+ * Usado como fallback infalível caso o SGP4 numérico divirja devido a TLEs com alto decaimento.
+ */
+export function calcularPosicaoKepleriana(linha1, linha2, dataAtual = new Date()) {
+  try {
+    const inc = (parseFloat(linha2.substring(8, 16)) || 0) * Math.PI / 180;
+    const raan = (parseFloat(linha2.substring(17, 25)) || 0) * Math.PI / 180;
+    const eccStr = '0.' + linha2.substring(26, 33).trim();
+    const ecc = parseFloat(eccStr) || 0;
+    const argP = (parseFloat(linha2.substring(34, 42)) || 0) * Math.PI / 180;
+    const m0 = (parseFloat(linha2.substring(43, 51)) || 0) * Math.PI / 180;
+    const mm = parseFloat(linha2.substring(52, 63).trim()) || 15;
+    const nRadS = (mm * 2 * Math.PI) / 86400;
+    const a = Math.cbrt(MU_TERRA / (nRadS * nRadS));
+
+    const epochYear = parseInt(linha1.substring(18, 20), 10);
+    const fullYear = epochYear >= 57 ? 1900 + epochYear : 2000 + epochYear;
+    const epochDay = parseFloat(linha1.substring(20, 32));
+    const epochMs = Date.UTC(fullYear, 0, 1) + (epochDay - 1) * 86400000;
+    const deltaSec = (dataAtual.getTime() - epochMs) / 1000;
+
+    let M = (m0 + nRadS * deltaSec) % (2 * Math.PI);
+    if (M < 0) M += 2 * Math.PI;
+
+    let E = M;
+    for (let iter = 0; iter < 5; iter++) {
+      E = E - (E - ecc * Math.sin(E) - M) / (1 - ecc * Math.cos(E));
+    }
+    const theta = 2 * Math.atan2(Math.sqrt(1 + ecc) * Math.sin(E / 2), Math.sqrt(1 - ecc) * Math.cos(E / 2));
+    const r = (a * (1 - ecc * ecc)) / (1 + ecc * Math.cos(theta));
+    const u = argP + theta;
+
+    const xEci = r * (Math.cos(raan) * Math.cos(u) - Math.sin(raan) * Math.sin(u) * Math.cos(inc));
+    const yEci = r * (Math.sin(raan) * Math.cos(u) + Math.cos(raan) * Math.sin(u) * Math.cos(inc));
+    const zEci = r * Math.sin(u) * Math.sin(inc);
+
+    const gmst = satellite.gstime(dataAtual);
+    const posGd = satellite.eciToGeodetic({ x: xEci, y: yEci, z: zEci }, gmst);
+    const lon = satellite.degreesLong(posGd.longitude);
+    const lat = satellite.degreesLat(posGd.latitude);
+    const alt = Math.max(120000, posGd.height * 1000);
+
+    return { lon, lat, alt };
+  } catch {
+    return null;
+  }
+}
+
+/**
+ * Classifica de forma ultra-rápida o regime orbital a partir das duas linhas TLE NORAD.
+ * @param {string} linha1 - Primeira linha do TLE NORAD
+ * @param {string} linha2 - Segunda linha do TLE NORAD
+ * @returns {'LEO'|'MEO'|'GEO'|'HEO'} Código do regime orbital
+ */
+export function classificarRegimeOrbital(linha1, linha2) {
+  if (!linha2 || linha2.length < 69) return 'LEO';
+
+  try {
+    const excentricidadeStr = '0.' + linha2.substring(26, 33).trim();
+    const excentricidade = parseFloat(excentricidadeStr) || 0;
+
+    // 1. Órbitas Altamente Elípticas (Molniya, Tundra, trajetórias com e > 0.25)
+    if (excentricidade > 0.25) {
+      return 'HEO';
+    }
+
+    const movimentoMedio = parseFloat(linha2.substring(52, 63).trim()) || 1;
+    const nRadS = (movimentoMedio * 2 * Math.PI) / 86400;
+    const semiEixoMaior = Math.cbrt(MU_TERRA / (nRadS * nRadS));
+    const altitudeMediaKm = semiEixoMaior - RAIO_TERRA_KM;
+
+    // 2. Regime GEO (~35.786 km de altitude)
+    if (altitudeMediaKm >= 35000) {
+      return 'GEO';
+    }
+    // 3. Regime MEO (entre 2.000 km e 35.000 km)
+    else if (altitudeMediaKm >= 2000) {
+      return 'MEO';
+    }
+    // 4. Regime LEO (abaixo de 2.000 km)
+    else {
+      return 'LEO';
+    }
+  } catch {
+    return 'LEO';
   }
 }
 

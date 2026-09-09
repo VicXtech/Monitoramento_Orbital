@@ -1,4 +1,4 @@
-import { useState, useEffect, useRef, useMemo, useLayoutEffect } from 'react';
+import { useState, useEffect, useRef, useMemo, useLayoutEffect, Fragment } from 'react';
 import {
   Globe,
   Search,
@@ -10,6 +10,7 @@ import {
   ChevronRight,
   ChevronLeft,
   Compass,
+  Atom,
   ShieldAlert,
   AlertTriangle,
   Flame,
@@ -18,23 +19,147 @@ import {
   RotateCw,
   Wind,
   Crosshair,
-  Target
+  Target,
+  Orbit
 } from 'lucide-react';
 import * as satellite from 'satellite.js';
 import './App.css';
-import { calcularParametrosOrbitais, gerarPontosOrbita } from './utils/orbitalPhysics';
+import { calcularParametrosOrbitais, gerarPontosOrbita, classificarRegimeOrbital } from './utils/orbitalPhysics';
 import { obterFichaFactual, GLOSSARIO_ORBITAL, DIAGNOSTICO_SETORES } from './data/orbitalEncyclopedia';
+
+// Efeitos sonoros oficiais do sistema
+import somAbreSlide from './assets/sons/abre-slide.mp3';
+import somTrocaSlide from './assets/sons/troca-slide.mp3';
+import somIniciar from './assets/sons/Iniciar.mp3';
+
+// Utilitário de reprodução ágil de áudio com clone e tratamento de permissão do navegador
+function tocarEfeitoSonoro(audioSrc, volume = 0.5) {
+  try {
+    const audio = new Audio(audioSrc);
+    audio.volume = Math.max(0, Math.min(1, volume));
+    audio.currentTime = 0;
+    const playPromise = audio.play();
+    if (playPromise !== undefined) {
+      playPromise.catch(() => {
+        // Ignora restrições silenciosamente caso o navegador exija interação prévia
+      });
+    }
+  } catch {
+    // Ambiente sem suporte a Audio
+  }
+}
+
+// Pré-carregamento dos áudios para resposta tátil instantânea
+if (typeof window !== 'undefined' && typeof Audio !== 'undefined') {
+  try {
+    new Audio(somAbreSlide).load();
+    new Audio(somTrocaSlide).load();
+    new Audio(somIniciar).load();
+  } catch {}
+}
 
 // Configuração do host da API (aponta para o backend local ou de produção)
 const API_URL = import.meta.env.VITE_API_URL || 'http://localhost:8000';
 
-// Cores neon oficiais para as 4 categorias do sistema
+// Cores neon oficiais para as categorias do sistema (conforme hierarquia oficial)
 const CORES_CATEGORIAS = {
-  1: '#00ff66', // Satélite Ativo (Verde)
-  2: '#f59e0b', // Satélite Inativo (Âmbar)
-  3: '#ff0055', // Detrito Espacial (Vermelho)
-  4: '#00f0ff'  // Estação Espacial (Ciano)
+  1: '#00ff66', // Satélite Ativo (Verde Neon)
+  2: '#FFAA00', // Satélite Inativo (Laranja Neon)
+  3: '#ff0055', // Detrito Espacial (Vermelho Neon)
+  4: '#00f0ff', // Estação Espacial (Ciano Neon)
+  5: '#b026ff'  // Corpo de Foguete (Roxo Neon)
 };
+
+// Componente de efeito cibernético de digitação tática com cursor terminal (para títulos)
+function CyberTypewriter({ text, active, delay = 0, speed = 42, cursorColor = 'cyan' }) {
+  const [displayed, setDisplayed] = useState('');
+  const [isDone, setIsDone] = useState(false);
+
+  useEffect(() => {
+    if (!active) {
+      setDisplayed('');
+      setIsDone(false);
+      return;
+    }
+
+    let timer = null;
+    let index = 0;
+    setDisplayed('');
+    setIsDone(false);
+
+    const startTimeout = setTimeout(() => {
+      timer = setInterval(() => {
+        index += 1;
+        if (index >= text.length) {
+          setDisplayed(text);
+          setIsDone(true);
+          clearInterval(timer);
+        } else {
+          setDisplayed(text.slice(0, index));
+        }
+      }, speed);
+    }, delay);
+
+    return () => {
+      clearTimeout(startTimeout);
+      if (timer) clearInterval(timer);
+    };
+  }, [text, active, delay, speed]);
+
+  return (
+    <span className="cyber-typewriter-text">
+      {displayed}
+      {!isDone && active && (
+        <span className={`cyber-cursor ${cursorColor === 'green' ? 'cursor-green' : ''}`}>▌</span>
+      )}
+    </span>
+  );
+}
+
+// Dados e textos oficiais da seção SOBRE A PLATAFORMA
+const SOBRE_PLATAFORMA_SECOES = [
+  {
+    id: 'missao',
+    title: 'MISSÃO',
+    text: 'O OrbitalED foi criado para desmistificar a mecânica celeste para estudantes, professores e entusiastas. A plataforma substitui coordenadas numéricas abstratas por representações espaciais em 3D intuitivas, tornando o aprendizado visual e conscientizando sobre o tráfego de satélites e a sustentabilidade orbital.'
+  },
+  {
+    id: 'engenharia',
+    title: 'ENGENHARIA',
+    text: 'Ele opera de forma instantânea via web, sem necessidade de plugins ou cadastros, combinando renderização 3D em WebGL com alta precisão geográfica. Toda a física orbital é processada diretamente no dispositivo do usuário, garantindo cálculo de posições em tempo real com máxima fluidez e sem gargalos de servidor.'
+  },
+  {
+    id: 'fontes',
+    title: 'FONTES',
+    text: 'Os dados são extraídos diretamente dos maiores catálogos astronômicos e redes de monitoramento global, como o CelesTrak (parâmetros orbitais diários) e o Space-Track (rastreamento contínuo por sensores e radares internacionais), garantindo transparência científica com informações públicas.'
+  }
+];
+
+// Bloco Sobre a Plataforma: Títulos com digitação tática e textos 100% estáticos (sem fade-in)
+function AboutSectionCard({ active }) {
+  return (
+    <div className="tactical-about-single-card">
+      {SOBRE_PLATAFORMA_SECOES.map((sec, idx) => (
+        <Fragment key={sec.id}>
+          {idx > 0 && <div className="about-single-divider" />}
+          <div className="about-single-section">
+            <h3 className="about-single-title">
+              <CyberTypewriter
+                text={sec.title}
+                active={active}
+                delay={idx * 110}
+                speed={45}
+              />
+            </h3>
+            <p className="about-single-text">
+              {sec.text}
+            </p>
+          </div>
+        </Fragment>
+      ))}
+    </div>
+  );
+}
 
 function App() {
   const [viewer, setViewer] = useState(null);
@@ -82,13 +207,6 @@ function App() {
     }
   }, [secaoAtiva]);
 
-  // Alturas ideais base por seção para garantir acomodação inicial sem piscar
-  const ALTURAS_BASE = {
-    1: 460, // Sobre o Projeto: 3 cartões conceituais + barra de métricas chave com fontes
-    2: 590, // Recursos Tecnológicos: 3 cartões enriquecidos + stack condensada
-    3: 750, // Sustentabilidade: 4 pilares unificados + tabela geopolítica completa
-    4: 520  // Glossário: grade completa de categorias
-  };
 
   const handleMudarSecao = (novaSecao) => {
     if (novaSecao === secaoAtiva) return;
@@ -97,8 +215,9 @@ function App() {
       setSecaoVisorExibida(novaSecao);
     }
 
-    // Se estiver saindo da Visão Geral (0) para o visor (1, 2 ou 3), dispara fade-out elegante do hero
+    // Se estiver saindo da Visão Geral (0) para o visor (1, 2, 3 ou 4)
     if (secaoAtiva === 0 && novaSecao > 0) {
+      tocarEfeitoSonoro(somAbreSlide, 0.55);
       setSaindoVisaoGeral(true);
       setSecaoAtiva(novaSecao);
       if (saindoHeroTimerRef.current) clearTimeout(saindoHeroTimerRef.current);
@@ -108,8 +227,9 @@ function App() {
       return;
     }
 
-    // Se estiver saindo do visor (1, 2 ou 3) de volta para a Visão Geral (0)
+    // Se estiver saindo do visor (1, 2, 3 ou 4) de volta para a Visão Geral (0)
     if (secaoAtiva > 0 && novaSecao === 0) {
+      tocarEfeitoSonoro(somAbreSlide, 0.55);
       setFechandoVisor(true);
       setSecaoAtiva(0);
       if (fechandoTimerRef.current) clearTimeout(fechandoTimerRef.current);
@@ -127,6 +247,11 @@ function App() {
     if (saindoVisaoGeral) {
       setSaindoVisaoGeral(false);
       if (saindoHeroTimerRef.current) clearTimeout(saindoHeroTimerRef.current);
+    }
+
+    // Troca direta entre slides / seções do visor (ex: 1 -> 2, 2 -> 3, etc.)
+    if (secaoAtiva > 0 && novaSecao > 0) {
+      tocarEfeitoSonoro(somTrocaSlide, 0.5);
     }
 
     setSecaoAtiva(novaSecao);
@@ -160,46 +285,67 @@ function App() {
 
     secaoAnteriorRef.current = secaoAtiva;
 
-    // Cálculo dinâmico da altura para transição fluida entre os slides
+    // Sistema 100% auto-adaptativo: calcula a altura exata necessária a partir do DOM real
+    // sem tabelas estáticas de altura, adaptando-se instantaneamente a qualquer alteração de conteúdo
     const calcularAltura = () => {
       if (!visorInnerRef.current) return;
-      const headerEl = visorInnerRef.current.querySelector('.tactical-visor-header');
-      const contentEl = visorInnerRef.current.querySelector('.tactical-visor-body > div');
+      const innerEl = visorInnerRef.current;
+      const headerEl = innerEl.querySelector('.tactical-visor-header');
+      const bodyEl = innerEl.querySelector('.tactical-visor-body');
+      const contentEl = bodyEl ? bodyEl.querySelector(':scope > div') : null;
 
-      // scrollHeight e offsetHeight garantem leitura fiel do layout, sem distorção por transforms CSS
-      const headerH = headerEl ? Math.max(headerEl.offsetHeight, headerEl.scrollHeight) : 48;
-      const contentH = contentEl ? Math.max(contentEl.offsetHeight, contentEl.scrollHeight) : 260;
+      if (!contentEl) return;
+
+      const headerStyle = headerEl ? window.getComputedStyle(headerEl) : null;
+      const bodyStyle = bodyEl ? window.getComputedStyle(bodyEl) : null;
+      const innerStyle = window.getComputedStyle(innerEl);
+
+      const headerH = headerEl ? headerEl.offsetHeight : 0;
+      const headerMargin = headerStyle ? (parseFloat(headerStyle.marginTop) || 0) + (parseFloat(headerStyle.marginBottom) || 0) : 0;
+
+      // scrollHeight captura a extensão vertical exata e irrestrita do conteúdo real
+      const contentH = Math.max(contentEl.scrollHeight, contentEl.offsetHeight);
+      const bodyPadding = bodyStyle ? (parseFloat(bodyStyle.paddingTop) || 0) + (parseFloat(bodyStyle.paddingBottom) || 0) : 0;
+      const innerPadding = (parseFloat(innerStyle.paddingTop) || 0) + (parseFloat(innerStyle.paddingBottom) || 0);
+
+      // Soma dinâmica real dos elementos computados no navegador + margem de segurança de 6px contra rounding subpixel
+      const alturaExata = Math.ceil(headerH + headerMargin + contentH + bodyPadding + innerPadding + 6);
 
       const isMobile = window.innerWidth <= 900;
-      // padding interno (28+28=56) + padding body (4+8=12) + bordas do frame (2) + margem do header (16) = 86
-      const bufferVertical = isMobile ? 48 : 86;
+      // Delimitador de segurança externa: impede que o container colida com a barra superior (72px)
+      const delimitadorTopo = isMobile ? 84 : 108;
+      const delimitadorBase = isMobile ? 24 : 36;
+      const maxPermitido = Math.max(300, window.innerHeight - (delimitadorTopo + delimitadorBase));
+      const finalH = Math.min(alturaExata, maxPermitido);
 
-      const secaoAlvo = secaoAtiva > 0 ? secaoAtiva : secaoVisorExibida;
-      const fallbackH = ALTURAS_BASE[secaoAlvo] || 320;
-
-      // Se o conteúdo já possui altura mensurada, usa a altura necessária exata sem inflar espaço vazio
-      const alturaCalculada = Math.ceil(headerH + contentH + bufferVertical);
-      const naturalHeight = contentH > 80 ? alturaCalculada : fallbackH;
-      const maxPermitido = Math.max(300, window.innerHeight - (isMobile ? 95 : 115));
-      const finalH = Math.min(naturalHeight, maxPermitido);
-      setVisorHeight(finalH);
+      setVisorHeight((prevH) => {
+        if (prevH && Math.abs(prevH - finalH) < 2) return prevH;
+        return finalH;
+      });
     };
 
     calcularAltura();
     const rafId = requestAnimationFrame(calcularAltura);
+    const t1 = setTimeout(calcularAltura, 40);
+    const t2 = setTimeout(calcularAltura, 150);
+    const t3 = setTimeout(calcularAltura, 400);
 
-    const contentEl = visorInnerRef.current ? visorInnerRef.current.querySelector('.tactical-visor-body > div') : null;
     let ro = null;
-    if (contentEl && typeof ResizeObserver !== 'undefined') {
+    if (typeof ResizeObserver !== 'undefined' && visorInnerRef.current) {
       ro = new ResizeObserver(() => {
         calcularAltura();
       });
-      ro.observe(contentEl);
+      const contentEl = visorInnerRef.current.querySelector('.tactical-visor-body > div');
+      if (contentEl) ro.observe(contentEl);
+      ro.observe(visorInnerRef.current);
     }
 
     window.addEventListener('resize', calcularAltura);
     return () => {
       cancelAnimationFrame(rafId);
+      clearTimeout(t1);
+      clearTimeout(t2);
+      clearTimeout(t3);
       if (ro) ro.disconnect();
       window.removeEventListener('resize', calcularAltura);
     };
@@ -262,14 +408,42 @@ function App() {
   const [recarregandoAmostra, setRecarregandoAmostra] = useState(false);
   const [amostraSeed, setAmostraSeed] = useState(0);
 
-  // Filtros de Categoria (Suporte integral às 4 categorias)
+  // Filtros de Categoria do Radar (4 categorias clicáveis, Estações Espaciais são 100% permanentes)
   const [categoriasAtivas, setCategoriasAtivas] = useState({
     1: true, // Satélite Ativo
     2: true, // Satélite Inativo
-    3: true, // Detrito Espacial
-    4: true  // Estação Espacial
+    5: true, // Corpo de Foguete
+    3: true  // Detrito Espacial
   });
   const [ultimoFiltroSetor, setUltimoFiltroSetor] = useState(1);
+  const [modulosEstacao, setModulosEstacao] = useState([]);
+  const [carregandoModulos, setCarregandoModulos] = useState(false);
+
+  // Efeito para carregar ecossistema e naves acopladas quando uma estação principal for inspecionada
+  useEffect(() => {
+    if (!satSelecionado) {
+      setModulosEstacao([]);
+      return;
+    }
+    const norad = String(satSelecionado.norad_id || '').trim();
+    if (norad === '25544' || norad === '48274') {
+      setCarregandoModulos(true);
+      fetch(`${API_URL}/api/estacoes/${norad}/modulos`)
+        .then(res => res.ok ? res.json() : [])
+        .then(data => {
+          setModulosEstacao(data);
+        })
+        .catch(err => {
+          console.error("Erro ao carregar módulos acoplados:", err);
+          setModulosEstacao([]);
+        })
+        .finally(() => {
+          setCarregandoModulos(false);
+        });
+    } else {
+      setModulosEstacao([]);
+    }
+  }, [satSelecionado]);
 
   // Diagnóstico Macro dinâmico por setor para o painel esquerdo
   const diagnosticoSetorAtivo = useMemo(() => {
@@ -366,16 +540,12 @@ function App() {
           .filter(([, ativa]) => ativa)
           .map(([k]) => Number(k));
 
-        if (ativas.length === 0) {
-          setObjetos([]);
-          return;
-        }
-
-        // Carga padrão calibrada para 1.000 objetos com semente anti-cache de amostragem
+        // Carga padrão calibrada para 1.000 objetos (+ 2 estações permanentes = 1.002 objetos)
         let url = `${API_URL}/api/objetos?limit=1000&seed=${amostraSeed || Date.now()}`;
-
-        if (ativas.length === 1) {
-          url += `&categoria_id=${ativas[0]}`;
+        if (ativas.length > 0) {
+          url += `&categoria_ids=${ativas.join(',')}`;
+        } else {
+          url += `&categoria_ids=none`;
         }
 
         const resObjs = await fetch(url);
@@ -860,6 +1030,8 @@ function App() {
 
     const satelitesFiltrados = objetos.filter(sat => {
       const catId = Number(sat.categoria_id);
+      // Estações Espaciais Principais (catId === 4) permanecem sempre renderizadas e fixas
+      if (catId === 4) return Boolean(sat.ultimo_tle);
       const isAtiva = (catId in categoriasAtivas) && categoriasAtivas[catId];
       return isAtiva && sat.ultimo_tle;
     });
@@ -909,10 +1081,10 @@ function App() {
             return undefined;
           }, false),
           point: {
-            pixelSize: catId === 4 ? 10 : catId === 2 ? 6 : 7,
+            pixelSize: catId === 4 ? 12 : catId === 5 ? 7 : catId === 2 ? 6 : catId === 3 ? 5 : 7,
             color: window.Cesium.Color.fromCssColorString(corHex),
             outlineColor: window.Cesium.Color.BLACK,
-            outlineWidth: 1.5
+            outlineWidth: catId === 4 ? 2 : 1.5
           },
           properties: sat
         });
@@ -956,6 +1128,7 @@ function App() {
   };
 
   const handleIniciarMonitoramento = () => {
+    tocarEfeitoSonoro(somIniciar, 0.65);
     setCyberFade(true);
     setTimeout(() => {
       setTelaAtiva('simulador');
@@ -964,42 +1137,81 @@ function App() {
     }, 600);
   };
 
-  // Contadores dinâmicos de categorias para os dashboards
+  // Contadores dinâmicos de categorias para os dashboards e filtros
   const obterContadoresCategorias = () => {
-    if (!estatisticas || !estatisticas.distribuicao_paises) {
-      return { ativos: 5293, inativos: 257, detritos: 766, estacoes: 20, total: 6336 };
+    if (estatisticas && estatisticas.totais_oficiais) {
+      return estatisticas.totais_oficiais;
     }
-
-    let ativos = 0;
-    let inativos = 0;
-    let detritos = 0;
-    let estacoes = 0;
-
-    estatisticas.distribuicao_paises.forEach(p => {
-      ativos += (p.ativos || 0);
-      inativos += (p.inativos || 0);
-      detritos += (p.detritos || 0);
-      estacoes += (p.estacoes || 0);
-    });
-
     return {
-      ativos,
-      inativos,
-      detritos,
-      estacoes,
-      total: ativos + inativos + detritos + estacoes
+      ativos: 16503,
+      inativos: 2782,
+      foguetes: 2295,
+      detritos: 12522,
+      estacoes: 2,
+      total: 34104
     };
   };
 
   const calcularObjetosNoRadar = () => {
-    const contadores = obterContadoresCategorias();
-    let soma = 0;
-    if (categoriasAtivas[1]) soma += contadores.ativos;
-    if (categoriasAtivas[2]) soma += contadores.inativos;
-    if (categoriasAtivas[3]) soma += contadores.detritos;
-    if (categoriasAtivas[4]) soma += contadores.estacoes;
-    return soma;
+    return objetos.length || 1002;
   };
+
+  // Totais catalogados de cada regime orbital na base de dados
+  const obterTotaisRegimes = () => {
+    if (estatisticas && estatisticas.distribuicao_regimes) {
+      return estatisticas.distribuicao_regimes;
+    }
+    return {
+      leo: 5519,
+      meo: 183,
+      geo: 590,
+      heo: 44
+    };
+  };
+
+  // Contadores dinâmicos de objetos atualmente visíveis/plotados no console para cada categoria
+  const contadoresVisiveisCategorias = useMemo(() => {
+    const counts = { 1: 0, 2: 0, 3: 0, 4: 0, 5: 0 };
+    if (!objetos || objetos.length === 0) return counts;
+
+    objetos.forEach(sat => {
+      const catId = Number(sat.categoria_id);
+      if (sat.ultimo_tle) {
+        if (counts[catId] !== undefined) {
+          counts[catId]++;
+        }
+      }
+    });
+
+    return counts;
+  }, [objetos]);
+
+  // Distribuição em tempo real por regime orbital (LEO, MEO, GEO, HEO) dos objetos visíveis
+  const distribuicaoRegimes = useMemo(() => {
+    const regimes = {
+      leo: 0,
+      meo: 0,
+      geo: 0,
+      heo: 0,
+      total: 0
+    };
+
+    if (!objetos || objetos.length === 0) return regimes;
+
+    objetos.forEach(sat => {
+      const catId = Number(sat.categoria_id);
+      if (categoriasAtivas[catId] && sat.ultimo_tle && sat.ultimo_tle.linha1 && sat.ultimo_tle.linha2) {
+        const regime = classificarRegimeOrbital(sat.ultimo_tle.linha1, sat.ultimo_tle.linha2);
+        if (regime === 'LEO') regimes.leo++;
+        else if (regime === 'MEO') regimes.meo++;
+        else if (regime === 'GEO') regimes.geo++;
+        else if (regime === 'HEO') regimes.heo++;
+        regimes.total++;
+      }
+    });
+
+    return regimes;
+  }, [objetos, categoriasAtivas]);
 
   // Ficha factual do satélite selecionado
   const fichaFactual = useMemo(() => {
@@ -1111,7 +1323,7 @@ function App() {
                 </h1>
 
                 <p className="cinema-hero-subtitle">
-                  PLATAFORMA COMPUTACIONAL DE ANÁLISE ORBITAL, VISUALIZAÇÃO 3D E SUSTENTABILIDADE ESPACIAL.
+                  PLATAFORMA EDUCACIONAL DE ANÁLISE ORBITAL, VISUALIZAÇÃO 3D E SUSTENTABILIDADE ESPACIAL.
                 </p>
 
                 <div className="cinema-btn-container">
@@ -1130,14 +1342,20 @@ function App() {
               </div>
 
               <div className="cinema-hero-footer">
-                <span className="cinema-footer-indicator">ASTRODINÂMICA SGP4 · TLE · CATALOGAÇÃO ORBITAL · SPACE-TRACK</span>
+                <span className="cinema-footer-indicator">CELESTRAK · SPACE-TRACK · SGP4 · TLE</span>
               </div>
             </div>
           )}
 
           {(secaoAtiva > 0 || fechandoVisor) && (
-            /* SEÇÕES 1, 2 e 3: VISOR TÁTICO ESTILO GLASS PAD */
+            /* SEÇÕES 1, 2, 3 e 4: VISOR TÁTICO ESTILO GLASS PAD */
             <div className={`cinema-tactical-view ${fechandoVisor ? 'fechando' : ''}`}>
+              {/* Delimitadores ópticos de enquadramento tático nos 4 cantos */}
+              <div className="cinema-cross c-tl">+</div>
+              <div className="cinema-cross c-tr">+</div>
+              <div className="cinema-cross c-bl">+</div>
+              <div className="cinema-cross c-br">+</div>
+
               <div
                 className={`tactical-visor-frame ${aberturaCentro ? 'anim-abertura-centro' : ''} ${fechandoVisor ? 'anim-fechamento-centro' : ''}`}
                 style={{ height: visorHeight ? `${visorHeight}px` : undefined }}
@@ -1157,78 +1375,12 @@ function App() {
                   <div className={`tactical-visor-body ${emTransicao ? 'em-transicao' : ''}`} key={secaoVisorExibida}>
                     {secaoVisorExibida === 1 && (
                       <div className="tactical-about-container">
-                        <div className="tactical-about-grid">
-                          <div className="tactical-about-card">
-                            <div className="about-card-header">
-                              <h3 className="about-card-title">Missão</h3>
-                            </div>
-                            <p className="about-card-lead">
-                              Tornar a mecânica celeste compreensível para todos, transformando dados orbitais abstratos em aprendizado visual e interativo.
-                            </p>
-                            <ul className="about-card-list">
-                              <li>
-                                <span className="about-list-dot"></span>
-                                <span><strong>Clareza Visual:</strong> Substitui coordenadas numéricas complexas por representações espaciais tridimensionais fáceis de assimilar.</span>
-                              </li>
-                              <li>
-                                <span className="about-list-dot"></span>
-                                <span><strong>Foco Educacional:</strong> Plataforma pensada para estudantes, professores e entusiastas que querem entender como os objetos se comportam no espaço.</span>
-                              </li>
-                              <li>
-                                <span className="about-list-dot"></span>
-                                <span><strong>Sustentabilidade Espacial:</strong> Ajuda a compreender o crescimento do tráfego ao redor da Terra e a importância da preservação das órbitas.</span>
-                              </li>
-                            </ul>
-                          </div>
+                        {/* Bloco Único Consolidado com Digitação Tática nos Títulos e Textos Imediatos */}
+                        <AboutSectionCard
+                          active={secaoVisorExibida === 1 && secaoAtiva === 1}
+                        />
 
-                          <div className="tactical-about-card">
-                            <div className="about-card-header">
-                              <h3 className="about-card-title">Engenharia</h3>
-                            </div>
-                            <p className="about-card-lead">
-                              Arquitetura computacional concebida para rodar cálculos físicos avançados diretamente no navegador do usuário:
-                            </p>
-                            <ul className="about-card-list">
-                              <li>
-                                <span className="about-list-dot"></span>
-                                <span><strong>Processamento no Cliente:</strong> Calcula a posição exata de cada objeto no próprio dispositivo, sem depender de respostas lentas de servidores.</span>
-                              </li>
-                              <li>
-                                <span className="about-list-dot"></span>
-                                <span><strong>Renderização WebGL:</strong> Globo e órbitas desenhados em três dimensões com alta fidelidade geográfica e sem exigência de plugins externos.</span>
-                              </li>
-                              <li>
-                                <span className="about-list-dot"></span>
-                                <span><strong>Acesso Direto:</strong> Funciona de forma instantânea pela web, sem necessidade de instalação, extensões ou cadastro.</span>
-                              </li>
-                            </ul>
-                          </div>
-
-                          <div className="tactical-about-card">
-                            <div className="about-card-header">
-                              <h3 className="about-card-title">Fontes</h3>
-                            </div>
-                            <p className="about-card-lead">
-                              Dados alimentados pelas redes de monitoramento e registros astronômicos mais respeitados do mundo:
-                            </p>
-                            <ul className="about-card-list">
-                              <li>
-                                <span className="about-list-dot"></span>
-                                <span><strong>CelesTrak:</strong> Distribuição diária dos parâmetros matemáticos usados para calcular as rotas dos objetos.</span>
-                              </li>
-                              <li>
-                                <span className="about-list-dot"></span>
-                                <span><strong>Space-Track:</strong> Catálogo oficial com milhares de itens rastreados continuamente por redes internacionais de sensores e radares.</span>
-                              </li>
-                              <li>
-                                <span className="about-list-dot"></span>
-                                <span><strong>Transparência Científica:</strong> Aplicação focada estritamente em dados de uso civil, público e educacional.</span>
-                              </li>
-                            </ul>
-                          </div>
-                        </div>
-
-                        {/* Barra Inferior com Métricas Chave do Projeto */}
+                        {/* Barra Inferior com Métricas Chave do Projeto: Imediatamente visível sem fade-in */}
                         <div className="tactical-about-metrics-bar">
                           <div className="about-metric-item">
                             <span className="about-metric-val">35.000+</span>
@@ -1259,74 +1411,72 @@ function App() {
 
                     {secaoVisorExibida === 2 && (
                       <div className="tactical-features-container">
+                        {/* GRADE HORIZONTAL: ÍCONES ANIMADOS EM CIMA DE CADA BLOCO DO LADO DE FORA */}
                         <div className="tactical-features-grid">
-                          <div className="tactical-feature-card">
-                            <div className="feature-card-header">
-                              <h3 className="tactical-feature-title">Trajetórias</h3>
+                          {/* BLOCO 1: TRAJETÓRIAS */}
+                          <div className="tactical-feature-column">
+                            <div className="feature-column-external-icon">
+                              <Orbit size={46} className="resource-icon-anim anim-orbit-spin" />
                             </div>
-                            <p>
-                              Navegação interativa para inspecionar as rotas completas de satélites e estações ao redor da Terra:
-                            </p>
-                            <ul className="tactical-feature-specs">
-                              <li>
-                                <span className="spec-dot"></span>
-                                <span><strong>Órbita com o Cursor:</strong> Aponte para qualquer objeto para revelar o desenho completo do seu circuito espacial.</span>
-                              </li>
-                              <li>
-                                <span className="spec-dot"></span>
-                                <span><strong>Câmera Seguidora:</strong> Fixe a visualização em um satélite específico para viajar junto com ele em tempo real.</span>
-                              </li>
-                              <li>
-                                <span className="spec-dot"></span>
-                                <span><strong>Perspectiva Global:</strong> Gire e amplie o globo livremente para analisar os diferentes planos e altitudes orbitais.</span>
-                              </li>
-                            </ul>
+                            <div className="tactical-feature-card">
+                              <div className="feature-card-header">
+                                <h3 className="tactical-feature-title">
+                                  <CyberTypewriter
+                                    text="TRAJETÓRIAS"
+                                    active={secaoVisorExibida === 2}
+                                    delay={70}
+                                    speed={40}
+                                  />
+                                </h3>
+                              </div>
+                              <p className="tactical-feature-desc">
+                                Explore planos e altitudes orbitais livremente pelo globo, aponte para qualquer objeto para traçar seu circuito completo ou fixe a câmera em um satélite para acompanhá-lo em tempo real.
+                              </p>
+                            </div>
                           </div>
 
-                          <div className="tactical-feature-card">
-                            <div className="feature-card-header">
-                              <h3 className="tactical-feature-title">Física</h3>
+                          {/* BLOCO 2: FÍSICA */}
+                          <div className="tactical-feature-column">
+                            <div className="feature-column-external-icon">
+                              <Atom size={46} className="resource-icon-anim anim-physics-atom" />
                             </div>
-                            <p>
-                              Informações dinâmicas sobre o comportamento e os princípios do movimento orbital:
-                            </p>
-                            <ul className="tactical-feature-specs">
-                              <li>
-                                <span className="spec-dot"></span>
-                                <span><strong>Painel de Movimento:</strong> Leituras instantâneas de altitude atual, velocidade (km/h) e tempo para completar uma volta completa.</span>
-                              </li>
-                              <li>
-                                <span className="spec-dot"></span>
-                                <span><strong>Equilíbrio Gravitacional:</strong> Demonstra na prática como a velocidade necessária varia de acordo com a distância do planeta.</span>
-                              </li>
-                              <li>
-                                <span className="spec-dot"></span>
-                                <span><strong>Marcos da Trajetória:</strong> Aponta claramente os limites do circuito, indicando os pontos de maior e menor aproximação da Terra.</span>
-                              </li>
-                            </ul>
+                            <div className="tactical-feature-card">
+                              <div className="feature-card-header">
+                                <h3 className="tactical-feature-title">
+                                  <CyberTypewriter
+                                    text="FÍSICA"
+                                    active={secaoVisorExibida === 2}
+                                    delay={200}
+                                    speed={50}
+                                  />
+                                </h3>
+                              </div>
+                              <p className="tactical-feature-desc">
+                                Monitore dados instantâneos de altitude, velocidade e tempo de órbita, observando na prática a variação gravitacional e os pontos de maior e menor aproximação da Terra.
+                              </p>
+                            </div>
                           </div>
 
-                          <div className="tactical-feature-card">
-                            <div className="feature-card-header">
-                              <h3 className="tactical-feature-title">Exploração</h3>
+                          {/* BLOCO 3: EXPLORAÇÃO */}
+                          <div className="tactical-feature-column">
+                            <div className="feature-column-external-icon">
+                              <Compass size={46} className="resource-icon-anim anim-compass-nav" />
                             </div>
-                            <p>
-                              Enciclopédia interativa para identificar a história, o propósito e o país de origem de cada elemento em tela:
-                            </p>
-                            <ul className="tactical-feature-specs">
-                              <li>
-                                <span className="spec-dot"></span>
-                                <span><strong>Busca Rápida:</strong> Localize satélites conhecidos ou componentes específicos pelo nome popular ou pelo identificador de catálogo.</span>
-                              </li>
-                              <li>
-                                <span className="spec-dot"></span>
-                                <span><strong>Ficha Informativa:</strong> Consulte histórico, país de origem, ano de lançamento e objetivo principal de cada missão.</span>
-                              </li>
-                              <li>
-                                <span className="spec-dot"></span>
-                                <span><strong>Filtros por Categoria:</strong> Separe a exibição entre equipamentos em operação, satélites inativos e fragmentos orbitais.</span>
-                              </li>
-                            </ul>
+                            <div className="tactical-feature-card">
+                              <div className="feature-card-header">
+                                <h3 className="tactical-feature-title">
+                                  <CyberTypewriter
+                                    text="EXPLORAÇÃO"
+                                    active={secaoVisorExibida === 2}
+                                    delay={330}
+                                    speed={40}
+                                  />
+                                </h3>
+                              </div>
+                              <p className="tactical-feature-desc">
+                                Consulte histórico, país de origem e objetivos de cada missão por meio de busca rápida ou catálogo, filtrando a visualização entre satélites operacionais, inativos e fragmentos espaciais.
+                              </p>
+                            </div>
                           </div>
                         </div>
 
@@ -1715,11 +1865,11 @@ function App() {
                 <div className="stat-card" style={{ display: 'flex', flexDirection: 'column', minHeight: '105px', flexShrink: 0, padding: '14px 16px', boxSizing: 'border-box' }}>
                   <div className="stat-label">Catálogo Orbital Monitorado</div>
                   <div className="stat-value" style={{ display: 'flex', alignItems: 'baseline', gap: '6px', fontSize: '30px', fontWeight: 700, color: '#ffffff', marginTop: '8px', lineHeight: 1 }}>
-                    {loading ? "---" : (calcularObjetosNoRadar() || 6336).toLocaleString('pt-BR')}
+                    {loading ? "---" : (obterContadoresCategorias().total || 34104).toLocaleString('pt-BR')}
                     <span style={{ color: 'var(--neon-cyan)', fontSize: '13px', fontWeight: 600, letterSpacing: '0.8px' }}>OBJETOS</span>
                   </div>
                   <div className="stat-sublabel" style={{ display: 'block', marginTop: '8px', paddingTop: '6px', borderTop: '1px dashed rgba(0, 240, 255, 0.15)', fontSize: '9.5px', color: 'var(--text-muted)', lineHeight: 1.3 }}>
-                    Amostragem ativa: <strong style={{ color: 'var(--neon-cyan)', fontWeight: 700 }}>{loading ? '...' : (objetos.length || 1000).toLocaleString('pt-BR')}</strong> no radar
+                    Amostragem ativa: <strong style={{ color: 'var(--neon-cyan)', fontWeight: 700 }}>{loading ? '...' : (objetos.length || 1002).toLocaleString('pt-BR')}</strong> no radar
                   </div>
                 </div>
 
@@ -1741,7 +1891,7 @@ function App() {
                 <div className="legend-section">
                   <div className="legend-title">Filtros por Categoria</div>
 
-                  {/* Satélites Ativos */}
+                  {/* 1. Satélites Ativos */}
                   <div
                     className={`legend-item cat-ativos ${categoriasAtivas[1] ? 'active' : ''}`}
                     onClick={() => handleAlternarCategoria(1)}
@@ -1751,11 +1901,13 @@ function App() {
                       <span className="category-name">Satélites Ativos</span>
                     </div>
                     <span className="category-count">
-                      {loading ? "---" : obterContadoresCategorias().ativos.toLocaleString('pt-BR')}
+                      {loading && objetos.length === 0
+                        ? "---"
+                        : `${(contadoresVisiveisCategorias[1] || 0).toLocaleString('pt-BR')} / ${obterContadoresCategorias().ativos.toLocaleString('pt-BR')}`}
                     </span>
                   </div>
 
-                  {/* Satélites Inativos */}
+                  {/* 2. Satélites Inativos */}
                   <div
                     className={`legend-item cat-inativos ${categoriasAtivas[2] ? 'active' : ''}`}
                     onClick={() => handleAlternarCategoria(2)}
@@ -1765,11 +1917,29 @@ function App() {
                       <span className="category-name">Satélites Inativos</span>
                     </div>
                     <span className="category-count">
-                      {loading ? "---" : obterContadoresCategorias().inativos.toLocaleString('pt-BR')}
+                      {loading && objetos.length === 0
+                        ? "---"
+                        : `${(contadoresVisiveisCategorias[2] || 0).toLocaleString('pt-BR')} / ${obterContadoresCategorias().inativos.toLocaleString('pt-BR')}`}
                     </span>
                   </div>
 
-                  {/* Detritos Espaciais */}
+                  {/* 3. Corpos de Foguetes (R/B) */}
+                  <div
+                    className={`legend-item cat-foguetes ${categoriasAtivas[5] ? 'active' : ''}`}
+                    onClick={() => handleAlternarCategoria(5)}
+                  >
+                    <div className="legend-info">
+                      <span className="category-dot" style={{ backgroundColor: CORES_CATEGORIAS[5] }}></span>
+                      <span className="category-name">Corpos de Foguetes</span>
+                    </div>
+                    <span className="category-count">
+                      {loading && objetos.length === 0
+                        ? "---"
+                        : `${(contadoresVisiveisCategorias[5] || 0).toLocaleString('pt-BR')} / ${(obterContadoresCategorias().foguetes || 2295).toLocaleString('pt-BR')}`}
+                    </span>
+                  </div>
+
+                  {/* 4. Detritos Espaciais */}
                   <div
                     className={`legend-item cat-detritos ${categoriasAtivas[3] ? 'active' : ''}`}
                     onClick={() => handleAlternarCategoria(3)}
@@ -1779,59 +1949,121 @@ function App() {
                       <span className="category-name">Detritos Espaciais</span>
                     </div>
                     <span className="category-count">
-                      {loading ? "---" : obterContadoresCategorias().detritos.toLocaleString('pt-BR')}
+                      {loading && objetos.length === 0
+                        ? "---"
+                        : `${(contadoresVisiveisCategorias[3] || 0).toLocaleString('pt-BR')} / ${obterContadoresCategorias().detritos.toLocaleString('pt-BR')}`}
                     </span>
                   </div>
 
-                  {/* Estações Espaciais */}
+                  {/* 5. Estações Espaciais Permanentes (Fixas no globo terrestre) */}
                   <div
-                    className={`legend-item cat-estacoes ${categoriasAtivas[4] ? 'active' : ''}`}
-                    onClick={() => handleAlternarCategoria(4)}
+                    className="legend-item cat-estacoes permanent-station-badge"
+                    style={{
+                      cursor: 'default',
+                      background: 'rgba(0, 240, 255, 0.05)',
+                      borderColor: 'rgba(0, 240, 255, 0.35)'
+                    }}
+                    title="As Estações Espaciais Principais (ISS e Tiangong) permanecem fixas e operacionais no cinturão do simulador"
                   >
                     <div className="legend-info">
-                      <span className="category-dot" style={{ backgroundColor: CORES_CATEGORIAS[4] }}></span>
-                      <span className="category-name">Estações Espaciais</span>
+                      <span className="category-dot" style={{ backgroundColor: CORES_CATEGORIAS[4], boxShadow: '0 0 8px #00f0ff' }}></span>
+                      <span className="category-name" style={{ color: 'var(--neon-cyan)', fontWeight: 600 }}>Estações Espaciais</span>
                     </div>
-                    <span className="category-count">
-                      {loading ? "---" : obterContadoresCategorias().estacoes.toLocaleString('pt-BR')}
+                    <span className="category-count" style={{ color: 'var(--neon-cyan)', fontWeight: 700 }}>
+                      2 / 2
                     </span>
                   </div>
                 </div>
 
-                {/* DISTRIBUIÇÃO POR REGIME ORBITAL (LEO / MEO / GEO) */}
+                {/* DISTRIBUIÇÃO POR REGIME ORBITAL (LEO / MEO / GEO / HEO) */}
                 <div className="legend-section regimes-section">
                   <div className="legend-title">Distribuição por Camada Orbital</div>
 
+                  {/* LEO */}
                   <div className="regime-bar-item">
                     <div className="regime-bar-info">
                       <span className="regime-tag leo-tag">LEO</span>
                       <span className="regime-name">Órbita Baixa (&lt; 2.000 km)</span>
-                      <span className="regime-pct">87%</span>
+                      <span
+                        className="regime-pct"
+                        title={distribuicaoRegimes.total > 0 ? `${distribuicaoRegimes.leo.toLocaleString('pt-BR')} objetos no console (${((distribuicaoRegimes.leo / distribuicaoRegimes.total) * 100).toFixed(1)}% do total visível)` : ''}
+                      >
+                        {loading && objetos.length === 0
+                          ? "---"
+                          : distribuicaoRegimes.leo.toLocaleString('pt-BR')}
+                      </span>
                     </div>
                     <div className="regime-progress-track">
-                      <div className="regime-progress-fill leo-fill" style={{ width: '87%' }}></div>
+                      <div
+                        className="regime-progress-fill leo-fill"
+                        style={{ width: `${distribuicaoRegimes.total > 0 ? ((distribuicaoRegimes.leo / distribuicaoRegimes.total) * 100).toFixed(1) : 0}%` }}
+                      ></div>
                     </div>
                   </div>
 
+                  {/* MEO */}
                   <div className="regime-bar-item">
                     <div className="regime-bar-info">
                       <span className="regime-tag meo-tag">MEO</span>
                       <span className="regime-name">Órbita Média (2.000 - 35.786 km)</span>
-                      <span className="regime-pct">4%</span>
+                      <span
+                        className="regime-pct"
+                        title={distribuicaoRegimes.total > 0 ? `${distribuicaoRegimes.meo.toLocaleString('pt-BR')} objetos no console (${((distribuicaoRegimes.meo / distribuicaoRegimes.total) * 100).toFixed(1)}% do total visível)` : ''}
+                      >
+                        {loading && objetos.length === 0
+                          ? "---"
+                          : distribuicaoRegimes.meo.toLocaleString('pt-BR')}
+                      </span>
                     </div>
                     <div className="regime-progress-track">
-                      <div className="regime-progress-fill meo-fill" style={{ width: '4%' }}></div>
+                      <div
+                        className="regime-progress-fill meo-fill"
+                        style={{ width: `${distribuicaoRegimes.total > 0 ? ((distribuicaoRegimes.meo / distribuicaoRegimes.total) * 100).toFixed(1) : 0}%` }}
+                      ></div>
                     </div>
                   </div>
 
+                  {/* GEO */}
                   <div className="regime-bar-item">
                     <div className="regime-bar-info">
                       <span className="regime-tag geo-tag">GEO</span>
                       <span className="regime-name">Geoestacionária (~35.786 km)</span>
-                      <span className="regime-pct">9%</span>
+                      <span
+                        className="regime-pct"
+                        title={distribuicaoRegimes.total > 0 ? `${distribuicaoRegimes.geo.toLocaleString('pt-BR')} objetos no console (${((distribuicaoRegimes.geo / distribuicaoRegimes.total) * 100).toFixed(1)}% do total visível)` : ''}
+                      >
+                        {loading && objetos.length === 0
+                          ? "---"
+                          : distribuicaoRegimes.geo.toLocaleString('pt-BR')}
+                      </span>
                     </div>
                     <div className="regime-progress-track">
-                      <div className="regime-progress-fill geo-fill" style={{ width: '9%' }}></div>
+                      <div
+                        className="regime-progress-fill geo-fill"
+                        style={{ width: `${distribuicaoRegimes.total > 0 ? ((distribuicaoRegimes.geo / distribuicaoRegimes.total) * 100).toFixed(1) : 0}%` }}
+                      ></div>
+                    </div>
+                  </div>
+
+                  {/* HEO */}
+                  <div className="regime-bar-item">
+                    <div className="regime-bar-info">
+                      <span className="regime-tag heo-tag">HEO</span>
+                      <span className="regime-name">Altamente Elíptica (Órbita Alongada)</span>
+                      <span
+                        className="regime-pct"
+                        title={distribuicaoRegimes.total > 0 ? `${distribuicaoRegimes.heo.toLocaleString('pt-BR')} objetos no console (${((distribuicaoRegimes.heo / distribuicaoRegimes.total) * 100).toFixed(1)}% do total visível)` : ''}
+                      >
+                        {loading && objetos.length === 0
+                          ? "---"
+                          : distribuicaoRegimes.heo.toLocaleString('pt-BR')}
+                      </span>
+                    </div>
+                    <div className="regime-progress-track">
+                      <div
+                        className="regime-progress-fill heo-fill"
+                        style={{ width: `${distribuicaoRegimes.total > 0 ? ((distribuicaoRegimes.heo / distribuicaoRegimes.total) * 100).toFixed(1) : 0}%` }}
+                      ></div>
                     </div>
                   </div>
                 </div>
@@ -1886,6 +2118,19 @@ function App() {
                       <div className="sat-subtitle">NORAD CATALOG: #{satSelecionado.norad_id}</div>
                     </div>
 
+                    {/* Fotografia Real da Missão (Wikimedia Commons / Wikidata) */}
+                    {satSelecionado.missao?.imagem_url && (
+                      <div className="fiche-image-container">
+                        <img
+                          src={satSelecionado.missao.imagem_url}
+                          alt={satSelecionado.nome}
+                          className="fiche-image"
+                          onError={(e) => { e.currentTarget.style.display = 'none'; }}
+                        />
+                        <div className="fiche-image-badge">Fotografia Oficial / Wikidata</div>
+                      </div>
+                    )}
+
                     {/* Badge da Categoria */}
                     <div className="mission-badge-container">
                       <div className="mission-badge" style={{
@@ -1893,25 +2138,81 @@ function App() {
                         color: CORES_CATEGORIAS[Number(satSelecionado.categoria_id)] || 'var(--neon-green)',
                         backgroundColor: `${CORES_CATEGORIAS[Number(satSelecionado.categoria_id)] || '#00ff66'}15`
                       }}>
-                        {satSelecionado.categoria?.nome || 'Satélite'}
+                        {satSelecionado.categoria?.nome || 'Objeto Orbital'}
                       </div>
                     </div>
 
-                    {/* Grid de Metadados Básicos */}
+                    {/* Grid de Metadados Básicos: [País] - [Operador] / [Lançamento] - [Massa] */}
                     <div className="fiche-grid">
                       <div className="grid-cell">
-                        <span className="cell-label">País / Operador</span>
-                        <span className="cell-value">{satSelecionado.pais}</span>
+                        <span className="cell-label">País</span>
+                        <span className="cell-value" title={satSelecionado.pais || "Internacional"}>
+                          {satSelecionado.pais || "Internacional"}
+                        </span>
                       </div>
                       <div className="grid-cell">
-                        <span className="cell-label">Ano de Lançamento</span>
+                        <span className="cell-label">Operador</span>
+                        <span className="cell-value" title={satSelecionado.missao?.operador || satSelecionado.pais || "Agência Não Informada"}>
+                          {satSelecionado.missao?.operador || satSelecionado.pais || "Não Informado"}
+                        </span>
+                      </div>
+                      <div className="grid-cell">
+                        <span className="cell-label">Lançamento</span>
                         <span className="cell-value">
                           {satSelecionado.data_lancamento
                             ? new Date(satSelecionado.data_lancamento).getFullYear()
                             : "Histórico"}
                         </span>
                       </div>
+                      <div className="grid-cell">
+                        <span className="cell-label">Massa</span>
+                        <span className="cell-value">
+                          {satSelecionado.missao?.massa_kg
+                            ? `${Number(satSelecionado.missao.massa_kg).toLocaleString('pt-BR')} kg`
+                            : (Number(satSelecionado.categoria_id) === 3 ? "Fragmento Irregular" : (Number(satSelecionado.categoria_id) === 5 ? "Estágio Inerte" : "Não Informada"))}
+                        </span>
+                      </div>
                     </div>
+
+                    {/* ECOSSISTEMA & NAVES ACOPLADAS (Para ISS e Tiangong) */}
+                    {(satSelecionado.norad_id === '25544' || satSelecionado.norad_id === '48274') && (
+                      <div className="station-ecosystem-card">
+                        <div className="station-ecosystem-header">
+                          <div className="station-ecosystem-title">
+                            <Cpu size={13} style={{ color: 'var(--neon-cyan)' }} />
+                            <span>Ecossistema & Naves Acopladas</span>
+                          </div>
+                          <span className="station-ecosystem-count">
+                            {carregandoModulos ? '...' : `${modulosEstacao.length} acoplados`}
+                          </span>
+                        </div>
+
+                        {carregandoModulos ? (
+                          <div style={{ color: 'var(--text-muted)', fontSize: '11px', padding: '8px' }}>Carregando telemetria dos módulos...</div>
+                        ) : modulosEstacao.length > 0 ? (
+                          <div className="modules-list">
+                            {modulosEstacao.map(mod => (
+                              <div
+                                key={mod.norad_id}
+                                className="module-item"
+                                onClick={() => handleSelecionarSat(mod)}
+                                title={`Clique para inspecionar ${mod.nome}`}
+                              >
+                                <div className="module-item-top">
+                                  <span className="module-name">{mod.nome}</span>
+                                  <span className="module-flag">{mod.pais}</span>
+                                </div>
+                                <div className="module-desc">
+                                  {mod.missao?.descricao || `Módulo operacional acoplado (#${mod.norad_id})`}
+                                </div>
+                              </div>
+                            ))}
+                          </div>
+                        ) : (
+                          <div style={{ color: 'var(--text-muted)', fontSize: '10px' }}>Nenhum módulo auxiliar conectado no momento.</div>
+                        )}
+                      </div>
+                    )}
 
                     {/* MÓDULO DIDÁTICO: DINÂMICA ORBITAL */}
                     {parametrosOrbitaisSat && (
@@ -1981,16 +2282,27 @@ function App() {
                       </div>
                     )}
 
-                    {/* CONTEXTO DA MISSÃO */}
-                    {fichaFactual && fichaFactual.contextoMissao && (
+                    {/* CONTEXTO DA MISSÃO & DIAGNÓSTICO FACTUAL */}
+                    {(satSelecionado.missao?.descricao || (fichaFactual && fichaFactual.contextoMissao)) && (
                       <div className="mission-context-card">
                         <div className="mission-context-header">
                           <Target size={14} className="mission-context-icon" />
-                          <span className="mission-context-title">Contexto da Missão</span>
+                          <span className="mission-context-title">Contexto da Missão & Diagnóstico</span>
                         </div>
                         <blockquote className="mission-context-quote">
-                          "{fichaFactual.contextoMissao}"
+                          "{satSelecionado.missao?.descricao || fichaFactual?.contextoMissao}"
                         </blockquote>
+                        {satSelecionado.missao?.artigo_url && (
+                          <a
+                            href={satSelecionado.missao.artigo_url}
+                            target="_blank"
+                            rel="noreferrer"
+                            className="wikidata-source-link"
+                          >
+                            <span>Ver registro oficial na Wikidata ({satSelecionado.missao.wikidata_id || `NORAD #${satSelecionado.norad_id}`})</span>
+                            <ChevronRight size={12} />
+                          </a>
+                        )}
                       </div>
                     )}
 
