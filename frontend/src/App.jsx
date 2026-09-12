@@ -20,17 +20,25 @@ import {
   Wind,
   Crosshair,
   Target,
-  Orbit
+  Orbit,
+  Volume2,
+  VolumeOff,
+  Home
 } from 'lucide-react';
 import * as satellite from 'satellite.js';
 import './App.css';
 import { calcularParametrosOrbitais, gerarPontosOrbita, classificarRegimeOrbital } from './utils/orbitalPhysics';
-import { obterFichaFactual, GLOSSARIO_ORBITAL, DIAGNOSTICO_SETORES } from './data/orbitalEncyclopedia';
+import { obterFichaFactual, GLOSSARIO_ORBITAL } from './data/orbitalEncyclopedia';
 
 // Efeitos sonoros oficiais do sistema
 import somAbreSlide from './assets/sons/abre-slide.mp3';
 import somTrocaSlide from './assets/sons/troca-slide.mp3';
 import somIniciar from './assets/sons/Iniciar.mp3';
+import somFadeOut from './assets/sons/fade-out.MP3';
+import somFadeIn from './assets/sons/fade-in.MP3';
+import somConsoleButtons from './assets/sons/console-buttons.mp3';
+import somVoltar from './assets/sons/voltar.mp3';
+import somTemaPrincipal from './assets/sons/main-theme.mp3';
 
 // Utilitário de reprodução ágil de áudio com clone e tratamento de permissão do navegador
 function tocarEfeitoSonoro(audioSrc, volume = 0.5) {
@@ -55,6 +63,10 @@ if (typeof window !== 'undefined' && typeof Audio !== 'undefined') {
     new Audio(somAbreSlide).load();
     new Audio(somTrocaSlide).load();
     new Audio(somIniciar).load();
+    new Audio(somFadeOut).load();
+    new Audio(somFadeIn).load();
+    new Audio(somConsoleButtons).load();
+    new Audio(somVoltar).load();
   } catch {}
 }
 
@@ -68,6 +80,16 @@ const CORES_CATEGORIAS = {
   3: '#ff0055', // Detrito Espacial (Vermelho Neon)
   4: '#00f0ff', // Estação Espacial (Ciano Neon)
   5: '#b026ff'  // Corpo de Foguete (Roxo Neon)
+};
+
+// Ponto fixo oficial de visão inicial e retorno da câmera (América do Sul / Brasil)
+const POSICAO_ORBITAL_PADRAO = {
+  longitude: -49.0,
+  latitude: -12.0,
+  altitude: 24500000.0,
+  heading: 0.0,
+  pitch: -90.0,
+  roll: 0.0
 };
 
 // Componente de efeito cibernético de digitação tática com cursor terminal (para títulos)
@@ -170,6 +192,7 @@ function App() {
   const orbitaEntidadeRef = useRef(null);
   const satHoverIdRef = useRef(null);
   const satSelecionadoRef = useRef(null);
+  const cameraInicialRef = useRef(null);
 
   // Estados de Navegação e Seções
   const [telaAtiva, setTelaAtiva] = useState(() => {
@@ -180,12 +203,92 @@ function App() {
   useEffect(() => {
     telaAtivaRef.current = telaAtiva;
   }, [telaAtiva]);
-  const [cyberFade, setCyberFade] = useState(false);
+  const [transicaoCyber, setTransicaoCyber] = useState(null); // 'para-simulador' | 'para-inicio' | null
   const [secaoAtiva, setSecaoAtiva] = useState(() => {
     const params = new URLSearchParams(window.location.search);
     const s = params.get('secao');
     return s !== null ? parseInt(s, 10) : 0;
   }); // 0: Visão Geral, 1: Diferenciais, 2: Sustentabilidade, 3: Glossário
+
+  // Trilha sonora principal (main-theme.mp3) em loop e volume 0.5
+  const [musicaMutada, setMusicaMutada] = useState(false);
+  const musicaRef = useRef(null);
+  const musicaMutadaRef = useRef(false);
+
+  useEffect(() => {
+    const audio = new Audio(somTemaPrincipal);
+    audio.loop = true;
+    audio.volume = 0.5;
+    musicaRef.current = audio;
+
+    const eventosAtivacao = ['click', 'pointerdown', 'mousedown', 'touchstart', 'keydown'];
+
+    const removerListeners = () => {
+      eventosAtivacao.forEach(evento => {
+        window.removeEventListener(evento, desbloquearAutoplay, true);
+        document.removeEventListener(evento, desbloquearAutoplay, true);
+      });
+    };
+
+    // Inicia a reprodução na primeira interação física em fase de captura (evita consumo por Cesium)
+    function desbloquearAutoplay() {
+      if (musicaMutadaRef.current) return;
+      const a = musicaRef.current;
+      if (a && a.paused) {
+        a.muted = false;
+        a.play().then(() => {
+          removerListeners();
+        }).catch(() => {
+          // Permanece ouvindo caso o navegador ainda exija um gesto mais explícito
+        });
+      }
+    }
+
+    // Tentativa inicial imediata (funciona caso o navegador já tenha política de engajamento favorável)
+    const playPromise = audio.play();
+    if (playPromise !== undefined) {
+      playPromise.then(() => {
+        // Autoplay aceito de imediato pelo navegador
+      }).catch(() => {
+        // Autoplay bloqueado pelo navegador até primeira interação: registra listeners globais de captura
+        eventosAtivacao.forEach(evento => {
+          window.addEventListener(evento, desbloquearAutoplay, { capture: true, passive: true });
+          document.addEventListener(evento, desbloquearAutoplay, { capture: true, passive: true });
+        });
+      });
+    }
+
+    return () => {
+      removerListeners();
+      if (musicaRef.current) {
+        musicaRef.current.pause();
+        musicaRef.current.src = '';
+      }
+    };
+  }, []);
+
+  const handleAlternarMusicaPrincipal = () => {
+    const audio = musicaRef.current;
+    if (!audio) return;
+
+    // Se estiver mutado ou se estiver pausado (ex: bloqueio inicial de autoplay do navegador),
+    // o primeiro clique do usuário inicia a música imediatamente sem exigir mutar/desmutar
+    if (musicaMutada || audio.paused) {
+      audio.muted = false;
+      audio.volume = 0.5;
+      const playPromise = audio.play();
+      if (playPromise !== undefined) {
+        playPromise.catch(() => {});
+      }
+      setMusicaMutada(false);
+      musicaMutadaRef.current = false;
+    } else {
+      audio.muted = true;
+      audio.pause();
+      setMusicaMutada(true);
+      musicaMutadaRef.current = true;
+    }
+  };
 
   // Transições entre slides: abertura e fechamento pelo centro (Visão Geral <-> Diferenciais) e redimensionamento fluido
   const secaoAnteriorRef = useRef(secaoAtiva);
@@ -372,6 +475,7 @@ function App() {
   };
 
   const handleAbrirSustentabilidade = () => {
+    tocarEfeitoSonoro(somConsoleButtons, 0.65);
     setModalFechando(false);
     setModalGlossarioAberto(false);
     setModalTutorialAberto(false);
@@ -379,6 +483,7 @@ function App() {
   };
 
   const handleAbrirGlossario = () => {
+    tocarEfeitoSonoro(somConsoleButtons, 0.65);
     setModalFechando(false);
     setModalSustentabilidadeAberto(false);
     setModalTutorialAberto(false);
@@ -386,10 +491,27 @@ function App() {
   };
 
   const handleAbrirTutorial = () => {
+    tocarEfeitoSonoro(somConsoleButtons, 0.65);
     setModalFechando(false);
     setModalSustentabilidadeAberto(false);
     setModalGlossarioAberto(false);
     setModalTutorialAberto(true);
+  };
+
+  const handleAlternarPainelEsquerdo = (abrir) => {
+    tocarEfeitoSonoro(somFadeIn, 0.65);
+    setPainelEsquerdoAberto(abrir);
+    if (abrir && window.innerWidth < 950) {
+      setPainelDireitoAberto(false);
+    }
+  };
+
+  const handleAlternarPainelDireito = (abrir) => {
+    tocarEfeitoSonoro(somFadeIn, 0.65);
+    setPainelDireitoAberto(abrir);
+    if (abrir && window.innerWidth < 950) {
+      setPainelEsquerdoAberto(false);
+    }
   };
 
   // Referência para controlar redimensionamento de painéis
@@ -415,7 +537,6 @@ function App() {
     5: true, // Corpo de Foguete
     3: true  // Detrito Espacial
   });
-  const [ultimoFiltroSetor, setUltimoFiltroSetor] = useState(1);
   const [modulosEstacao, setModulosEstacao] = useState([]);
   const [carregandoModulos, setCarregandoModulos] = useState(false);
 
@@ -444,23 +565,6 @@ function App() {
       setModulosEstacao([]);
     }
   }, [satSelecionado]);
-
-  // Diagnóstico Macro dinâmico por setor para o painel esquerdo
-  const diagnosticoSetorAtivo = useMemo(() => {
-    const ativas = Object.keys(categoriasAtivas).filter(k => categoriasAtivas[k]);
-    if (ativas.length === 4 || ativas.length === 0) {
-      return DIAGNOSTICO_SETORES.todos;
-    }
-    if (ativas.length === 1) {
-      const unicoId = Number(ativas[0]);
-      return DIAGNOSTICO_SETORES[unicoId] || DIAGNOSTICO_SETORES.todos;
-    }
-    if (categoriasAtivas[ultimoFiltroSetor]) {
-      return DIAGNOSTICO_SETORES[ultimoFiltroSetor] || DIAGNOSTICO_SETORES.todos;
-    }
-    return DIAGNOSTICO_SETORES[Number(ativas[0])] || DIAGNOSTICO_SETORES.todos;
-  }, [categoriasAtivas, ultimoFiltroSetor]);
-
 
   // Ajuste inicial e dinâmico de visibilidade dos painéis HUD
   useEffect(() => {
@@ -551,13 +655,6 @@ function App() {
         const resObjs = await fetch(url);
         if (resObjs.ok) {
           const dataObjs = await resObjs.json();
-          // Se houver um satélite selecionado atualmente, assegura sua permanência no cinturão
-          if (satSelecionadoRef.current) {
-            const jaExiste = dataObjs.some(o => o.norad_id === satSelecionadoRef.current.norad_id);
-            if (!jaExiste) {
-              dataObjs.push(satSelecionadoRef.current);
-            }
-          }
           setObjetos(dataObjs);
         }
       } catch (err) {
@@ -575,6 +672,7 @@ function App() {
 
   const handleRecarregarAmostra = () => {
     if (recarregandoAmostra || loading) return;
+    tocarEfeitoSonoro(somConsoleButtons, 0.65);
     setRecarregandoAmostra(true);
     setAmostraSeed(Date.now());
   };
@@ -646,7 +744,10 @@ function App() {
   };
 
   // 4. SELEÇÃO E CÁLCULO FÍSICO DO SATÉLITE
-  const handleSelecionarSat = (sat) => {
+  const handleSelecionarSat = (sat, reproduzirSom = true) => {
+    if (reproduzirSom) {
+      tocarEfeitoSonoro(somFadeIn, 0.65);
+    }
     satSelecionadoRef.current = sat;
     setSatSelecionado(sat);
     setPainelDireitoAberto(true);
@@ -667,9 +768,13 @@ function App() {
     }
   };
 
-  const handleDesfocarCamera = () => {
+  const handleDesfocarCamera = (reproduzirSom = true) => {
     const v = viewerRef.current;
     if (!v) return;
+
+    if (reproduzirSom && satSelecionadoRef.current) {
+      tocarEfeitoSonoro(somFadeOut, 0.65);
+    }
 
     entidadeFocadaRef.current = null;
     v.camera.lookAtTransform(window.Cesium.Matrix4.IDENTITY);
@@ -679,20 +784,46 @@ function App() {
     setParametrosOrbitaisSat(null);
     limparTrilhaOrbital(v);
 
-    setPainelDireitoAberto(false);
+    // Em telas compactas, fecha o painel de telemetria e restaura o painel de dados
     if (window.innerWidth < 950) {
+      setPainelDireitoAberto(false);
       setPainelEsquerdoAberto(true);
     }
 
-    v.camera.flyTo({
-      destination: window.Cesium.Cartesian3.fromDegrees(-45.0, -15.0, 18000000.0),
+    const camTarget = cameraInicialRef.current || {
+      destination: window.Cesium.Cartesian3.fromDegrees(
+        POSICAO_ORBITAL_PADRAO.longitude,
+        POSICAO_ORBITAL_PADRAO.latitude,
+        POSICAO_ORBITAL_PADRAO.altitude
+      ),
       orientation: {
-        heading: window.Cesium.Math.toRadians(0.0),
-        pitch: window.Cesium.Math.toRadians(-90.0),
-        roll: 0.0
+        heading: window.Cesium.Math.toRadians(POSICAO_ORBITAL_PADRAO.heading),
+        pitch: window.Cesium.Math.toRadians(POSICAO_ORBITAL_PADRAO.pitch),
+        roll: POSICAO_ORBITAL_PADRAO.roll
+      }
+    };
+
+    v.camera.flyTo({
+      destination: camTarget.destination.clone(),
+      orientation: {
+        heading: camTarget.orientation.heading,
+        pitch: camTarget.orientation.pitch,
+        roll: camTarget.orientation.roll
       },
       duration: 1.5
     });
+  };
+
+  const handleVoltarInicio = () => {
+    tocarEfeitoSonoro(somVoltar, 0.65);
+    handleFecharModais();
+    handleDesfocarCamera(false);
+    setTransicaoCyber('para-inicio');
+    setTimeout(() => {
+      setTelaAtiva('inicio');
+      setSecaoAtiva(0);
+      setTransicaoCyber(null);
+    }, 600);
   };
 
   // 5. INICIALIZAÇÃO DO GLOBO CESIUM 3D E EVENTOS DE HOVER COM TRILHA
@@ -742,6 +873,28 @@ function App() {
     viewerRef.current = viewerInstance;
     setViewer(viewerInstance);
 
+    // Define a posição inicial padrão imediatamente no ponto desejado (América do Sul / Brasil)
+    const destinoInicial = window.Cesium.Cartesian3.fromDegrees(
+      POSICAO_ORBITAL_PADRAO.longitude,
+      POSICAO_ORBITAL_PADRAO.latitude,
+      POSICAO_ORBITAL_PADRAO.altitude
+    );
+    const orientacaoInicial = {
+      heading: window.Cesium.Math.toRadians(POSICAO_ORBITAL_PADRAO.heading),
+      pitch: window.Cesium.Math.toRadians(POSICAO_ORBITAL_PADRAO.pitch),
+      roll: POSICAO_ORBITAL_PADRAO.roll
+    };
+
+    viewerInstance.camera.setView({
+      destination: destinoInicial,
+      orientation: orientacaoInicial
+    });
+
+    cameraInicialRef.current = {
+      destination: destinoInicial,
+      orientation: orientacaoInicial
+    };
+
     // Manipulador de Clique no Globo (Seleção)
     const clickHandler = new window.Cesium.ScreenSpaceEventHandler(viewerInstance.scene.canvas);
     clickHandler.setInputAction((click) => {
@@ -789,21 +942,44 @@ function App() {
         });
       } else {
         // Clicar no espaço vazio deseleciona
+        if (satSelecionadoRef.current) {
+          tocarEfeitoSonoro(somFadeOut, 0.65);
+        }
         satSelecionadoRef.current = null;
         setSatSelecionado(null);
         setParametrosOrbitaisSat(null);
         limparTrilhaOrbital(viewerInstance);
 
+        // Em telas compactas, fecha o painel de telemetria e restaura o painel de dados
+        if (window.innerWidth < 950) {
+          setPainelDireitoAberto(false);
+          setPainelEsquerdoAberto(true);
+        }
+
         if (viewerInstance) {
           entidadeFocadaRef.current = null;
           viewerInstance.camera.lookAtTransform(window.Cesium.Matrix4.IDENTITY);
           viewerInstance.trackedEntity = undefined;
-          viewerInstance.camera.flyTo({
-            destination: window.Cesium.Cartesian3.fromDegrees(-45.0, -15.0, 18000000.0),
+
+          const camTarget = cameraInicialRef.current || {
+            destination: window.Cesium.Cartesian3.fromDegrees(
+              POSICAO_ORBITAL_PADRAO.longitude,
+              POSICAO_ORBITAL_PADRAO.latitude,
+              POSICAO_ORBITAL_PADRAO.altitude
+            ),
             orientation: {
-              heading: window.Cesium.Math.toRadians(0.0),
-              pitch: window.Cesium.Math.toRadians(-90.0),
-              roll: 0.0
+              heading: window.Cesium.Math.toRadians(POSICAO_ORBITAL_PADRAO.heading),
+              pitch: window.Cesium.Math.toRadians(POSICAO_ORBITAL_PADRAO.pitch),
+              roll: POSICAO_ORBITAL_PADRAO.roll
+            }
+          };
+
+          viewerInstance.camera.flyTo({
+            destination: camTarget.destination.clone(),
+            orientation: {
+              heading: camTarget.orientation.heading,
+              pitch: camTarget.orientation.pitch,
+              roll: camTarget.orientation.roll
             },
             duration: 1.5
           });
@@ -1030,10 +1206,15 @@ function App() {
 
     const satelitesFiltrados = objetos.filter(sat => {
       const catId = Number(sat.categoria_id);
-      // Estações Espaciais Principais (catId === 4) permanecem sempre renderizadas e fixas
-      if (catId === 4) return Boolean(sat.ultimo_tle);
+      // Estações Espaciais Principais: apenas ISS e Tiangong permanecem renderizadas e fixas
+      if (catId === 4) {
+        return (sat.norad_id === '25544' || sat.norad_id === '48274') && Boolean(sat.ultimo_tle);
+      }
+      // Nunca renderiza módulos acoplados como satélites avulsos no radar
+      if (sat.estacao_pai_norad) return false;
+
       const isAtiva = (catId in categoriasAtivas) && categoriasAtivas[catId];
-      return isAtiva && sat.ultimo_tle;
+      return isAtiva && Boolean(sat.ultimo_tle);
     });
 
     satelitesFiltrados.forEach(sat => {
@@ -1124,15 +1305,33 @@ function App() {
       ...prev,
       [catId]: !prev[catId]
     }));
-    setUltimoFiltroSetor(catId);
   };
 
   const handleIniciarMonitoramento = () => {
     tocarEfeitoSonoro(somIniciar, 0.65);
-    setCyberFade(true);
+    setTransicaoCyber('para-simulador');
+    const v = viewerRef.current;
+    if (v && window.Cesium) {
+      entidadeFocadaRef.current = null;
+      v.camera.lookAtTransform(window.Cesium.Matrix4.IDENTITY);
+      v.trackedEntity = undefined;
+      const destino = window.Cesium.Cartesian3.fromDegrees(
+        POSICAO_ORBITAL_PADRAO.longitude,
+        POSICAO_ORBITAL_PADRAO.latitude,
+        POSICAO_ORBITAL_PADRAO.altitude
+      );
+      v.camera.setView({
+        destination: destino,
+        orientation: {
+          heading: window.Cesium.Math.toRadians(POSICAO_ORBITAL_PADRAO.heading),
+          pitch: window.Cesium.Math.toRadians(POSICAO_ORBITAL_PADRAO.pitch),
+          roll: POSICAO_ORBITAL_PADRAO.roll
+        }
+      });
+    }
     setTimeout(() => {
       setTelaAtiva('simulador');
-      setCyberFade(false);
+      setTransicaoCyber(null);
       setModalTutorialAberto(true);
     }, 600);
   };
@@ -1177,7 +1376,11 @@ function App() {
     objetos.forEach(sat => {
       const catId = Number(sat.categoria_id);
       if (sat.ultimo_tle) {
-        if (counts[catId] !== undefined) {
+        if (catId === 4) {
+          if (sat.norad_id === '25544' || sat.norad_id === '48274') {
+            counts[4]++;
+          }
+        } else if (!sat.estacao_pai_norad && counts[catId] !== undefined) {
           counts[catId]++;
         }
       }
@@ -1200,6 +1403,9 @@ function App() {
 
     objetos.forEach(sat => {
       const catId = Number(sat.categoria_id);
+      if (catId === 4 && sat.norad_id !== '25544' && sat.norad_id !== '48274') return;
+      if (sat.estacao_pai_norad) return;
+
       if (categoriasAtivas[catId] && sat.ultimo_tle && sat.ultimo_tle.linha1 && sat.ultimo_tle.linha2) {
         const regime = classificarRegimeOrbital(sat.ultimo_tle.linha1, sat.ultimo_tle.linha2);
         if (regime === 'LEO') regimes.leo++;
@@ -1225,8 +1431,16 @@ function App() {
       <div id="cesium-container" className="cesium-container"></div>
 
       {/* TELA INICIAL CINEMATOGRÁFICA (ESTÉTICA EDOLUS & MOONSWORTH) */}
-      {(telaAtiva === 'inicio' || cyberFade) && (
-        <div className={`welcome-screen ${cyberFade ? 'fade-out-cyber' : ''}`}>
+      {(telaAtiva === 'inicio' || transicaoCyber) && (
+        <div
+          className={`welcome-screen ${
+            transicaoCyber === 'para-simulador'
+              ? 'fade-out-cyber'
+              : transicaoCyber === 'para-inicio'
+              ? 'fade-in-cyber'
+              : ''
+          }`}
+        >
           {/* BARRA SUPERIOR MINIMALISTA (ESTILO MOONSWORTH) */}
           <nav className="cinema-navbar">
             <div className="cinema-nav-left">
@@ -1276,13 +1490,17 @@ function App() {
             <div className="cinema-nav-right">
               <button
                 type="button"
-                className="cinema-planet-btn"
-                onClick={handleIniciarMonitoramento}
-                aria-label="Acessar Monitoramento Orbital"
-                title="Acessar Monitoramento Orbital"
+                className={`cinema-planet-btn cinema-sound-btn ${musicaMutada ? 'muted' : 'active'}`}
+                onClick={handleAlternarMusicaPrincipal}
+                aria-label={musicaMutada ? "Desmutar trilha sonora" : "Mutar trilha sonora"}
+                title={musicaMutada ? "Desmutar trilha sonora (Ativar áudio)" : "Mutar trilha sonora (Silenciar)"}
               >
-                <Globe size={20} className="cinema-planet-icon" />
-                <span className="planet-btn-halo"></span>
+                {musicaMutada ? (
+                  <VolumeOff size={20} className="cinema-planet-icon cinema-sound-icon muted" />
+                ) : (
+                  <Volume2 size={20} className="cinema-planet-icon cinema-sound-icon" />
+                )}
+                <span className="planet-btn-halo sound-btn-halo"></span>
               </button>
             </div>
           </nav>
@@ -1722,8 +1940,8 @@ function App() {
       )}
 
       {/* CONSOLE INTERATIVO DO SIMULADOR (HUD OVERLAY) */}
-      {telaAtiva === 'simulador' && (
-        <div className="hud-overlay">
+      {(telaAtiva === 'simulador' || transicaoCyber === 'para-inicio') && (
+        <div className={`hud-overlay ${transicaoCyber === 'para-inicio' ? 'fade-out-hud' : ''}`}>
 
           {/* BARRA SUPERIOR (HEADER) */}
           <header className="hud-header">
@@ -1770,6 +1988,16 @@ function App() {
               <div className="hud-tools-section">
                 <button
                   type="button"
+                  className="hud-tool-btn"
+                  onClick={handleVoltarInicio}
+                  title="Voltar para a Página Inicial"
+                >
+                  <Home size={15} className="hud-tool-icon" />
+                  <span>INÍCIO</span>
+                </button>
+
+                <button
+                  type="button"
                   className={`hud-tool-btn ${modalSustentabilidadeAberto ? 'active' : ''}`}
                   onClick={handleAbrirSustentabilidade}
                   title="Monitor de Sustentabilidade Espacial"
@@ -1785,7 +2013,7 @@ function App() {
                   title="Abrir Guia Rápido do Operador"
                 >
                   <Compass size={15} className="hud-tool-icon" />
-                  <span>GUIA DO OPERADOR</span>
+                  <span>GUIA</span>
                 </button>
 
                 <button
@@ -1795,6 +2023,20 @@ function App() {
                 >
                   <BookOpen size={15} className="hud-tool-icon" />
                   <span>GLOSSÁRIO</span>
+                </button>
+
+                <button
+                  type="button"
+                  className={`hud-tool-btn sound-tool-btn ${musicaMutada ? 'muted' : 'active'}`}
+                  onClick={handleAlternarMusicaPrincipal}
+                  title={musicaMutada ? "Desmutar música principal" : "Mutar música principal"}
+                >
+                  {musicaMutada ? (
+                    <VolumeOff size={15} className="hud-tool-icon" />
+                  ) : (
+                    <Volume2 size={15} className="hud-tool-icon" />
+                  )}
+                  <span>{musicaMutada ? "MUDO" : "ÁUDIO"}</span>
                 </button>
               </div>
             </div>
@@ -1853,7 +2095,7 @@ function App() {
                 <button
                   type="button"
                   className="hud-toggle-btn-inline"
-                  onClick={() => setPainelEsquerdoAberto(false)}
+                  onClick={() => handleAlternarPainelEsquerdo(false)}
                   title="Recolher Painel"
                 >
                   <ChevronLeft size={16} />
@@ -1886,6 +2128,9 @@ function App() {
                     <span>{recarregandoAmostra ? 'SORTEANDO OBJETOS...' : 'RECARREGAR AMOSTRAGEM'}</span>
                   </button>
                 </div>
+
+                {/* Divisor Cibernético */}
+                <div className="hud-cyber-divider" />
 
                 {/* Filtros e Legenda das 4 Categorias */}
                 <div className="legend-section">
@@ -1974,6 +2219,9 @@ function App() {
                     </span>
                   </div>
                 </div>
+
+                {/* Divisor Cibernético */}
+                <div className="hud-cyber-divider" />
 
                 {/* DISTRIBUIÇÃO POR REGIME ORBITAL (LEO / MEO / GEO / HEO) */}
                 <div className="legend-section regimes-section">
@@ -2067,27 +2315,6 @@ function App() {
                     </div>
                   </div>
                 </div>
-
-                {/* DIAGNÓSTICO DO SETOR (REATIVO AO FILTRO ATIVO) */}
-                <div className="legend-section sector-diagnosis-section">
-                  <div className="sector-diagnosis-header">
-                    <Activity size={14} className="sector-diagnosis-icon" />
-                    <span className="sector-diagnosis-title">
-                      DIAGNÓSTICO DO SETOR: {diagnosticoSetorAtivo.titulo}
-                    </span>
-                  </div>
-                  <ul className="sector-diagnosis-list">
-                    {diagnosticoSetorAtivo.itens.map((item, idx) => (
-                      <li key={idx} className="sector-diagnosis-item">
-                        <span className="sector-item-bullet">•</span>
-                        <div className="sector-item-text">
-                          <strong className="sector-item-label">{item.rotulo}:</strong>{' '}
-                          <span className="sector-item-desc">{item.desc}</span>
-                        </div>
-                      </li>
-                    ))}
-                  </ul>
-                </div>
               </div>
             </aside>
 
@@ -2097,7 +2324,7 @@ function App() {
                 <button
                   type="button"
                   className="hud-toggle-btn-inline"
-                  onClick={() => setPainelDireitoAberto(false)}
+                  onClick={() => handleAlternarPainelDireito(false)}
                   title="Recolher Painel"
                 >
                   <ChevronRight size={16} />
@@ -2195,7 +2422,7 @@ function App() {
                               <div
                                 key={mod.norad_id}
                                 className="module-item"
-                                onClick={() => handleSelecionarSat(mod)}
+                                onClick={() => handleSelecionarSat(mod, false)}
                                 title={`Clique para inspecionar ${mod.nome}`}
                               >
                                 <div className="module-item-top">
@@ -2306,16 +2533,6 @@ function App() {
                       </div>
                     )}
 
-                    {/* Botão de Retorno */}
-                    <button
-                      type="button"
-                      className="action-button"
-                      onClick={handleDesfocarCamera}
-                    >
-                      <Globe size={14} />
-                      Restaurar Visão Global da Terra
-                    </button>
-
                   </div>
                 ) : (
                   <div className="empty-details">
@@ -2336,10 +2553,7 @@ function App() {
             <button
               type="button"
               className="hud-trigger-float-btn left-trigger"
-              onClick={() => {
-                setPainelEsquerdoAberto(true);
-                if (window.innerWidth < 950) setPainelDireitoAberto(false);
-              }}
+              onClick={() => handleAlternarPainelEsquerdo(true)}
               title="Abrir Métricas de Órbita"
             >
               <Database size={16} />
@@ -2351,10 +2565,7 @@ function App() {
             <button
               type="button"
               className="hud-trigger-float-btn right-trigger"
-              onClick={() => {
-                setPainelDireitoAberto(true);
-                if (window.innerWidth < 950) setPainelEsquerdoAberto(false);
-              }}
+              onClick={() => handleAlternarPainelDireito(true)}
               title="Abrir Diagnóstico do Satélite"
             >
               <Compass size={16} />
@@ -2469,7 +2680,7 @@ function App() {
 
                   <div className="tutorial-footer-hint">
                     <span className="tutorial-hint-text">
-                      * Você pode reabrir este guia quando quiser clicando em <strong>GUIA DO OPERADOR</strong> na barra superior.
+                      * Você pode reabrir este guia quando quiser clicando em <strong>GUIA</strong> na barra superior.
                     </span>
                     <button
                       type="button"
