@@ -46,9 +46,13 @@ class ObjetoOrbitalBase(BaseModel):
     id: int
     nome: str
     norad_id: str
+    cospar_id: Optional[str] = None
     pais: str
     status: str
     data_lancamento: Optional[date] = None
+    data_decaimento: Optional[date] = None
+    local_lancamento: Optional[str] = None
+    codigo_status: Optional[str] = None
     categoria_id: int
     estacao_pai_norad: Optional[str] = None
 
@@ -95,11 +99,12 @@ class DistribuicaoRegimes(BaseModel):
 
 
 class TotaisOficiaisCatalogo(BaseModel):
-    total: int = 34104
-    ativos: int = 16503
-    inativos: int = 2782
-    foguetes: int = 2295
-    detritos: int = 12522
+    total: int = 11535
+    total_em_orbita: Optional[int] = 11535
+    ativos: int = 4918
+    inativos: int = 1476
+    foguetes: int = 2283
+    detritos: int = 2838
     estacoes: int = 2
 
     model_config = ConfigDict(from_attributes=True)
@@ -107,6 +112,7 @@ class TotaisOficiaisCatalogo(BaseModel):
 
 class EstatisticasResponse(BaseModel):
     total_objetos: int
+    total_em_orbita: Optional[int] = None
     percentual_detritos: float
     distribuicao_paises: List[EstatisticasPais]
     evolucao_historica: List[EvolucaoHistorica]

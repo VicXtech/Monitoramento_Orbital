@@ -19,14 +19,14 @@ def test_suite():
     r = client.get("/api/estatisticas")
     assert r.status_code == 200, f"Erro /api/estatisticas: {r.text}"
     stats = r.json()
-    assert stats["total_objetos"] == 34104, f"Total incorreto: {stats['total_objetos']}"
+    assert stats["total_objetos"] == 11535, f"Total incorreto: {stats['total_objetos']}"
     totais = stats.get("totais_oficiais", {})
-    assert totais.get("ativos") == 16503
-    assert totais.get("inativos") == 2782
-    assert totais.get("foguetes") == 2295
-    assert totais.get("detritos") == 12522
+    assert totais.get("ativos") == 4916
+    assert totais.get("inativos") == 1473
+    assert totais.get("foguetes") == 2283
+    assert totais.get("detritos") == 2838
     assert totais.get("estacoes") == 2
-    print("   [OK] Estatísticas e totais oficiais de catálogo conferem: 34.104 objetos (16.503 ativos, 2.782 inativos, 2.295 foguetes, 12.522 detritos, 2 estações).\n")
+    print("   [OK] Estatísticas e totais oficiais de catálogo conferem: 11.535 objetos em órbita (4.916 ativos, 1.473 inativos, 2.283 foguetes, 2.838 detritos, 2 estações).\n")
 
     # 3. Radar Padrão (1.000 amostragem + 2 estações fixas = 1.002 objetos)
     print("3. Testando /api/objetos com as 4 categorias ativas (1, 2, 5, 3)...")

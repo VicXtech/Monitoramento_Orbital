@@ -20,13 +20,13 @@ logging.basicConfig(
     format="%(asctime)s [%(levelname)s] %(name)s: %(message)s"
 )
 logger = logging.getLogger("MonitoramentoOrbital")
+conector = APIConector()
 
 
 def executar_coleta_diaria():
     """Tarefa periódica que consome os TLEs e atualiza o PostgreSQL."""
     logger.info("LOG: Iniciando sincronização diária automática com CelesTrak...")
     db = SessionLocal()
-    conector = APIConector()
     try:
         # 1. Estações Espaciais (Estação Espacial)
         conector.coletar_e_processar(db=db, grupo="stations", categoria_nome="Estação Espacial")
@@ -63,7 +63,13 @@ def executar_coleta_diaria():
         # 8. Carga Científica
         conector.coletar_e_processar(db=db, grupo="science", categoria_nome="Detrito Espacial")
 
-        # 9. Executa enriquecimento factual em 3 níveis (Wikidata + Engenharia)
+        # 8.1. Sincronização oficial CelesTrak SATCAT (Cosmódromos, datas reais e status de reentrada)
+        conector.sincronizar_satcat_grupo(db=db, grupo="stations")
+        conector.sincronizar_satcat_grupo(db=db, grupo="visual")
+        conector.sincronizar_satcat_grupo(db=db, special="GPZ-PLUS")
+        conector.sincronizar_satcat_grupo(db=db, grupo="weather")
+
+        # 9. Executa enriquecimento factual em 3 níveis (Enciclopédia + Engenharia)
         conector.enriquecer_com_wikidata(db=db)
         
         logger.info("LOG: Sincronização automática concluída com sucesso no Scheduler.")
@@ -217,8 +223,21 @@ def listar_objetos(
                     query = query.filter(ObjetoOrbital.categoria_id.in_(cids))
             results = query.order_by(prioridade_pais.asc(), ObjetoOrbital.id.asc()).offset(skip).limit(limit).all()
 
+            # Enriquecimento sob demanda via SATCAT se o objeto buscado ainda não tiver cosmódromo
+            if len(results) == 1 and results[0][0].local_lancamento is None:
+                try:
+                    conector.obter_satcat_individual(results[0][0].norad_id, db)
+                except Exception:
+                    pass
+
         else:
-            # 2. As 2 Estações Espaciais Principais permanecem 100% fixas e presentes
+            # 2. No radar do simulador 3D: apenas objetos em órbita ativa (expurga objetos reentrados/decaídos)
+            query_base = query_base.filter(
+                ObjetoOrbital.data_decaimento.is_(None),
+                (ObjetoOrbital.codigo_status != 'D') | (ObjetoOrbital.codigo_status.is_(None))
+            )
+
+            # As 2 Estações Espaciais Principais permanecem 100% fixas e presentes
             estacoes = query_base.filter(
                 ObjetoOrbital.norad_id.in_(["25544", "48274"])
             ).all()
@@ -252,7 +271,9 @@ def listar_objetos(
                     itens = query_base.filter(
                         ObjetoOrbital.categoria_id == cid,
                         ObjetoOrbital.estacao_pai_norad.is_(None),
-                        ~ObjetoOrbital.norad_id.in_(["25544", "48274"])
+                        ~ObjetoOrbital.norad_id.in_(["25544", "48274"]),
+                        ~ObjetoOrbital.nome.ilike("ISS (%"),
+                        ~ObjetoOrbital.nome.ilike("CSS (%")
                     ).order_by(prioridade_pais.asc(), func.random()).limit(cota).all()
 
                     amostras.extend(itens)
@@ -290,6 +311,14 @@ def obter_objeto_por_norad(norad_id: str, db: Session = Depends(get_db)):
             detail=f"Objeto orbital com NORAD ID '{norad_id}' não encontrado"
         )
         
+    # Se ainda não possuir local_lancamento ou cospar_id, tenta enriquecer via SATCAT sob demanda
+    if objeto.local_lancamento is None or objeto.cospar_id is None:
+        try:
+            conector.obter_satcat_individual(objeto.norad_id, db)
+            db.refresh(objeto)
+        except Exception as e:
+            logger.warning(f"LOG: Falha no enriquecimento sob demanda para NORAD #{norad_id}: {e}")
+
     ultimo_tle = db.query(TLEHistorico).filter(
         TLEHistorico.objeto_id == objeto.id
     ).order_by(TLEHistorico.epoch.desc()).first()
@@ -334,6 +363,47 @@ def listar_modulos_estacao(norad_id: str, db: Session = Depends(get_db)):
         raise HTTPException(status_code=500, detail="Erro interno ao consultar módulos da estação")
 
 
+@app.get("/api/objetos/{norad_id}", response_model=schemas.ObjetoOrbitalResponse)
+def obter_objeto_detalhe(norad_id: str, db: Session = Depends(get_db)):
+    """Retorna detalhes de um objeto específico por NORAD ID, enriquecendo via SATCAT se necessário."""
+    try:
+        subq = db.query(
+            TLEHistorico.objeto_id,
+            func.max(TLEHistorico.id).label("max_id")
+        ).group_by(TLEHistorico.objeto_id).subquery()
+
+        row = db.query(ObjetoOrbital, TLEHistorico).outerjoin(
+            subq, ObjetoOrbital.id == subq.c.objeto_id
+        ).outerjoin(
+            TLEHistorico,
+            TLEHistorico.id == subq.c.max_id
+        ).options(
+            selectinload(ObjetoOrbital.missao),
+            selectinload(ObjetoOrbital.categoria)
+        ).filter(ObjetoOrbital.norad_id == str(norad_id).strip()).first()
+
+        if not row:
+            raise HTTPException(status_code=404, detail="Objeto orbital não encontrado")
+
+        obj, tle = row
+
+        # Se não possui cosmódromo ou data precisa, enriquece via SATCAT
+        if obj.local_lancamento is None:
+            try:
+                conector.obter_satcat_individual(obj.norad_id, db)
+                db.refresh(obj)
+            except Exception:
+                pass
+
+        obj.ultimo_tle = tle
+        return obj
+    except HTTPException:
+        raise
+    except Exception as e:
+        logger.error(f"LOG: Erro ao consultar detalhes do objeto {norad_id}: {e}")
+        raise HTTPException(status_code=500, detail="Erro interno ao buscar objeto")
+
+
 @app.get("/api/estatisticas", response_model=schemas.EstatisticasResponse)
 def obter_estatisticas(db: Session = Depends(get_db)):
     """
@@ -342,6 +412,10 @@ def obter_estatisticas(db: Session = Depends(get_db)):
     """
     try:
         total_banco = db.query(func.count(ObjetoOrbital.id)).scalar() or 0
+        total_em_orbita = db.query(func.count(ObjetoOrbital.id)).filter(
+            ObjetoOrbital.data_decaimento.is_(None),
+            (ObjetoOrbital.codigo_status != 'D') | (ObjetoOrbital.codigo_status.is_(None))
+        ).scalar() or total_banco
 
         paises_query = db.query(
             ObjetoOrbital.pais.label("pais"),
@@ -417,18 +491,39 @@ def obter_estatisticas(db: Session = Depends(get_db)):
         except Exception:
             distribuicao_regimes = schemas.DistribuicaoRegimes(leo=5519, meo=183, geo=590, heo=44)
 
-        totais_oficiais = schemas.TotaisOficiaisCatalogo(
-            total=34104,
-            ativos=16503,
-            inativos=2782,
-            foguetes=2295,
-            detritos=12522,
-            estacoes=2
+        # Contagens reais por categoria de objetos atualmente em órbita ativa
+        contagens_cat = dict(
+            db.query(
+                ObjetoOrbital.categoria_id,
+                func.count(ObjetoOrbital.id)
+            ).filter(
+                ObjetoOrbital.data_decaimento.is_(None),
+                (ObjetoOrbital.codigo_status != 'D') | (ObjetoOrbital.codigo_status.is_(None))
+            ).group_by(ObjetoOrbital.categoria_id).all()
         )
 
+        ativos_em_orbita = contagens_cat.get(1, 4918)
+        inativos_em_orbita = contagens_cat.get(2, 1476)
+        detritos_em_orbita = contagens_cat.get(3, 2838)
+        estacoes_em_orbita = 2  # As 2 estações espaciais principais permanentes (ISS e Tiangong)
+        foguetes_em_orbita = contagens_cat.get(5, 2283)
+
+        totais_oficiais = schemas.TotaisOficiaisCatalogo(
+            total=total_em_orbita,
+            total_em_orbita=total_em_orbita,
+            ativos=ativos_em_orbita,
+            inativos=inativos_em_orbita,
+            foguetes=foguetes_em_orbita,
+            detritos=detritos_em_orbita,
+            estacoes=estacoes_em_orbita
+        )
+
+        perc_detritos = round((detritos_em_orbita / total_em_orbita) * 100.0, 2) if total_em_orbita > 0 else 0.0
+
         return schemas.EstatisticasResponse(
-            total_objetos=34104,
-            percentual_detritos=round((12522 / 34104) * 100.0, 2),
+            total_objetos=total_em_orbita,
+            total_em_orbita=total_em_orbita,
+            percentual_detritos=perc_detritos,
             distribuicao_paises=distribuicao_paises,
             evolucao_historica=evolucao_historica,
             distribuicao_regimes=distribuicao_regimes,

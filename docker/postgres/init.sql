@@ -13,24 +13,26 @@ CREATE TABLE IF NOT EXISTS objeto_orbital (
     id SERIAL PRIMARY KEY,
     nome VARCHAR(150) NOT NULL,
     norad_id VARCHAR(50) NOT NULL UNIQUE,
+    cospar_id VARCHAR(30), -- Identificador internacional (ex: 2025-275A, 2022-105A)
     pais VARCHAR(100) NOT NULL,
     status VARCHAR(50) NOT NULL,
     data_lancamento DATE,
+    data_decaimento DATE, -- Data em que reentrou na atmosfera (se aplicável)
+    local_lancamento VARCHAR(150), -- Base ou cosmódromo de partida
+    codigo_status VARCHAR(10), -- Código de status SATCAT (+, -, D) para uso interno
     categoria_id INTEGER NOT NULL,
     estacao_pai_norad VARCHAR(50), -- Vínculo opcional para módulos e naves de apoio (ex: 25544 para ISS, 48274 para Tiangong)
     CONSTRAINT fk_categoria FOREIGN KEY (categoria_id) REFERENCES categoria_objeto(id) ON DELETE RESTRICT
 );
 
--- 3. Criar a tabela informacao_missao (Relacionamento 1:1 para dados enriquecidos da Wikidata)
+-- 3. Criar a tabela informacao_missao (Ficha factual de missão e engenharia)
 CREATE TABLE IF NOT EXISTS informacao_missao (
     id SERIAL PRIMARY KEY,
     objeto_id INTEGER NOT NULL UNIQUE,
-    wikidata_id VARCHAR(50),
     descricao TEXT,
     operador VARCHAR(255),
     massa_kg NUMERIC(10, 2),
     imagem_url TEXT,
-    artigo_url TEXT,
     data_atualizacao TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP,
     CONSTRAINT fk_missao_objeto FOREIGN KEY (objeto_id) REFERENCES objeto_orbital(id) ON DELETE CASCADE
 );
@@ -48,11 +50,12 @@ CREATE TABLE IF NOT EXISTS tle_historico (
 
 -- 5. Regras de Performance: Índices para consultas instantâneas em grande volume (31.800+ objetos)
 CREATE INDEX IF NOT EXISTS idx_objeto_orbital_norad_id ON objeto_orbital(norad_id);
+CREATE INDEX IF NOT EXISTS idx_objeto_orbital_cospar_id ON objeto_orbital(cospar_id);
 CREATE INDEX IF NOT EXISTS idx_objeto_orbital_nome ON objeto_orbital(nome);
 CREATE INDEX IF NOT EXISTS idx_objeto_orbital_categoria_id ON objeto_orbital(categoria_id);
+CREATE INDEX IF NOT EXISTS idx_objeto_orbital_data_decaimento ON objeto_orbital(data_decaimento);
 CREATE INDEX IF NOT EXISTS idx_objeto_orbital_estacao_pai ON objeto_orbital(estacao_pai_norad);
 CREATE INDEX IF NOT EXISTS idx_informacao_missao_objeto_id ON informacao_missao(objeto_id);
-CREATE INDEX IF NOT EXISTS idx_informacao_missao_wikidata_id ON informacao_missao(wikidata_id);
 CREATE INDEX IF NOT EXISTS idx_tle_historico_objeto_epoch ON tle_historico(objeto_id, epoch DESC);
 
 -- 6. Inserir dados iniciais para categorias (conforme especificação e hierarquia oficial de cores)

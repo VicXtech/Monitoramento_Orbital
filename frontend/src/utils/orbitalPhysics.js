@@ -114,25 +114,32 @@ export function calcularParametrosOrbitais(linha1, linha2, dataReferencia = new 
 
     // 7. Descrição Didática da Inclinação
     let classeInclinacao = 'Órbita de Média Inclinação';
+    let classeRotaCurta = 'Média Inclinação';
     let descricaoInclinacao = 'Trajetória com ângulo intermediário em relação ao equador, cobrindo latitudes médias povoadas da Terra.';
 
     if (inclinacaoGraus >= 85 && inclinacaoGraus <= 95) {
       classeInclinacao = 'Órbita Polar';
+      classeRotaCurta = 'Polar';
       descricaoInclinacao = 'Cruza os polos Norte e Sul a cada volta, permitindo escanear a superfície do planeta inteiro conforme a Terra gira sob sua rota.';
     } else if (inclinacaoGraus > 95 && inclinacaoGraus <= 105) {
       classeInclinacao = 'Órbita Heliossíncrona (SSO)';
+      classeRotaCurta = 'Heliossíncrona (SSO)';
       descricaoInclinacao = 'Trajetória retrógrada cujo plano mantém o mesmo ângulo em relação à luz solar, ideal para satélites de imageamento e monitoramento climático.';
     } else if (inclinacaoGraus > 105) {
       classeInclinacao = 'Órbita Retrógrada';
+      classeRotaCurta = 'Retrógrada';
       descricaoInclinacao = 'Trajetória retrógrada que se desloca no sentido oposto ao movimento natural de rotação da Terra.';
     } else if (inclinacaoGraus >= 60 && inclinacaoGraus < 85) {
       classeInclinacao = 'Órbita de Alta Inclinação';
+      classeRotaCurta = 'Alta Inclinação';
       descricaoInclinacao = 'Trajetória de ângulo acentuado em relação ao equador, permitindo ampla cobertura de altas latitudes e regiões subpolares.';
     } else if (inclinacaoGraus < 20) {
       classeInclinacao = 'Órbita Quase-Equatorial';
+      classeRotaCurta = 'Quase-Equatorial';
       descricaoInclinacao = 'Trajetória de baixo ângulo que acompanha de perto a linha do equador da Terra.';
     } else if (Math.abs(inclinacaoGraus - 51.6) < 2) {
       classeInclinacao = 'Órbita Padrão ISS';
+      classeRotaCurta = 'Padrão ISS';
       descricaoInclinacao = 'Ângulo histórico da Estação Espacial Internacional, desenhado para permitir lançamentos e acoplamentos a partir da Rússia e dos Estados Unidos.';
     }
 
@@ -166,6 +173,7 @@ export function calcularParametrosOrbitais(linha1, linha2, dataReferencia = new 
     return {
       inclinacaoGraus,
       classeInclinacao,
+      classeRotaCurta,
       descricaoInclinacao,
       excentricidade,
       perigeuKm,
@@ -191,8 +199,9 @@ export function calcularParametrosOrbitais(linha1, linha2, dataReferencia = new 
 
 /**
  * Gera os pontos cartesianos 3D de uma volta orbital completa para exibição no Cesium.
- * Utiliza mecânica kepleriana analítica 3D exata para garantir que a elipse seja
- * matematicamente suave, fechada e perfeitamente estável, imune a distorções do SGP4.
+ * Deriva a elipse orbital osculadora instantânea a partir do estado inercial exato (posição e velocidade)
+ * propagado pelo SGP4 para o instante de referência, garantindo que a trajetória passe
+ * rigorosamente em cima do satélite, seja perfeitamente fechada e suave.
  * 
  * @param {string} linha1 - Linha 1 do TLE
  * @param {string} linha2 - Linha 2 do TLE
@@ -204,6 +213,88 @@ export function gerarPontosOrbita(linha1, linha2, dataBase = new Date(), amostra
   if (!window.Cesium || !linha1 || !linha2) return null;
 
   try {
+    const satrec = satellite.twoline2satrec(linha1, linha2);
+    const pv = satellite.propagate(satrec, dataBase);
+
+    // Se o SGP4 propagou o estado inercial com sucesso (posição e velocidade no instante dataBase)
+    if (pv && pv.position && pv.velocity) {
+      const r0 = pv.position; // km
+      const v0 = pv.velocity; // km/s
+      const gmstFixo = satellite.gstime(dataBase);
+
+      // 1. Momento angular específico vetorial h = r0 x v0
+      const hx = r0.y * v0.z - r0.z * v0.y;
+      const hy = r0.z * v0.x - r0.x * v0.z;
+      const hz = r0.x * v0.y - r0.y * v0.x;
+      const h = Math.sqrt(hx * hx + hy * hy + hz * hz);
+
+      if (h > 1e-4) {
+        // 2. Vetor excentricidade e = ((v^2 - mu/r)*r - (r.v)*v) / mu
+        const rMag = Math.sqrt(r0.x * r0.x + r0.y * r0.y + r0.z * r0.z);
+        const vMag2 = v0.x * v0.x + v0.y * v0.y + v0.z * v0.z;
+        const rDotV = r0.x * v0.x + r0.y * v0.y + r0.z * v0.z;
+
+        const ex = ((vMag2 - MU_TERRA / rMag) * r0.x - rDotV * v0.x) / MU_TERRA;
+        const ey = ((vMag2 - MU_TERRA / rMag) * r0.y - rDotV * v0.y) / MU_TERRA;
+        const ez = ((vMag2 - MU_TERRA / rMag) * r0.z - rDotV * v0.z) / MU_TERRA;
+        const eMag = Math.sqrt(ex * ex + ey * ey + ez * ez);
+
+        // 3. Base ortonormal no plano orbital (P, Q, W)
+        // P aponta para o periapsis (ou para r0 em órbitas estritamente circulares)
+        let Px, Py, Pz;
+        if (eMag < 1e-5) {
+          Px = r0.x / rMag;
+          Py = r0.y / rMag;
+          Pz = r0.z / rMag;
+        } else {
+          Px = ex / eMag;
+          Py = ey / eMag;
+          Pz = ez / eMag;
+        }
+
+        const Wx = hx / h;
+        const Wy = hy / h;
+        const Wz = hz / h;
+
+        // Q = W x P
+        const Qx = Wy * Pz - Wz * Py;
+        const Qy = Wz * Px - Wx * Pz;
+        const Qz = Wx * Py - Wy * Px;
+
+        // Semilatus rectum p = h^2 / mu
+        const p = (h * h) / MU_TERRA;
+
+        // Anomalia verdadeira nu0 no instante de referência (garante que nu0 passe pelo satélite r0)
+        const cosNu0 = (r0.x * Px + r0.y * Py + r0.z * Pz) / rMag;
+        const sinNu0 = (r0.x * Qx + r0.y * Qy + r0.z * Qz) / rMag;
+        const nu0 = Math.atan2(sinNu0, cosNu0);
+
+        const pontosCartesianos = [];
+        for (let i = 0; i <= amostras; i++) {
+          const nu = nu0 + (i / amostras) * 2 * Math.PI;
+          const r = p / (1 + eMag * Math.cos(nu - (eMag < 1e-5 ? nu0 : 0)));
+
+          // Posição inercial ECI
+          const xEci = r * (Math.cos(nu) * Px + Math.sin(nu) * Qx);
+          const yEci = r * (Math.cos(nu) * Py + Math.sin(nu) * Qy);
+          const zEci = r * (Math.cos(nu) * Pz + Math.sin(nu) * Qz);
+
+          // Conversão geodésica fiel ao elipsoide WGS-84 congelada no instante dataBase
+          const posGd = satellite.eciToGeodetic({ x: xEci, y: yEci, z: zEci }, gmstFixo);
+          const lon = satellite.degreesLong(posGd.longitude);
+          const lat = satellite.degreesLat(posGd.latitude);
+          const alt = Math.max(0, posGd.height * 1000);
+
+          pontosCartesianos.push(window.Cesium.Cartesian3.fromDegrees(lon, lat, alt));
+        }
+
+        if (pontosCartesianos.length > 10) {
+          return pontosCartesianos;
+        }
+      }
+    }
+
+    // Fallback kepleriano analítico clássico
     const inc = (parseFloat(linha2.substring(8, 16)) || 0) * Math.PI / 180;
     const raan = (parseFloat(linha2.substring(17, 25)) || 0) * Math.PI / 180;
     const eccStr = '0.' + linha2.substring(26, 33).trim();
@@ -215,29 +306,22 @@ export function gerarPontosOrbita(linha1, linha2, dataBase = new Date(), amostra
 
     const pontosCartesianos = [];
     const gmstFixo = satellite.gstime(dataBase);
-    const cosG = Math.cos(gmstFixo);
-    const sinG = Math.sin(gmstFixo);
 
     for (let i = 0; i <= amostras; i++) {
       const theta = (i / amostras) * 2 * Math.PI;
       const r = (a * (1 - ecc * ecc)) / (1 + ecc * Math.cos(theta));
       const u = argP + theta;
 
-      // Coordenadas inerciais ECI
       const xEci = r * (Math.cos(raan) * Math.cos(u) - Math.sin(raan) * Math.sin(u) * Math.cos(inc));
       const yEci = r * (Math.sin(raan) * Math.cos(u) + Math.cos(raan) * Math.sin(u) * Math.cos(inc));
       const zEci = r * Math.sin(u) * Math.sin(inc);
 
-      // Rotação analítica inercial ECI -> ECEF no instante de referência (em metros)
-      const xMeters = (xEci * cosG + yEci * sinG) * 1000;
-      const yMeters = (-xEci * sinG + yEci * cosG) * 1000;
-      const zMeters = zEci * 1000;
+      const posGd = satellite.eciToGeodetic({ x: xEci, y: yEci, z: zEci }, gmstFixo);
+      const lon = satellite.degreesLong(posGd.longitude);
+      const lat = satellite.degreesLat(posGd.latitude);
+      const alt = Math.max(0, posGd.height * 1000);
 
-      pontosCartesianos.push(new window.Cesium.Cartesian3(xMeters, yMeters, zMeters));
-    }
-
-    if (pontosCartesianos.length > 10) {
-      pontosCartesianos.push(pontosCartesianos[0]);
+      pontosCartesianos.push(window.Cesium.Cartesian3.fromDegrees(lon, lat, alt));
     }
 
     return pontosCartesianos.length > 10 ? pontosCartesianos : null;

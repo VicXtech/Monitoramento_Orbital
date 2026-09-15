@@ -20,9 +20,13 @@ class ObjetoOrbital(Base):
     id = Column(Integer, primary_key=True, index=True)
     nome = Column(String(150), nullable=False)
     norad_id = Column(String(50), nullable=False, unique=True, index=True)
+    cospar_id = Column(String(30), nullable=True, index=True)
     pais = Column(String(100), nullable=False)
     status = Column(String(50), nullable=False)
     data_lancamento = Column(Date, nullable=True)
+    data_decaimento = Column(Date, nullable=True, index=True)
+    local_lancamento = Column(String(150), nullable=True)
+    codigo_status = Column(String(10), nullable=True)
     categoria_id = Column(Integer, ForeignKey("categoria_objeto.id", ondelete="RESTRICT"), nullable=False, index=True)
     estacao_pai_norad = Column(String(50), nullable=True, index=True)
 

@@ -35,10 +35,13 @@ import somAbreSlide from './assets/sons/abre-slide.mp3';
 import somTrocaSlide from './assets/sons/troca-slide.mp3';
 import somIniciar from './assets/sons/Iniciar.mp3';
 import somFadeOut from './assets/sons/fade-out.MP3';
-import somFadeIn from './assets/sons/fade-in.MP3';
+import somFadeIn from './assets/sons/fade-in.mp3';
 import somConsoleButtons from './assets/sons/console-buttons.mp3';
 import somVoltar from './assets/sons/voltar.mp3';
 import somTemaPrincipal from './assets/sons/main-theme.mp3';
+import somPainelLateral from './assets/sons/painel-lateral.mp3';
+import somTopPainel from './assets/sons/top-painel.mp3';
+import somRecarregarAmostragem from './assets/sons/recarregar-amostragem.mp3';
 
 // Utilitário de reprodução ágil de áudio com clone e tratamento de permissão do navegador
 function tocarEfeitoSonoro(audioSrc, volume = 0.5) {
@@ -57,6 +60,22 @@ function tocarEfeitoSonoro(audioSrc, volume = 0.5) {
   }
 }
 
+// Formatação de data padrão brasileiro (DD/MM/AAAA) sem desvio de fuso horário UTC
+function formatarDataBrasileira(dataStr) {
+  if (!dataStr) return "Histórico";
+  try {
+    const limpa = String(dataStr).split('T')[0].trim();
+    const partes = limpa.split('-');
+    if (partes.length === 3) {
+      const [ano, mes, dia] = partes;
+      return `${dia.padStart(2, '0')}/${mes.padStart(2, '0')}/${ano}`;
+    }
+    return limpa;
+  } catch {
+    return String(dataStr);
+  }
+}
+
 // Pré-carregamento dos áudios para resposta tátil instantânea
 if (typeof window !== 'undefined' && typeof Audio !== 'undefined') {
   try {
@@ -67,6 +86,9 @@ if (typeof window !== 'undefined' && typeof Audio !== 'undefined') {
     new Audio(somFadeIn).load();
     new Audio(somConsoleButtons).load();
     new Audio(somVoltar).load();
+    new Audio(somPainelLateral).load();
+    new Audio(somTopPainel).load();
+    new Audio(somRecarregarAmostragem).load();
   } catch {}
 }
 
@@ -138,12 +160,49 @@ function CyberTypewriter({ text, active, delay = 0, speed = 42, cursorColor = 'c
   );
 }
 
+// Componente resiliente para fotografia de missão orbital:
+// Garante que containers vazios ou com falha de carregamento nunca deixem bordas ou linhas fantasmas no HUD
+function FicheImage({ src, alt }) {
+  const [loaded, setLoaded] = useState(false);
+  const [hasError, setHasError] = useState(false);
+
+  useEffect(() => {
+    setLoaded(false);
+    setHasError(false);
+  }, [src]);
+
+  if (hasError || !src) return null;
+
+  return (
+    <div
+      className="fiche-image-container"
+      style={{ display: loaded ? 'block' : 'none' }}
+    >
+      <img
+        src={src}
+        alt={alt}
+        className="fiche-image"
+        onLoad={() => setLoaded(true)}
+        onError={() => setHasError(true)}
+        referrerPolicy="no-referrer"
+      />
+      {loaded && (
+        <div className="fiche-image-badge">Fotografia Oficial da Missão</div>
+      )}
+    </div>
+  );
+}
+
 // Dados e textos oficiais da seção SOBRE A PLATAFORMA
 const SOBRE_PLATAFORMA_SECOES = [
   {
     id: 'missao',
     title: 'MISSÃO',
-    text: 'O OrbitalED foi criado para desmistificar a mecânica celeste para estudantes, professores e entusiastas. A plataforma substitui coordenadas numéricas abstratas por representações espaciais em 3D intuitivas, tornando o aprendizado visual e conscientizando sobre o tráfego de satélites e a sustentabilidade orbital.'
+    text: (
+      <>
+        A <span className="brand-logo-text"><span className="brand-logo-white">Orbital</span><span className="brand-logo-cyan">ED</span></span> foi criada para desmistificar a mecânica celeste para estudantes, professores e entusiastas. A plataforma substitui coordenadas numéricas abstratas por representações espaciais em 3D intuitivas, tornando o aprendizado visual e conscientizando sobre o tráfego de satélites e a sustentabilidade orbital.
+      </>
+    )
   },
   {
     id: 'engenharia',
@@ -475,7 +534,7 @@ function App() {
   };
 
   const handleAbrirSustentabilidade = () => {
-    tocarEfeitoSonoro(somConsoleButtons, 0.65);
+    tocarEfeitoSonoro(somTopPainel, 0.65);
     setModalFechando(false);
     setModalGlossarioAberto(false);
     setModalTutorialAberto(false);
@@ -483,7 +542,7 @@ function App() {
   };
 
   const handleAbrirGlossario = () => {
-    tocarEfeitoSonoro(somConsoleButtons, 0.65);
+    tocarEfeitoSonoro(somTopPainel, 0.65);
     setModalFechando(false);
     setModalSustentabilidadeAberto(false);
     setModalTutorialAberto(false);
@@ -491,7 +550,7 @@ function App() {
   };
 
   const handleAbrirTutorial = () => {
-    tocarEfeitoSonoro(somConsoleButtons, 0.65);
+    tocarEfeitoSonoro(somTopPainel, 0.65);
     setModalFechando(false);
     setModalSustentabilidadeAberto(false);
     setModalGlossarioAberto(false);
@@ -499,7 +558,7 @@ function App() {
   };
 
   const handleAlternarPainelEsquerdo = (abrir) => {
-    tocarEfeitoSonoro(somFadeIn, 0.65);
+    tocarEfeitoSonoro(somPainelLateral, 0.65);
     setPainelEsquerdoAberto(abrir);
     if (abrir && window.innerWidth < 950) {
       setPainelDireitoAberto(false);
@@ -507,7 +566,7 @@ function App() {
   };
 
   const handleAlternarPainelDireito = (abrir) => {
-    tocarEfeitoSonoro(somFadeIn, 0.65);
+    tocarEfeitoSonoro(somPainelLateral, 0.65);
     setPainelDireitoAberto(abrir);
     if (abrir && window.innerWidth < 950) {
       setPainelEsquerdoAberto(false);
@@ -672,7 +731,7 @@ function App() {
 
   const handleRecarregarAmostra = () => {
     if (recarregandoAmostra || loading) return;
-    tocarEfeitoSonoro(somConsoleButtons, 0.65);
+    tocarEfeitoSonoro(somRecarregarAmostragem, 0.65);
     setRecarregandoAmostra(true);
     setAmostraSeed(Date.now());
   };
@@ -711,7 +770,8 @@ function App() {
         orbitaEntidadeRef.current = null;
       }
 
-      const pontos = gerarPontosOrbita(tle.linha1, tle.linha2, new Date(), 120);
+      const tempoBase = viewerInstance.clock ? window.Cesium.JulianDate.toDate(viewerInstance.clock.currentTime) : new Date();
+      const pontos = gerarPontosOrbita(tle.linha1, tle.linha2, tempoBase, 180);
       if (!pontos || pontos.length < 10) return;
 
       const entidadeOrbita = viewerInstance.entities.add({
@@ -765,6 +825,24 @@ function App() {
       }
     } else {
       setParametrosOrbitaisSat(null);
+    }
+
+    // Busca dados enriquecidos sob demanda (COSPAR, local de lançamento, status e histórico SATCAT)
+    if (sat && sat.norad_id) {
+      fetch(`${API_URL}/api/objetos/${sat.norad_id}`)
+        .then(res => res.ok ? res.json() : null)
+        .then(dadosCompletos => {
+          if (dadosCompletos && satSelecionadoRef.current && String(satSelecionadoRef.current.norad_id) === String(sat.norad_id)) {
+            setSatSelecionado(prev => ({
+              ...prev,
+              ...dadosCompletos,
+              ultimo_tle: dadosCompletos.ultimo_tle || prev?.ultimo_tle
+            }));
+          }
+        })
+        .catch(err => {
+          console.warn("Aviso ao buscar detalhes atualizados do satélite:", err);
+        });
     }
   };
 
@@ -1210,8 +1288,11 @@ function App() {
       if (catId === 4) {
         return (sat.norad_id === '25544' || sat.norad_id === '48274') && Boolean(sat.ultimo_tle);
       }
-      // Nunca renderiza módulos acoplados como satélites avulsos no radar
+      // Nunca renderiza módulos acoplados nem componentes de estações no globo
       if (sat.estacao_pai_norad) return false;
+      const nomeUpper = String(sat.nome || '').toUpperCase();
+      if (nomeUpper.startsWith('ISS (') && sat.norad_id !== '25544') return false;
+      if (nomeUpper.startsWith('CSS (') && sat.norad_id !== '48274') return false;
 
       const isAtiva = (catId in categoriasAtivas) && categoriasAtivas[catId];
       return isAtiva && Boolean(sat.ultimo_tle);
@@ -1242,17 +1323,9 @@ function App() {
 
               if (posEci) {
                 const posGd = satellite.eciToGeodetic(posEci, gmst);
-                let longitude = satellite.degreesLong(posGd.longitude);
-                let latitude = satellite.degreesLat(posGd.latitude);
-                let altitude = posGd.height * 1000;
-
-                // Jitter determinístico para evitar sobreposição perfeita
-                const idNum = parseInt(sat.norad_id, 10) || 0;
-                const desvioRaio = 0.06;
-                const angulo = idNum * 1.7;
-                longitude += Math.cos(angulo) * desvioRaio;
-                latitude += Math.sin(angulo) * desvioRaio;
-                altitude += (idNum % 7) * 3000;
+                const longitude = satellite.degreesLong(posGd.longitude);
+                const latitude = satellite.degreesLat(posGd.latitude);
+                const altitude = posGd.height * 1000;
 
                 return window.Cesium.Cartesian3.fromDegrees(longitude, latitude, altitude, undefined, result);
               }
@@ -1342,12 +1415,13 @@ function App() {
       return estatisticas.totais_oficiais;
     }
     return {
-      ativos: 16503,
-      inativos: 2782,
-      foguetes: 2295,
-      detritos: 12522,
+      ativos: 4916,
+      inativos: 1473,
+      foguetes: 2283,
+      detritos: 2838,
       estacoes: 2,
-      total: 34104
+      total: 11535,
+      total_em_orbita: 11535
     };
   };
 
@@ -1375,12 +1449,17 @@ function App() {
 
     objetos.forEach(sat => {
       const catId = Number(sat.categoria_id);
+      if (sat.estacao_pai_norad) return;
+      const nomeUpper = String(sat.nome || '').toUpperCase();
+      if (nomeUpper.startsWith('ISS (') && sat.norad_id !== '25544') return;
+      if (nomeUpper.startsWith('CSS (') && sat.norad_id !== '48274') return;
+
       if (sat.ultimo_tle) {
         if (catId === 4) {
           if (sat.norad_id === '25544' || sat.norad_id === '48274') {
             counts[4]++;
           }
-        } else if (!sat.estacao_pai_norad && counts[catId] !== undefined) {
+        } else if (counts[catId] !== undefined) {
           counts[catId]++;
         }
       }
@@ -1405,6 +1484,9 @@ function App() {
       const catId = Number(sat.categoria_id);
       if (catId === 4 && sat.norad_id !== '25544' && sat.norad_id !== '48274') return;
       if (sat.estacao_pai_norad) return;
+      const nomeUpper = String(sat.nome || '').toUpperCase();
+      if (nomeUpper.startsWith('ISS (') && sat.norad_id !== '25544') return;
+      if (nomeUpper.startsWith('CSS (') && sat.norad_id !== '48274') return;
 
       if (categoriasAtivas[catId] && sat.ultimo_tle && sat.ultimo_tle.linha1 && sat.ultimo_tle.linha2) {
         const regime = classificarRegimeOrbital(sat.ultimo_tle.linha1, sat.ultimo_tle.linha2);
@@ -1607,7 +1689,7 @@ function App() {
                           </div>
                           <div className="about-metric-divider"></div>
                           <div className="about-metric-item">
-                            <span className="about-metric-val">~6.300</span>
+                            <span className="about-metric-val">11.000+</span>
                             <span className="about-metric-lbl">Catálogo no Banco Local</span>
                             <span className="about-metric-sub">Sincronizado via CelesTrak</span>
                           </div>
@@ -1947,7 +2029,7 @@ function App() {
           <header className="hud-header">
             <div className="brand-section">
               <h1 className="brand-title">
-                <span>Orbital</span>ED
+                Orbital<span>ED</span>
               </h1>
               <div className="system-status">
                 <span className="status-dot"></span>
@@ -2103,12 +2185,12 @@ function App() {
               </div>
 
               <div className="panel-content">
-                {/* Total no Radar com distinção Catalogado vs Propagado 3D */}
+                {/* Total no Radar com contagem de objetos atualmente em órbita */}
                 <div className="stat-card" style={{ display: 'flex', flexDirection: 'column', minHeight: '105px', flexShrink: 0, padding: '14px 16px', boxSizing: 'border-box' }}>
-                  <div className="stat-label">Catálogo Orbital Monitorado</div>
+                  <div className="stat-label">Objetos em Órbita</div>
                   <div className="stat-value" style={{ display: 'flex', alignItems: 'baseline', gap: '6px', fontSize: '30px', fontWeight: 700, color: '#ffffff', marginTop: '8px', lineHeight: 1 }}>
-                    {loading ? "---" : (obterContadoresCategorias().total || 34104).toLocaleString('pt-BR')}
-                    <span style={{ color: 'var(--neon-cyan)', fontSize: '13px', fontWeight: 600, letterSpacing: '0.8px' }}>OBJETOS</span>
+                    {loading ? "---" : (estatisticas?.total_em_orbita || obterContadoresCategorias().total_em_orbita || 11535).toLocaleString('pt-BR')}
+                    <span style={{ color: 'var(--neon-cyan)', fontSize: '13px', fontWeight: 600, letterSpacing: '0.8px' }}>ATIVOS</span>
                   </div>
                   <div className="stat-sublabel" style={{ display: 'block', marginTop: '8px', paddingTop: '6px', borderTop: '1px dashed rgba(0, 240, 255, 0.15)', fontSize: '9.5px', color: 'var(--text-muted)', lineHeight: 1.3 }}>
                     Amostragem ativa: <strong style={{ color: 'var(--neon-cyan)', fontWeight: 700 }}>{loading ? '...' : (objetos.length || 1002).toLocaleString('pt-BR')}</strong> no radar
@@ -2180,7 +2262,7 @@ function App() {
                     <span className="category-count">
                       {loading && objetos.length === 0
                         ? "---"
-                        : `${(contadoresVisiveisCategorias[5] || 0).toLocaleString('pt-BR')} / ${(obterContadoresCategorias().foguetes || 2295).toLocaleString('pt-BR')}`}
+                        : `${(contadoresVisiveisCategorias[5] || 0).toLocaleString('pt-BR')} / ${(obterContadoresCategorias().foguetes || 2283).toLocaleString('pt-BR')}`}
                     </span>
                   </div>
 
@@ -2339,23 +2421,48 @@ function App() {
                 {satSelecionado ? (
                   <div className="satellite-fiche">
 
-                    {/* Cabeçalho da Ficha */}
+                    {/* Cabeçalho da Ficha com Digitação Tática */}
                     <div className="fiche-header">
-                      <h3 className="sat-title">{satSelecionado.nome}</h3>
-                      <div className="sat-subtitle">NORAD CATALOG: #{satSelecionado.norad_id}</div>
+                      <h3 className="sat-title">
+                        <CyberTypewriter
+                          key={`sat-nome-${satSelecionado.norad_id}`}
+                          text={satSelecionado.nome || 'OBJETO ORBITAL'}
+                          active={Boolean(satSelecionado)}
+                          delay={30}
+                          speed={25}
+                        />
+                      </h3>
+                      <div className="sat-norad-header">
+                        <CyberTypewriter
+                          key={`sat-norad-${satSelecionado.norad_id}`}
+                          text={`#${satSelecionado.norad_id}`}
+                          active={Boolean(satSelecionado)}
+                          delay={120}
+                          speed={25}
+                        />
+                      </div>
                     </div>
 
-                    {/* Fotografia Real da Missão (Wikimedia Commons / Wikidata) */}
-                    {satSelecionado.missao?.imagem_url && (
-                      <div className="fiche-image-container">
-                        <img
-                          src={satSelecionado.missao.imagem_url}
-                          alt={satSelecionado.nome}
-                          className="fiche-image"
-                          onError={(e) => { e.currentTarget.style.display = 'none'; }}
-                        />
-                        <div className="fiche-image-badge">Fotografia Oficial / Wikidata</div>
+                    {/* Alerta de Objeto Fora de Órbita / Reentrada Atmosférica */}
+                    {satSelecionado.data_decaimento && (
+                      <div className="decay-warning-card">
+                        <AlertTriangle size={16} color="#ff0055" style={{ flexShrink: 0 }} />
+                        <div>
+                          <div className="decay-warning-badge">OBJETO FORA DE ÓRBITA</div>
+                          <div className="decay-warning-text">
+                            Reentrou na atmosfera terrestre em <strong>{formatarDataBrasileira(satSelecionado.data_decaimento)}</strong>. Removido da telemetria de voo 3D.
+                          </div>
+                        </div>
                       </div>
+                    )}
+
+                    {/* Fotografia Real da Missão (Renderizada com resiliência total a falhas) */}
+                    {satSelecionado.missao?.imagem_url && (
+                      <FicheImage
+                        key={`fiche-img-${satSelecionado.norad_id}`}
+                        src={satSelecionado.missao.imagem_url}
+                        alt={satSelecionado.nome}
+                      />
                     )}
 
                     {/* Badge da Categoria */}
@@ -2369,7 +2476,7 @@ function App() {
                       </div>
                     </div>
 
-                    {/* Grid de Metadados Básicos: [País] - [Operador] / [Lançamento] - [Massa] */}
+                    {/* Grid de Metadados Básicos: [País] - [COSPAR] / [Lançamento] - [Massa] / [Local de Lançamento (span 2)] */}
                     <div className="fiche-grid">
                       <div className="grid-cell">
                         <span className="cell-label">País</span>
@@ -2378,17 +2485,15 @@ function App() {
                         </span>
                       </div>
                       <div className="grid-cell">
-                        <span className="cell-label">Operador</span>
-                        <span className="cell-value" title={satSelecionado.missao?.operador || satSelecionado.pais || "Agência Não Informada"}>
-                          {satSelecionado.missao?.operador || satSelecionado.pais || "Não Informado"}
+                        <span className="cell-label">COSPAR</span>
+                        <span className="cell-value" title={`Designador Internacional COSPAR ${satSelecionado.cospar_id || 'Não catalogado'}`}>
+                          {satSelecionado.cospar_id || "Não Catalogado"}
                         </span>
                       </div>
                       <div className="grid-cell">
                         <span className="cell-label">Lançamento</span>
                         <span className="cell-value">
-                          {satSelecionado.data_lancamento
-                            ? new Date(satSelecionado.data_lancamento).getFullYear()
-                            : "Histórico"}
+                          {formatarDataBrasileira(satSelecionado.data_lancamento)}
                         </span>
                       </div>
                       <div className="grid-cell">
@@ -2397,6 +2502,12 @@ function App() {
                           {satSelecionado.missao?.massa_kg
                             ? `${Number(satSelecionado.missao.massa_kg).toLocaleString('pt-BR')} kg`
                             : (Number(satSelecionado.categoria_id) === 3 ? "Fragmento Irregular" : (Number(satSelecionado.categoria_id) === 5 ? "Estágio Inerte" : "Não Informada"))}
+                        </span>
+                      </div>
+                      <div className="grid-cell full-width">
+                        <span className="cell-label">Local de Lançamento</span>
+                        <span className="cell-value" title={satSelecionado.local_lancamento || "Cosmódromo / Centro de Lançamento"}>
+                          {satSelecionado.local_lancamento || "Não informado"}
                         </span>
                       </div>
                     </div>
@@ -2441,24 +2552,32 @@ function App() {
                       </div>
                     )}
 
-                    {/* MÓDULO DIDÁTICO: DINÂMICA ORBITAL */}
+                    {/* MÓDULO DIDÁTICO: DADOS ORBITAIS */}
                     {parametrosOrbitaisSat && (
                       <div className="telemetry-dashboard-card">
                         <div className="telemetry-card-title">
                           <Activity size={14} className="telemetry-icon" />
-                          <span>DINÂMICA ORBITAL</span>
+                          <CyberTypewriter
+                            key={satSelecionado?.norad_id || 'dados-orbitais'}
+                            text="DADOS ORBITAIS"
+                            active={Boolean(parametrosOrbitaisSat)}
+                            delay={60}
+                            speed={35}
+                          />
                         </div>
 
                         <div className="telemetry-metrics-grid">
-                          {/* Altitude Instantânea */}
-                          <div className="telemetry-metric-box highlight-metric">
-                            <div className="metric-box-top-row">
-                              <span className="metric-box-label">ALTITUDE INSTANTÂNEA</span>
-                              <span className="metric-box-tag">{parametrosOrbitaisSat.regimeCodigo}</span>
-                            </div>
+                          {/* Altitude */}
+                          <div className={`telemetry-metric-box highlight-metric regime-${(parametrosOrbitaisSat.regimeCodigo || 'LEO').toLowerCase()}`}>
+                            <span className="metric-box-label">ALTITUDE</span>
                             <span className="metric-box-val">
                               {parametrosOrbitaisSat.altitudeInstantaneaKm.toLocaleString('pt-BR')} km
                             </span>
+                            <div className="metric-box-sub" style={{ display: 'flex', justifyContent: 'flex-end', width: '100%' }}>
+                              <span className={`metric-box-tag tag-${(parametrosOrbitaisSat.regimeCodigo || 'LEO').toLowerCase()}`}>
+                                {parametrosOrbitaisSat.regimeCodigo}
+                              </span>
+                            </div>
                           </div>
 
                           {/* Velocidade Orbital */}
@@ -2494,7 +2613,7 @@ function App() {
                         {/* Classificação da Rota */}
                         <div className="telemetry-detail-row">
                           <span className="detail-row-title">
-                            CLASSIFICAÇÃO DA ROTA: {parametrosOrbitaisSat.classeInclinacao} — Inclinação: {parametrosOrbitaisSat.inclinacaoGraus.toFixed(1)}°
+                            CLASSIFICAÇÃO DA ROTA ORBITAL: {(parametrosOrbitaisSat.classeRotaCurta || parametrosOrbitaisSat.classeInclinacao.replace(/^Órbita (de )?/i, ''))} - {Number(parametrosOrbitaisSat.inclinacaoGraus.toFixed(1))}°
                           </span>
                           <p className="detail-row-desc">{parametrosOrbitaisSat.descricaoInclinacao}</p>
                         </div>
@@ -2505,6 +2624,9 @@ function App() {
                           <p className="detail-row-desc">
                             Permanência estimada: <strong>{parametrosOrbitaisSat.estimativaVida}</strong>. {parametrosOrbitaisSat.impactoAmbientalReentrada}
                           </p>
+                          <span className="environmental-source">
+                            Fonte: Modelos de Decaimento por Arrasto Atmosférico (NASA / IADC / SGP4)
+                          </span>
                         </div>
                       </div>
                     )}
@@ -2519,17 +2641,6 @@ function App() {
                         <blockquote className="mission-context-quote">
                           "{satSelecionado.missao?.descricao || fichaFactual?.contextoMissao}"
                         </blockquote>
-                        {satSelecionado.missao?.artigo_url && (
-                          <a
-                            href={satSelecionado.missao.artigo_url}
-                            target="_blank"
-                            rel="noreferrer"
-                            className="wikidata-source-link"
-                          >
-                            <span>Ver registro oficial na Wikidata ({satSelecionado.missao.wikidata_id || `NORAD #${satSelecionado.norad_id}`})</span>
-                            <ChevronRight size={12} />
-                          </a>
-                        )}
                       </div>
                     )}
 

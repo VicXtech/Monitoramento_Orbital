@@ -59,8 +59,8 @@
   background: var(--bg-panel);
   backdrop-filter: var(--glass-blur);
   border: 1px solid var(--border-color);
-  padding: 12px 24px;
-  clip-path: polygon(0 0, 100% 0, 92% 100%, 0 100%);
+  border-radius: 4px;
+  padding: 12px 20px;
   display: flex;
   flex-direction: column;
   box-shadow: var(--glow-cyan);
@@ -77,6 +77,21 @@
 .brand-title span {
   color: var(--neon-cyan);
   text-shadow: 0 0 8px rgba(0, 240, 255, 0.6);
+}
+
+.brand-logo-text {
+  font-family: var(--mono-font);
+  font-weight: 700;
+  letter-spacing: 0.8px;
+}
+
+.brand-logo-cyan {
+  color: var(--neon-cyan);
+  text-shadow: 0 0 8px rgba(0, 240, 255, 0.6);
+}
+
+.brand-logo-white {
+  color: #ffffff;
 }
 
 .system-status {
@@ -301,16 +316,7 @@
   font-weight: 700;
 }
 
-.stat-card::before {
-  content: '';
-  position: absolute;
-  top: 0;
-  left: 0;
-  width: 4px;
-  height: 100%;
-  background: var(--neon-cyan);
-  box-shadow: var(--glow-cyan);
-}
+
 
 .stat-label {
   font-family: var(--mono-font);
@@ -831,8 +837,12 @@
   font-family: var(--mono-font);
   font-size: 18px;
   font-weight: 700;
-  color: #fff;
+  color: var(--neon-cyan);
+  text-shadow: 0 0 10px rgba(0, 240, 255, 0.45);
   letter-spacing: 0.5px;
+  min-height: 24px;
+  display: flex;
+  align-items: center;
 }
 
 .sat-subtitle {
@@ -840,6 +850,22 @@
   font-size: 12px;
   color: var(--neon-cyan);
   margin-top: 4px;
+  min-height: 18px;
+  display: flex;
+  align-items: center;
+}
+
+.sat-norad-header {
+  font-family: var(--mono-font);
+  font-size: 13px;
+  font-weight: 700;
+  color: var(--neon-cyan);
+  text-shadow: 0 0 8px rgba(0, 240, 255, 0.4);
+  letter-spacing: 1px;
+  margin-top: 2px;
+  min-height: 18px;
+  display: flex;
+  align-items: center;
 }
 
 /* Grid de Dados Rápidos */
@@ -857,6 +883,39 @@
   display: flex;
   flex-direction: column;
   gap: 4px;
+}
+
+.grid-cell.full-width {
+  grid-column: span 2;
+}
+
+/* Card de Alerta de Objeto Fora de Órbita / Reentrada */
+.decay-warning-card {
+  background: rgba(255, 0, 85, 0.08);
+  border: 1px solid rgba(255, 0, 85, 0.35);
+  border-radius: 4px;
+  padding: 8px 12px;
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  margin-bottom: 12px;
+  box-shadow: 0 0 15px rgba(255, 0, 85, 0.15);
+}
+
+.decay-warning-badge {
+  font-family: var(--mono-font);
+  font-size: 10px;
+  font-weight: 800;
+  color: #ff0055;
+  letter-spacing: 0.8px;
+  white-space: nowrap;
+}
+
+.decay-warning-text {
+  font-family: var(--mono-font);
+  font-size: 10px;
+  color: rgba(255, 255, 255, 0.85);
+  line-height: 1.3;
 }
 
 .cell-label {
@@ -890,6 +949,11 @@
   border: 1px solid rgba(0, 240, 255, 0.2);
   background: #020205;
   box-shadow: 0 4px 20px rgba(0, 0, 0, 0.5);
+}
+
+.fiche-image-container:empty,
+.fiche-image-container:has(img[style*="display: none"]) {
+  display: none !important;
 }
 
 .fiche-image {
@@ -991,7 +1055,6 @@
   flex-direction: column;
   background: rgba(255, 255, 255, 0.02);
   border: 1px solid rgba(255, 255, 255, 0.05);
-  border-left: 3px solid var(--neon-cyan);
   padding: 8px 10px;
   border-radius: 4px;
   cursor: pointer;
@@ -1352,6 +1415,9 @@
   padding: 8px 10px;
   display: flex;
   flex-direction: column;
+  justify-content: space-between;
+  min-height: 64px;
+  box-sizing: border-box;
   gap: 2px;
   position: relative;
 }
@@ -1359,6 +1425,27 @@
 .telemetry-metric-box.highlight-metric {
   border-color: rgba(0, 240, 255, 0.3);
   background: rgba(0, 240, 255, 0.04);
+}
+
+/* Variações de cor do card de Altitude por regime orbital (correspondendo ao painel esquerdo) */
+.telemetry-metric-box.highlight-metric.regime-leo {
+  border-color: rgba(0, 240, 255, 0.35);
+  background: rgba(0, 240, 255, 0.05);
+}
+
+.telemetry-metric-box.highlight-metric.regime-meo {
+  border-color: rgba(56, 189, 248, 0.35);
+  background: rgba(56, 189, 248, 0.05);
+}
+
+.telemetry-metric-box.highlight-metric.regime-geo {
+  border-color: rgba(129, 140, 248, 0.35);
+  background: rgba(129, 140, 248, 0.05);
+}
+
+.telemetry-metric-box.highlight-metric.regime-heo {
+  border-color: rgba(192, 132, 252, 0.35);
+  background: rgba(192, 132, 252, 0.05);
 }
 
 .metric-box-top-row {
@@ -1389,9 +1476,25 @@
   letter-spacing: -0.2px;
 }
 
-.highlight-metric .metric-box-val {
+.highlight-metric .metric-box-val,
+.highlight-metric.regime-leo .metric-box-val {
   color: var(--neon-cyan);
   text-shadow: 0 0 6px rgba(0, 240, 255, 0.4);
+}
+
+.highlight-metric.regime-meo .metric-box-val {
+  color: #38bdf8;
+  text-shadow: 0 0 6px rgba(56, 189, 248, 0.45);
+}
+
+.highlight-metric.regime-geo .metric-box-val {
+  color: #818cf8;
+  text-shadow: 0 0 6px rgba(129, 140, 248, 0.45);
+}
+
+.highlight-metric.regime-heo .metric-box-val {
+  color: #c084fc;
+  text-shadow: 0 0 6px rgba(192, 132, 252, 0.45);
 }
 
 .metric-box-tag {
@@ -1405,6 +1508,30 @@
   padding: 1px 5px;
   border-radius: 2px;
   line-height: 1.2;
+}
+
+.metric-box-tag.tag-leo {
+  color: var(--neon-cyan);
+  background: rgba(0, 240, 255, 0.15);
+  border-color: rgba(0, 240, 255, 0.4);
+}
+
+.metric-box-tag.tag-meo {
+  color: #38bdf8;
+  background: rgba(56, 189, 248, 0.15);
+  border-color: rgba(56, 189, 248, 0.4);
+}
+
+.metric-box-tag.tag-geo {
+  color: #818cf8;
+  background: rgba(129, 140, 248, 0.15);
+  border-color: rgba(129, 140, 248, 0.4);
+}
+
+.metric-box-tag.tag-heo {
+  color: #c084fc;
+  background: rgba(192, 132, 252, 0.15);
+  border-color: rgba(192, 132, 252, 0.4);
 }
 
 .metric-box-sub {
@@ -1450,6 +1577,18 @@
 
 .detail-row-desc strong {
   color: #fff;
+}
+
+.environmental-source {
+  font-family: var(--mono-font);
+  font-size: 8.5px;
+  color: var(--text-muted);
+  opacity: 0.75;
+  letter-spacing: 0.3px;
+  margin-top: 2px;
+  padding-top: 4px;
+  border-top: 1px dashed rgba(255, 153, 0, 0.2);
+  display: block;
 }
 
 /* ==========================================
@@ -1540,7 +1679,6 @@
 .mission-context-card {
   background: rgba(0, 20, 35, 0.55);
   border: 1px solid rgba(0, 240, 255, 0.18);
-  border-left: 3px solid var(--neon-cyan);
   border-radius: 4px;
   padding: 12px 14px;
   display: flex;

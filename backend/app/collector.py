@@ -12,10 +12,14 @@ logger = logging.getLogger("APIConector")
 
 # Mapeamento de módulos e naves filhas das Estações Principais
 MODULOS_ISS = {
+    "25575": {"nome": "ISS (UNITY)", "pais": "Estados Unidos", "funcao": "Módulo de Conexão Unity Node 1 (NASA)"},
+    "26400": {"nome": "ISS (ZVEZDA)", "pais": "Rússia", "funcao": "Módulo de Serviço Habitacional Zvezda (Roscosmos)"},
+    "26700": {"nome": "ISS (DESTINY)", "pais": "Estados Unidos", "funcao": "Laboratório Científico Primário Destiny (NASA)"},
     "36086": {"nome": "POISK", "pais": "Rússia", "funcao": "Módulo de Pesquisa e Acoplagem Mini-Research 2 (Roscosmos)"},
     "49044": {"nome": "ISS (NAUKA)", "pais": "Rússia", "funcao": "Módulo Laboratório Científico Multiuso (Roscosmos)"},
     "67796": {"nome": "CREW DRAGON 12", "pais": "Estados Unidos", "funcao": "Cápsula Tripulada Comercial (SpaceX / NASA)"},
     "68837": {"nome": "PROGRESS-MS 34", "pais": "Rússia", "funcao": "Nave Cargueira Automática de Suprimentos (Roscosmos)"},
+    "68319": {"nome": "PROGRESS-MS 33", "pais": "Rússia", "funcao": "Nave Cargueira Automática de Suprimentos (Roscosmos)"},
     "68689": {"nome": "CYGNUS NG-24", "pais": "Estados Unidos", "funcao": "Cargueiro Logístico Espacial (Northrop Grumman / NASA)"},
     "66906": {"nome": "DUPLEX", "pais": "Estados Unidos", "funcao": "Experimento Tecnológico Ejetado da ISS"},
     "67683": {"nome": "KNACKSAT-2", "pais": "Tailândia", "funcao": "CubeSat Científico Ejetado do Módulo Kibo"},
@@ -31,13 +35,126 @@ MODULOS_TIANGONG = {
     "53239": {"nome": "CSS (WENTIAN)", "pais": "China", "funcao": "Módulo Laboratório de Ciências da Vida e Biotecnologia"},
     "54216": {"nome": "CSS (MENGTIAN)", "pais": "China", "funcao": "Módulo Laboratório de Física de Fluidos e Microgravidade"},
     "69180": {"nome": "SHENZHOU-23 (SZ-23)", "pais": "China", "funcao": "Nave Espacial Tripulada de Rotação de Taikonautas (CMSA)"},
+    "66645": {"nome": "SHENZHOU-22", "pais": "China", "funcao": "Nave Espacial Tripulada de Apoio (CMSA)"},
     "69049": {"nome": "TIANZHOU-10", "pais": "China", "funcao": "Nave Cargueira Automatizada de Reabastecimento"},
     "66515": {"nome": "SZ-21 MODULE", "pais": "China", "funcao": "Módulo Orbital de Suporte a Missão Shenzhou"}
+}
+
+# Mapeamento oficial de bases e cosmódromos (CelesTrak SATCAT LAUNCH_SITE)
+SITES_LANCAMENTO = {
+    "TYMSC": "Cosmódromo de Baikonur (Cazaquistão)",
+    "AFETR": "Cabo Canaveral (EUA)",
+    "CCAFS": "Cabo Canaveral (EUA)",
+    "KSC": "Centro Espacial Kennedy (EUA)",
+    "CSG": "Centro Espacial de Kourou (Guiana Francesa)",
+    "JSC": "Centro de Lançamento de Jiuquan (China)",
+    "TYSC": "Centro de Lançamento de Taiyuan (China)",
+    "XSC": "Centro de Lançamento de Xichang (China)",
+    "XICLF": "Centro de Lançamento de Xichang (China)",
+    "WSC": "Centro de Lançamento de Wenchang (China)",
+    "WENCL": "Centro de Lançamento de Wenchang (China)",
+    "PLMSC": "Cosmódromo de Plesetsk (Rússia)",
+    "VOSTO": "Cosmódromo de Vostochny (Rússia)",
+    "KYMTR": "Cosmódromo de Kapustin Yar (Rússia)",
+    "SVOB": "Cosmódromo de Svobodny (Rússia)",
+    "VAFB": "Base da Força Espacial de Vandenberg (EUA)",
+    "AFWTR": "Base da Força Espacial de Vandenberg (EUA)",
+    "WLPIS": "Wallops Flight Facility (EUA)",
+    "KWAJ": "Atol de Kwajalein (EUA)",
+    "TNSC": "Centro Espacial de Tanegashima (Japão)",
+    "USC": "Centro Espacial de Uchinoura (Japão)",
+    "SRI": "Centro Espacial Satish Dhawan (Índia)",
+    "SEM": "Centro Espacial Semnan (Irã)",
+    "SOE": "Centro de Lançamento de Sohae (Coreia do Norte)",
+    "NAR": "Centro Espacial de Naro (Coreia do Sul)",
+    "PAL": "Base Aérea de Palmachim (Israel)",
+    "ALC": "Centro de Lançamento de Alcântara (Brasil)",
+    "BARN": "Centro de Lançamento da Barreira do Inferno (Brasil)",
+    "AND": "Andøya Space (Noruega)",
+    "ESR": "Esrange Space Center (Suécia)",
+    "RLLB": "Mahia Peninsula (Nova Zelândia)"
+}
+
+# Ficha factual e fotografia oficial para grandes satélites históricos e científicos
+SATELLITES_HISTORICOS_INFO = {
+    "25544": {
+        "descricao": "Estação Espacial Internacional (ISS) — Complexo laboratorial modular multinacional habitado continuamente desde novembro de 2000 em órbita baixa (LEO). Programa conjunto entre NASA, Roscosmos, ESA, JAXA e CSA.",
+        "operador": "NASA / Roscosmos / ESA / JAXA / CSA",
+        "massa_kg": 419725.0,
+        "imagem_url": "https://upload.wikimedia.org/wikipedia/commons/thumb/0/04/International_Space_Station_after_undocking_of_STS-132.jpg/640px-International_Space_Station_after_undocking_of_STS-132.jpg"
+    },
+    "48274": {
+        "descricao": "Estação Espacial Chinesa Tiangong (CSS) — Módulo central Tianhe da estação espacial orbital permanente da China, conduzindo pesquisas em microgravidade e ciência espacial.",
+        "operador": "CMSA (Agência Espacial Tripulada da China)",
+        "massa_kg": 22500.0,
+        "imagem_url": "https://upload.wikimedia.org/wikipedia/commons/thumb/d/d4/Tianhe_core_module_in_orbit.jpg/640px-Tianhe_core_module_in_orbit.jpg"
+    },
+    "20580": {
+        "descricao": "Telescópio Espacial Hubble (HST) — Observatório espacial operando na faixa visível, ultravioleta e infravermelho próximo, revolucionando a astrofísica moderna desde abril de 1990.",
+        "operador": "NASA / ESA",
+        "massa_kg": 11110.0,
+        "imagem_url": "https://upload.wikimedia.org/wikipedia/commons/thumb/3/3f/HST-SM4.jpeg/640px-HST-SM4.jpeg"
+    },
+    "22823": {
+        "descricao": "SCD-1 (Satélite de Coleta de Dados 1) — Primeiro satélite inteiramente fabricado e testado no Brasil, operando continuamente desde fevereiro de 1993 em monitoramento ambiental e meteorológico.",
+        "operador": "INPE (Brasil)",
+        "massa_kg": 115.0,
+        "imagem_url": "https://upload.wikimedia.org/wikipedia/commons/thumb/b/b3/SCD-1.jpg/640px-SCD-1.jpg"
+    },
+    "25400": {
+        "descricao": "SCD-2 (Satélite de Coleta de Dados 2) — Segundo satélite brasileiro de coleta de dados ambientais, transmitindo telemetria de plataformas hidrológicas e meteorológicas da Amazônia desde outubro de 1998.",
+        "operador": "INPE (Brasil)",
+        "massa_kg": 115.0,
+        "imagem_url": "https://upload.wikimedia.org/wikipedia/commons/thumb/5/52/SCD-2_satellite.jpg/640px-SCD-2_satellite.jpg"
+    },
+    "54380": {
+        "descricao": "Amazonia-1 — Primeiro satélite de sensoriamento remoto de grande porte projetado, integrado e testado no Brasil pelo INPE, monitorando o desmatamento na Amazônia e a agricultura.",
+        "operador": "INPE (Brasil)",
+        "massa_kg": 638.0,
+        "imagem_url": "https://upload.wikimedia.org/wikipedia/commons/thumb/8/87/Amazonia-1_satellite.jpg/640px-Amazonia-1_satellite.jpg"
+    },
+    "44883": {
+        "descricao": "CBERS-4A — Satélite do Programa Sino-Brasileiro de Recursos Terrestres, capturando imagens ópticas de alta resolução para gestão territorial, recursos hídricos e preservação florestal.",
+        "operador": "INPE (Brasil) / CAST (China)",
+        "massa_kg": 1980.0,
+        "imagem_url": "https://upload.wikimedia.org/wikipedia/commons/thumb/a/a2/CBERS-4A.jpg/640px-CBERS-4A.jpg"
+    },
+    "00011": {
+        "descricao": "Vanguard 1 — O mais antigo satélite artificial ainda em órbita na história aeroespacial. Lançado pelos Estados Unidos em 17 de março de 1958.",
+        "operador": "U.S. Navy / NASA",
+        "massa_kg": 1.47,
+        "imagem_url": "https://upload.wikimedia.org/wikipedia/commons/thumb/f/f6/Vanguard_1.jpg/640px-Vanguard_1.jpg"
+    },
+    "24876": {
+        "descricao": "Iridium 33 — Satélite de telecomunicações comerciais que protagonizou em 10 de fevereiro de 2009 a primeira colisão orbital hiperveloz de grande porte da história com o Cosmos 2251.",
+        "operador": "Iridium Communications (EUA)",
+        "massa_kg": 560.0,
+        "imagem_url": "https://upload.wikimedia.org/wikipedia/commons/thumb/b/b5/Iridium_satellite.jpg/640px-Iridium_satellite.jpg"
+    },
+    "22675": {
+        "descricao": "Cosmos 2251 — Satélite militar russo de comunicações Strela-2M desativado que colidiu contra o satélite operacional Iridium 33 em 2009 a 789 km de altitude.",
+        "operador": "Forças Espaciais Russas (Rússia)",
+        "massa_kg": 900.0,
+        "imagem_url": None
+    },
+    "24946": {
+        "descricao": "Fengyun-1C — Satélite meteorológico chinês em órbita polar destruído intencionalmente em janeiro de 2007 durante um teste cinético de míssil antissatélite (ASAT).",
+        "operador": "CMA (Administração Meteorológica da China)",
+        "massa_kg": 958.0,
+        "imagem_url": None
+    },
+    "43013": {
+        "descricao": "NOAA-20 (JPSS-1) — Satélite meteorológico polar de última geração da NOAA e NASA, monitorando previsões de tempo severo, furacões e queimadas globais.",
+        "operador": "NOAA / NASA (EUA)",
+        "massa_kg": 2296.0,
+        "imagem_url": "https://upload.wikimedia.org/wikipedia/commons/thumb/5/53/JPSS-1_artist_rendering.jpg/640px-JPSS-1_artist_rendering.jpg"
+    }
 }
 
 class APIConector:
     def __init__(self):
         self.url_base = "https://celestrak.org/NORAD/elements/gp.php"
+        self.url_satcat = "https://celestrak.org/satcat/records.php"
         self.headers = {
             "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36"
         }
@@ -55,6 +172,19 @@ class APIConector:
             "22675": "Rússia",
             "24946": "Estados Unidos"
         }
+
+    def formatar_cospar_de_tle(self, intl_str: str) -> str:
+        """Decodifica linha1[9:17] (ex: '10007H  ' -> '2010-007H', '98067A  ' -> '1998-067A')"""
+        clean = intl_str.strip() if intl_str else ""
+        if not clean or len(clean) < 3:
+            return None
+        try:
+            yy = int(clean[:2])
+            ano = 1900 + yy if yy >= 57 else 2000 + yy
+            resto = clean[2:]
+            return f"{ano}-{resto}"
+        except Exception:
+            return clean
 
     def inferir_pais_por_nome(self, nome: str, norad_id: str) -> str:
         """Infere o país de origem didaticamente a partir de termos no nome ou NORAD ID."""
@@ -118,11 +248,11 @@ class APIConector:
             return 4, "Ativo (Operacional)", None
 
         # 2. Módulos e naves acopladas à ISS
-        if norad_id in MODULOS_ISS:
+        if norad_id in MODULOS_ISS or (nome_upper.startswith("ISS (") and norad_id != "25544"):
             return 4, "Módulo / Nave Acoplada", "25544"
 
         # 3. Módulos e naves acopladas à Tiangong
-        if norad_id in MODULOS_TIANGONG:
+        if norad_id in MODULOS_TIANGONG or (nome_upper.startswith("CSS (") and norad_id != "48274"):
             return 4, "Módulo / Nave Acoplada", "48274"
 
         # 4. Corpos de Foguetes (R/B) - Categoria 5 (Roxo)
@@ -207,6 +337,9 @@ class APIConector:
                 epoch_dt = self.parse_tle_epoch(epoch_str)
                 pais = self.inferir_pais_por_nome(linha0, norad_id)
 
+                cospar_str = linha1[9:17].strip()
+                cospar_id = self.formatar_cospar_de_tle(cospar_str)
+
                 ano_str = linha1[9:11].strip()
                 ano = None
                 if ano_str.isdigit():
@@ -222,6 +355,7 @@ class APIConector:
                 objetos_a_inserir.append({
                     "nome": linha0,
                     "norad_id": norad_id,
+                    "cospar_id": cospar_id,
                     "pais": pais,
                     "status": status_final,
                     "data_lancamento": data_lancamento,
@@ -255,9 +389,9 @@ class APIConector:
             index_elements=["norad_id"],
             set_={
                 "nome": stmt.excluded.nome,
+                "cospar_id": stmt.excluded.cospar_id,
                 "pais": stmt.excluded.pais,
                 "status": stmt.excluded.status,
-                "data_lancamento": stmt.excluded.data_lancamento,
                 "categoria_id": stmt.excluded.categoria_id,
                 "estacao_pai_norad": stmt.excluded.estacao_pai_norad
             }
@@ -340,110 +474,159 @@ class APIConector:
         db.commit()
         logger.info(f"LOG: Reclassificação concluída. {atualizados} objetos atualizados no banco.")
 
+    def sincronizar_satcat_grupo(self, db: Session, grupo: str = None, name: str = None, special: str = None):
+        """Consulta o SATCAT oficial em JSON para o grupo e atualiza cospar, datas, status e cosmódromo."""
+        params = {}
+        if grupo:
+            params["GROUP"] = grupo
+        elif name:
+            params["NAME"] = name
+        elif special:
+            params["SPECIAL"] = special
+        
+        if not params:
+            return
+
+        try:
+            with httpx.Client(timeout=30.0, headers=self.headers) as client:
+                resp = client.get(self.url_satcat, params=params)
+                if resp.status_code != 200:
+                    return
+                registros = resp.json()
+                if not isinstance(registros, list):
+                    return
+        except Exception as e:
+            logger.warning(f"Aviso ao consultar SATCAT para {params}: {e}")
+            return
+
+        atualizados = 0
+        for r in registros:
+            norad = str(r.get("NORAD_CAT_ID", "")).strip()
+            if not norad:
+                continue
+            obj = db.query(ObjetoOrbital).filter(ObjetoOrbital.norad_id == norad).first()
+            if not obj:
+                continue
+
+            cospar = r.get("OBJECT_ID", "").strip() or None
+            launch_str = r.get("LAUNCH_DATE", "").strip()
+            decay_str = r.get("DECAY_DATE", "").strip()
+            site_code = r.get("LAUNCH_SITE", "").strip()
+            ops_code = r.get("OPS_STATUS_CODE", "").strip() or None
+
+            if cospar:
+                obj.cospar_id = cospar
+            if ops_code:
+                obj.codigo_status = ops_code
+            if launch_str:
+                try:
+                    p = launch_str.split("-")
+                    obj.data_lancamento = date(int(p[0]), int(p[1]), int(p[2]))
+                except Exception:
+                    pass
+            if decay_str:
+                try:
+                    p = decay_str.split("-")
+                    obj.data_decaimento = date(int(p[0]), int(p[1]), int(p[2]))
+                    obj.codigo_status = "D"
+                except Exception:
+                    pass
+            else:
+                obj.data_decaimento = None
+            if site_code:
+                obj.local_lancamento = SITES_LANCAMENTO.get(site_code, f"{site_code} (Base de Lançamento)")
+            atualizados += 1
+
+        if atualizados > 0:
+            db.commit()
+            logger.info(f"LOG: SATCAT atualizou {atualizados} objetos para {params}.")
+
+    def obter_satcat_individual(self, norad_id: str, db: Session):
+        """Busca pontual no CelesTrak SATCAT para um objeto específico (on demand / cache no banco)."""
+        try:
+            with httpx.Client(timeout=10.0, headers=self.headers) as client:
+                resp = client.get(self.url_satcat, params={"CATNR": str(norad_id).strip()})
+                if resp.status_code != 200:
+                    return None
+                data = resp.json()
+                if not data or not isinstance(data, list):
+                    return None
+                r = data[0]
+                
+                obj = db.query(ObjetoOrbital).filter(ObjetoOrbital.norad_id == str(norad_id).strip()).first()
+                if obj:
+                    cospar = r.get("OBJECT_ID", "").strip() or None
+                    launch_str = r.get("LAUNCH_DATE", "").strip()
+                    decay_str = r.get("DECAY_DATE", "").strip()
+                    site_code = r.get("LAUNCH_SITE", "").strip()
+                    ops_code = r.get("OPS_STATUS_CODE", "").strip() or None
+
+                    if cospar:
+                        obj.cospar_id = cospar
+                    if ops_code:
+                        obj.codigo_status = ops_code
+                    if launch_str:
+                        try:
+                            p = launch_str.split("-")
+                            obj.data_lancamento = date(int(p[0]), int(p[1]), int(p[2]))
+                        except Exception:
+                            pass
+                    if decay_str:
+                        try:
+                            p = decay_str.split("-")
+                            obj.data_decaimento = date(int(p[0]), int(p[1]), int(p[2]))
+                            obj.codigo_status = "D"
+                        except Exception:
+                            pass
+                    else:
+                        obj.data_decaimento = None
+                    if site_code:
+                        obj.local_lancamento = SITES_LANCAMENTO.get(site_code, f"{site_code} (Base de Lançamento)")
+                    db.commit()
+                    return obj
+        except Exception as e:
+            logger.warning(f"Erro ao buscar SATCAT individual para {norad_id}: {e}")
+        return None
+
     def enriquecer_com_wikidata(self, db: Session):
         """
-        Enriquece os objetos do banco com dados estruturados da Wikidata em 3 níveis:
-        - Nível 1: Metadados nominais da Wikidata (via P377) para grandes satélites históricos e científicos
+        Enriquece os objetos do banco com dados estruturados e diagnósticos de engenharia:
+        - Nível 1: Metadados históricos e científicos essenciais (ISS, Hubble, SCD, Amazonia)
         - Nível 2: Herança de Constelações (Starlink, OneWeb)
         - Nível 3: Diagnóstico Factual de Engenharia para Corpos de Foguetes e Detritos
         """
-        logger.info("LOG: Iniciando rotina de enriquecimento factual em 3 níveis (Wikidata + Engenharia)...")
+        logger.info("LOG: Iniciando rotina de enriquecimento factual da enciclopédia orbital...")
 
-        # 1. Nível 1: Consulta SPARQL para os principais satélites históricos catalogados
-        norads_historicos = [
-            "25544", "48274", "20580", "22823", "25400", "54380", "44883", 
-            "24876", "00011", "43013", "22675", "24946", "36086", "49044", 
-            "53239", "54216", "67796", "68689", "68837", "69049", "69180"
-        ]
-        val_str = " ".join([f"'{x}'" for x in norads_historicos])
+        # 1. Nível 1: Satélites históricos e científicos principais
+        for norad, item_data in SATELLITES_HISTORICOS_INFO.items():
+            obj = db.query(ObjetoOrbital).filter(ObjetoOrbital.norad_id == norad).first()
+            if not obj:
+                continue
 
-        query = f"""
-        SELECT ?norad ?item ?itemLabel ?desc_pt ?desc_en ?operatorLabel ?mass ?image WHERE {{
-          VALUES ?norad {{ {val_str} }}
-          ?item wdt:P377 ?norad .
-          OPTIONAL {{ ?item schema:description ?desc_pt FILTER(LANG(?desc_pt) = 'pt') }}
-          OPTIONAL {{ ?item schema:description ?desc_en FILTER(LANG(?desc_en) = 'en') }}
-          OPTIONAL {{ ?item wdt:P137 ?operator . }}
-          OPTIONAL {{ ?item wdt:P2067 ?mass . }}
-          OPTIONAL {{ ?item wdt:P18 ?image . }}
-          SERVICE wikibase:label {{ bd:serviceParam wikibase:language 'pt,en'. }}
-        }}
-        """
+            info_existente = db.query(InformacaoMissao).filter(InformacaoMissao.objeto_id == obj.id).first()
+            if not info_existente:
+                info = InformacaoMissao(
+                    objeto_id=obj.id,
+                    wikidata_id=None,
+                    descricao=item_data["descricao"],
+                    operador=item_data["operador"],
+                    massa_kg=item_data["massa_kg"],
+                    imagem_url=item_data["imagem_url"],
+                    artigo_url=None
+                )
+                db.add(info)
+            else:
+                info_existente.wikidata_id = None
+                info_existente.artigo_url = None
+                info_existente.descricao = item_data["descricao"]
+                info_existente.operador = item_data["operador"]
+                if item_data["massa_kg"]:
+                    info_existente.massa_kg = item_data["massa_kg"]
+                if item_data["imagem_url"]:
+                    info_existente.imagem_url = item_data["imagem_url"]
 
-        headers = {
-            "User-Agent": "OrbitalMonitorBot/1.0 (Educational TCC Research; contact: vihug@example.com)",
-            "Accept": "application/json"
-        }
-
-        try:
-            res = httpx.get("https://query.wikidata.org/sparql", params={"query": query, "format": "json"}, headers=headers, timeout=25.0)
-            if res.status_code == 200:
-                bindings = res.json().get("results", {}).get("bindings", [])
-                logger.info(f"Wikidata SPARQL retornou {len(bindings)} registros nominais.")
-
-                # Agrupa por NORAD para evitar duplicações de múltiplos operadores ou propriedades
-                dados_wikidata = {}
-                for r in bindings:
-                    norad = r.get("norad", {}).get("value")
-                    if not norad:
-                        continue
-                    if norad not in dados_wikidata:
-                        wiki_id = r.get("item", {}).get("value", "").split("/")[-1]
-                        d_pt = r.get("desc_pt", {}).get("value")
-                        d_en = r.get("desc_en", {}).get("value")
-                        desc = d_pt if d_pt else (d_en if d_en else "Missão científica de observação e monitoramento espacial.")
-                        massa_str = r.get("mass", {}).get("value")
-                        massa = float(massa_str) if massa_str else None
-                        img = r.get("image", {}).get("value")
-                        if img:
-                            img = img.replace("http://", "https://")
-                        dados_wikidata[norad] = {
-                            "wikidata_id": wiki_id,
-                            "descricao": desc,
-                            "operadores": set(),
-                            "massa_kg": massa,
-                            "imagem_url": img,
-                            "artigo_url": f"https://www.wikidata.org/wiki/{wiki_id}"
-                        }
-                    op = r.get("operatorLabel", {}).get("value")
-                    if op and not op.startswith("Q") and op not in dados_wikidata[norad]["operadores"]:
-                        dados_wikidata[norad]["operadores"].add(op)
-                    if not dados_wikidata[norad]["imagem_url"] and r.get("image", {}).get("value"):
-                        dados_wikidata[norad]["imagem_url"] = r.get("image", {}).get("value").replace("http://", "https://")
-
-                for norad, item_data in dados_wikidata.items():
-                    obj = db.query(ObjetoOrbital).filter(ObjetoOrbital.norad_id == norad).first()
-                    if not obj:
-                        continue
-
-                    op_str = " / ".join(item_data["operadores"]) if item_data["operadores"] else "Agência Aeroespacial Soberana"
-                    info_existente = db.query(InformacaoMissao).filter(InformacaoMissao.objeto_id == obj.id).first()
-                    if not info_existente:
-                        info = InformacaoMissao(
-                            objeto_id=obj.id,
-                            wikidata_id=item_data["wikidata_id"],
-                            descricao=item_data["descricao"],
-                            operador=op_str,
-                            massa_kg=item_data["massa_kg"],
-                            imagem_url=item_data["imagem_url"],
-                            artigo_url=item_data["artigo_url"]
-                        )
-                        db.add(info)
-                    else:
-                        info_existente.wikidata_id = item_data["wikidata_id"]
-                        info_existente.descricao = item_data["descricao"]
-                        info_existente.operador = op_str
-                        if item_data["massa_kg"]:
-                            info_existente.massa_kg = item_data["massa_kg"]
-                        if item_data["imagem_url"]:
-                            info_existente.imagem_url = item_data["imagem_url"]
-                        info_existente.artigo_url = item_data["artigo_url"]
-
-                db.commit()
-                logger.info("LOG: Enriquecimento de Nível 1 (Wikidata Nominal) persistido com sucesso.")
-        except Exception as e:
-            logger.warning(f"Aviso ao consultar Wikidata SPARQL: {e}")
-            db.rollback()
+        db.commit()
+        logger.info("LOG: Enriquecimento de Nível 1 (Satélites Históricos) persistido com sucesso.")
 
         # 2. Nível 2 e Nível 3: Enriquecimento estruturado para Constelações, Foguetes e Detritos
         logger.info("LOG: Aplicando enriquecimento de Níveis 2 e 3 (Constelações, Foguetes e Detritos)...")
@@ -462,12 +645,12 @@ class APIConector:
             if "STARLINK" in nome_up:
                 dados_a_inserir.append(InformacaoMissao(
                     objeto_id=obj.id,
-                    wikidata_id="Q64875323",
+                    wikidata_id=None,
                     descricao="Satélite integrante da megaconstelação Starlink para internet de banda larga global em órbita baixa. Desenvolvido com propulsores de íons de efeito Hall para prevenção de colisões e desorbitação ativa ao fim da vida útil.",
                     operador="SpaceX (EUA)",
                     massa_kg=260.0,
                     imagem_url="https://upload.wikimedia.org/wikipedia/commons/thumb/c/c2/Starlink_satellite_in_orbit.jpg/640px-Starlink_satellite_in_orbit.jpg",
-                    artigo_url="https://www.wikidata.org/wiki/Q64875323"
+                    artigo_url=None
                 ))
                 ids_com_missao.add(obj.id)
 
@@ -475,12 +658,12 @@ class APIConector:
             elif "ONEWEB" in nome_up:
                 dados_a_inserir.append(InformacaoMissao(
                     objeto_id=obj.id,
-                    wikidata_id="Q19876251",
+                    wikidata_id=None,
                     descricao="Satélite de telecomunicações em constelação operando a cerca de 1.200 km de altitude, fornecendo conectividade de baixa latência corporativa e governamental com descarte propulsionado obrigatório.",
                     operador="Eutelsat OneWeb (Reino Unido)",
                     massa_kg=150.0,
                     imagem_url="https://upload.wikimedia.org/wikipedia/commons/thumb/1/1a/OneWeb_satellite.jpg/640px-OneWeb_satellite.jpg",
-                    artigo_url="https://www.wikidata.org/wiki/Q19876251"
+                    artigo_url=None
                 ))
                 ids_com_missao.add(obj.id)
 
@@ -582,7 +765,7 @@ class APIConector:
                     objeto_id=obj.id,
                     wikidata_id=None,
                     descricao=f"Veículo orbital ativo operando em regime regular de telecomunicações, observação da Terra ou pesquisa científica (Lançamento: {ano_lancamento}). Mantém estabilidade de atitude e gera telemetria captada por estações terrestres de rastreamento.",
-                    operador=f"Operador de Registro ({obj.pais})",
+                    operador="Operador de Registro",
                     massa_kg=None,
                     imagem_url=None,
                     artigo_url=None
