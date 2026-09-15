@@ -29,10 +29,12 @@ CREATE TABLE IF NOT EXISTS objeto_orbital (
 CREATE TABLE IF NOT EXISTS informacao_missao (
     id SERIAL PRIMARY KEY,
     objeto_id INTEGER NOT NULL UNIQUE,
+    wikidata_id VARCHAR(50),
     descricao TEXT,
     operador VARCHAR(255),
     massa_kg NUMERIC(10, 2),
     imagem_url TEXT,
+    artigo_url TEXT,
     data_atualizacao TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP,
     CONSTRAINT fk_missao_objeto FOREIGN KEY (objeto_id) REFERENCES objeto_orbital(id) ON DELETE CASCADE
 );
