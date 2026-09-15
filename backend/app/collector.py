@@ -298,13 +298,16 @@ class APIConector:
             params["SPECIAL"] = special
         
         try:
-            with httpx.Client(timeout=60.0, headers=self.headers) as client:
+            with httpx.Client(timeout=15.0, headers=self.headers) as client:
                 response = client.get(self.url_base, params=params)
                 if response.status_code == 403:
-                    logger.warning(f"CelesTrak retornou 403 (dados já atualizados ou limitação temporária) para '{origem}'.")
+                    logger.warning(f"CelesTrak retornou 403 (limitação temporária de taxa) para '{origem}'.")
                     return
                 response.raise_for_status()
                 texto_bruto = response.text
+        except httpx.TimeoutException:
+            logger.warning(f"Tempo limite (timeout de 15s) esgotado para o CelesTrak para '{origem}'. Pulando com segurança.")
+            return
         except Exception as e:
             logger.error(f"Falha na requisição HTTP para o CelesTrak para '{origem}': {e}")
             return

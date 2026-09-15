@@ -1,3 +1,4 @@
+import time
 import logging
 import math
 from contextlib import asynccontextmanager
@@ -30,15 +31,19 @@ def executar_coleta_diaria():
     try:
         # 1. Estações Espaciais (Estação Espacial)
         conector.coletar_e_processar(db=db, grupo="stations", categoria_nome="Estação Espacial")
+        time.sleep(2.5)
         
         # 2. Catálogo Geral de Satélites Ativos (Satélite Ativo - Tenta obter tudo)
         conector.coletar_e_processar(db=db, grupo="active", categoria_nome="Satélite Ativo")
+        time.sleep(2.5)
         
         # 3. Subgrupo Starlink como garantia (Satélite Ativo - Fallback de volume)
         conector.coletar_e_processar(db=db, grupo="starlink", categoria_nome="Satélite Ativo")
+        time.sleep(2.5)
         
         # 4. Satélites de Interesse Visual (Satélite Ativo - Educacionais)
         conector.coletar_e_processar(db=db, grupo="visual", categoria_nome="Satélite Ativo")
+        time.sleep(2.5)
 
         # 4.1. Subgrupos Ativos Menores e Altamente Resilientes (Garantia de volumetria ativa anti-403)
         subgrupos_ativos = [
@@ -48,25 +53,35 @@ def executar_coleta_diaria():
         for sub in subgrupos_ativos:
             logger.info(f"LOG: Iniciando coleta preventiva do subgrupo ativo '{sub}'...")
             conector.coletar_e_processar(db=db, grupo=sub, categoria_nome="Satélite Ativo")
+            time.sleep(2.5)
         
         # 5. Detritos de eventos de fragmentação (Detrito Espacial - Fengyun-1C, Cosmos 2251, Iridium 33)
         conector.coletar_e_processar(db=db, grupo="fengyun-1c-debris", categoria_nome="Detrito Espacial")
+        time.sleep(2.5)
         conector.coletar_e_processar(db=db, grupo="cosmos-2251-debris", categoria_nome="Detrito Espacial")
+        time.sleep(2.5)
         conector.coletar_e_processar(db=db, grupo="iridium-33-debris", categoria_nome="Detrito Espacial")
+        time.sleep(2.5)
         
         # 6. Corpos de Foguetes Orbitais Reais (Corpo de Foguete - mais de 2.100 objetos do catálogo)
         conector.coletar_e_processar(db=db, name="R/B", categoria_nome="Corpo de Foguete")
+        time.sleep(2.5)
         
         # 7. Satélites Inativos e Históricos (GPZ-PLUS)
         conector.coletar_e_processar(db=db, special="GPZ-PLUS", categoria_nome="Satélite Inativo")
+        time.sleep(2.5)
 
         # 8. Carga Científica
         conector.coletar_e_processar(db=db, grupo="science", categoria_nome="Detrito Espacial")
+        time.sleep(2.5)
 
         # 8.1. Sincronização oficial CelesTrak SATCAT (Cosmódromos, datas reais e status de reentrada)
         conector.sincronizar_satcat_grupo(db=db, grupo="stations")
+        time.sleep(2.0)
         conector.sincronizar_satcat_grupo(db=db, grupo="visual")
+        time.sleep(2.0)
         conector.sincronizar_satcat_grupo(db=db, special="GPZ-PLUS")
+        time.sleep(2.0)
         conector.sincronizar_satcat_grupo(db=db, grupo="weather")
 
         # 9. Executa enriquecimento factual em 3 níveis (Enciclopédia + Engenharia)
@@ -87,18 +102,35 @@ async def lifespan(app: FastAPI):
     # Criar o scheduler de segundo plano
     scheduler = BackgroundScheduler()
     
+    # Verificar se o banco já possui catálogo populado
+    db = SessionLocal()
+    total_objs = 0
+    try:
+        total_objs = db.query(ObjetoOrbital).count()
+    except Exception as e:
+        logger.warning(f"Aviso ao consultar quantidade inicial de objetos: {e}")
+    finally:
+        db.close()
+
+    # Se já tiver mais de 1000 objetos, não sobrecarrega o CelesTrak no boot
+    if total_objs >= 1000:
+        logger.info(f"LOG: Banco de dados já populado com {total_objs} objetos. Próxima coleta agendada para daqui a 24 horas.")
+        next_run = datetime.now() + timedelta(hours=24)
+    else:
+        logger.info(f"LOG: Banco inicial ({total_objs} objetos). Agendando coleta inicial em 15 segundos...")
+        next_run = datetime.now() + timedelta(seconds=15)
+
     # Adicionar o job de coleta periódica de TLEs a cada 24 horas (cumprindo RNF04)
-    # Definimos next_run_time como datetime.now() para disparar uma carga inicial imediatamente no boot!
     scheduler.add_job(
         executar_coleta_diaria,
         trigger="interval",
         hours=24,
-        next_run_time=datetime.now(),
+        next_run_time=next_run,
         id="coleta_diaria_tles"
     )
     
     scheduler.start()
-    logger.info("LOG: Scheduler iniciado com sucesso. Executando primeira carga imediata no boot...")
+    logger.info("LOG: Scheduler iniciado com sucesso.")
     
     yield
     
