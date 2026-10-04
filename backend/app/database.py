@@ -2,12 +2,11 @@ import os
 from sqlalchemy import create_engine
 from sqlalchemy.orm import declarative_base, sessionmaker
 
-# Carregar URL de conexão obtida de forma segura via variável de ambiente
+# Lê a URL do banco do ambiente
 DATABASE_URL = os.getenv("DATABASE_URL")
 
 if not DATABASE_URL:
-    # Fallback de segurança dinâmico sem credenciais sensíveis gravadas no código fonte.
-    # Em produção ou no Docker, a variável DATABASE_URL é injetada obrigatoriamente pelo ambiente.
+    # Configura conexão padrão local
     db_user = os.getenv("DB_USER", "postgres")
     db_pass = os.getenv("DB_PASSWORD", "")
     db_host = os.getenv("DB_HOST", "localhost")
@@ -15,17 +14,17 @@ if not DATABASE_URL:
     db_name = os.getenv("DB_NAME", "orbital_db")
     DATABASE_URL = f"postgresql://{db_user}:{db_pass}@{db_host}:{db_port}/{db_name}"
 
-# Criar a engine de conexão do SQLAlchemy
+# Cria a engine de conexão
 engine = create_engine(DATABASE_URL, pool_pre_ping=True)
 
-# Configurar fábrica de sessões
+# Configura a sessão do banco
 SessionLocal = sessionmaker(autocommit=False, autoflush=False, bind=engine)
 
-# Base para declaração dos modelos ORM
+# Base para os modelos
 Base = declarative_base()
 
 def get_db():
-    """Função utilitária para obter sessão do banco (Dependency Injection do FastAPI)."""
+    """Retorna uma sessão do banco de dados."""
     db = SessionLocal()
     try:
         yield db

@@ -84,8 +84,8 @@ def executar_coleta_diaria():
         time.sleep(2.0)
         conector.sincronizar_satcat_grupo(db=db, grupo="weather")
 
-        # 9. Executa enriquecimento factual em 3 níveis (Enciclopédia + Engenharia)
-        conector.enriquecer_com_wikidata(db=db)
+        # Enriquece os dados de missão
+        conector.enriquecer_missoes(db=db)
         
         logger.info("LOG: Sincronização automática concluída com sucesso no Scheduler.")
     except Exception as e:
@@ -201,11 +201,8 @@ def listar_objetos(
     db: Session = Depends(get_db)
 ):
     """
-    Retorna a lista de objetos orbitais contendo a categoria correspondente,
-    metadados enriquecidos de missão (Wikidata/Engenharia) e o último registro de TLE correspondente,
-    otimizado via selectinload para evitar N+1 queries (RNF01).
-    Garante que as 2 Estações Espaciais Principais (ISS 25544 e Tiangong 48274) estejam sempre
-    presentes no cinturão do simulador e aplica amostragem dinâmica redistributiva para as categorias ativas.
+    Retorna a lista de objetos orbitais com categoria, dados de missão e último TLE.
+    Garante presença das estações principais e amostragem proporcional das categorias.
     """
     try:
         # Aplica seed pseudo-aleatória no PostgreSQL para garantir novo embaralhamento ao clicar em recarregar

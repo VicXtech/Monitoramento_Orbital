@@ -81,8 +81,8 @@ def test_suite():
     nomes_tian = [m["nome"] for m in modulos_tian]
     print(f"   [OK] Tiangong possui {len(modulos_tian)} módulos/naves acopladas: {nomes_tian}\n")
 
-    # 8. Ficha Factual Enriquecida da ISS (Tier 1 Wikidata)
-    print("8. Testando dados enriquecidos da ISS (Wikidata)...")
+    # 8. Ficha de missão da ISS
+    print("8. Testando dados de missão da ISS...")
     r = client.get("/api/objetos/25544")
     assert r.status_code == 200
     iss = r.json()
@@ -90,10 +90,10 @@ def test_suite():
     assert iss["missao"]["imagem_url"] is not None, "ISS sem foto da Wikimedia!"
     assert "http" in iss["missao"]["imagem_url"]
     assert iss["missao"]["massa_kg"] and iss["missao"]["massa_kg"] > 400000
-    print(f"   [OK] ISS enriquecida: Operador={iss['missao']['operador']}, Massa={iss['missao']['massa_kg']}kg, Imagem={iss['missao']['imagem_url'][:50]}...\n")
+    print(f"   [OK] ISS: Operador={iss['missao']['operador']}, Massa={iss['missao']['massa_kg']}kg, Imagem={iss['missao']['imagem_url'][:50]}...\n")
 
-    # 9. Ficha Factual de Corpo de Foguete (Categoria 5 - Tier 3 Engenharia Aeroespacial)
-    print("9. Testando enriquecimento de Corpo de Foguete (Categoria 5)...")
+    # 9. Ficha de corpo de foguete
+    print("9. Testando ficha de Corpo de Foguete (Categoria 5)...")
     r = client.get("/api/objetos?limit=5&categoria_ids=5")
     assert r.status_code == 200
     foguetes = [o for o in r.json() if o["categoria_id"] == 5]
@@ -103,8 +103,8 @@ def test_suite():
     assert len(foguete["missao"]["descricao"]) > 20
     print(f"   [OK] Foguete '{foguete['nome']}': {foguete['missao']['descricao'][:80]}...\n")
 
-    # 10. Ficha Factual de Detrito Espacial (Categoria 3 - Tier 3 Diagnóstico de Fragmentação)
-    print("10. Testando enriquecimento de Detrito Espacial (Categoria 3)...")
+    # 10. Ficha de detrito espacial
+    print("10. Testando ficha de Detrito Espacial (Categoria 3)...")
     r = client.get("/api/objetos?limit=5&categoria_ids=3")
     assert r.status_code == 200
     detritos = [o for o in r.json() if o["categoria_id"] == 3]

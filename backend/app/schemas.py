@@ -2,18 +2,18 @@ from pydantic import BaseModel, Field, ConfigDict
 from datetime import datetime, date
 from typing import List, Optional
 
-# --- SCHEMAS DE CATEGORIA ---
+# Schemas de categoria
 
 class CategoriaBase(BaseModel):
     id: int
     nome: str
     descricao: Optional[str] = None
-    cor_visualizacao: str = Field(..., max_length=7, description="Cor em formato hexadecimal, ex: #FF0000")
+    cor_visualizacao: str = Field(..., max_length=7, description="Cor em formato hexadecimal")
 
     model_config = ConfigDict(from_attributes=True)
 
 
-# --- SCHEMAS DE HISTÓRICO DE TLE ---
+# Schemas de histórico de TLE
 
 class TLEHistoricoBase(BaseModel):
     id: int
@@ -25,22 +25,20 @@ class TLEHistoricoBase(BaseModel):
     model_config = ConfigDict(from_attributes=True)
 
 
-# --- SCHEMAS DE INFORMAÇÃO DA MISSÃO (WIKIDATA) ---
+# Schemas de informação da missão
 
 class InformacaoMissaoResponse(BaseModel):
     id: int
-    wikidata_id: Optional[str] = None
     descricao: Optional[str] = None
     operador: Optional[str] = None
     massa_kg: Optional[float] = None
     imagem_url: Optional[str] = None
-    artigo_url: Optional[str] = None
     data_atualizacao: Optional[datetime] = None
 
     model_config = ConfigDict(from_attributes=True)
 
 
-# --- SCHEMAS DE OBJETO ORBITAL ---
+# Schemas de objeto orbital
 
 class ObjetoOrbitalBase(BaseModel):
     id: int
@@ -67,7 +65,7 @@ class ObjetoOrbitalResponse(ObjetoOrbitalBase):
     model_config = ConfigDict(from_attributes=True)
 
 
-# --- SCHEMAS DE ESTATÍSTICAS ---
+# Schemas de estatísticas
 
 class EstatisticasPais(BaseModel):
     pais: str

@@ -1,10 +1,4 @@
-"""
-Script de sincronização direta do banco local Docker (11.536 objetos) para o Supabase remoto.
-Executa streaming direto entre as duas conexões PostgreSQL de forma ultra-rápida.
-
-Uso:
-  docker exec orbital_backend python sync_remote.py "<SUA_URL_SUPABASE>"
-"""
+"""Sincroniza o banco de dados local com uma instância remota do PostgreSQL."""
 
 import sys
 import os
@@ -110,7 +104,7 @@ def sync(remote_url: str):
             ORDER BY objeto_id, epoch DESC
         """)).fetchall()
         
-        # Limpar TLEs existentes no remoto para evitar duplicatas primárias se necessário
+        # Remove registros antigos de TLE
         remote_conn.execute(text("TRUNCATE TABLE tle_historico;"))
         remote_conn.commit()
 

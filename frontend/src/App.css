@@ -983,24 +983,6 @@
   backdrop-filter: blur(4px);
 }
 
-/* Link oficial para a Wikidata */
-.wikidata-source-link {
-  display: inline-flex;
-  align-items: center;
-  gap: 6px;
-  font-family: var(--mono-font);
-  font-size: 10px;
-  color: var(--neon-cyan);
-  text-decoration: none;
-  margin-top: 6px;
-  transition: all 0.2s;
-}
-
-.wikidata-source-link:hover {
-  color: #fff;
-  text-shadow: 0 0 8px var(--neon-cyan);
-}
-
 /* Seção de Módulos Acoplados à Estação Espacial */
 .station-ecosystem-card {
   background: rgba(0, 240, 255, 0.03);

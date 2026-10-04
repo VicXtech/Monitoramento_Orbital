@@ -591,16 +591,11 @@ class APIConector:
             logger.warning(f"Erro ao buscar SATCAT individual para {norad_id}: {e}")
         return None
 
-    def enriquecer_com_wikidata(self, db: Session):
-        """
-        Enriquece os objetos do banco com dados estruturados e diagnósticos de engenharia:
-        - Nível 1: Metadados históricos e científicos essenciais (ISS, Hubble, SCD, Amazonia)
-        - Nível 2: Herança de Constelações (Starlink, OneWeb)
-        - Nível 3: Diagnóstico Factual de Engenharia para Corpos de Foguetes e Detritos
-        """
-        logger.info("LOG: Iniciando rotina de enriquecimento factual da enciclopédia orbital...")
+    def enriquecer_missoes(self, db: Session):
+        """Enriquece objetos com dados descritivos de missão e engenharia."""
+        logger.info("LOG: Iniciando enriquecimento de informações de missão...")
 
-        # 1. Nível 1: Satélites históricos e científicos principais
+        # Satélites históricos e científicos
         for norad, item_data in SATELLITES_HISTORICOS_INFO.items():
             obj = db.query(ObjetoOrbital).filter(ObjetoOrbital.norad_id == norad).first()
             if not obj:
@@ -610,17 +605,13 @@ class APIConector:
             if not info_existente:
                 info = InformacaoMissao(
                     objeto_id=obj.id,
-                    wikidata_id=None,
                     descricao=item_data["descricao"],
                     operador=item_data["operador"],
                     massa_kg=item_data["massa_kg"],
-                    imagem_url=item_data["imagem_url"],
-                    artigo_url=None
+                    imagem_url=item_data["imagem_url"]
                 )
                 db.add(info)
             else:
-                info_existente.wikidata_id = None
-                info_existente.artigo_url = None
                 info_existente.descricao = item_data["descricao"]
                 info_existente.operador = item_data["operador"]
                 if item_data["massa_kg"]:
@@ -629,10 +620,8 @@ class APIConector:
                     info_existente.imagem_url = item_data["imagem_url"]
 
         db.commit()
-        logger.info("LOG: Enriquecimento de Nível 1 (Satélites Históricos) persistido com sucesso.")
 
-        # 2. Nível 2 e Nível 3: Enriquecimento estruturado para Constelações, Foguetes e Detritos
-        logger.info("LOG: Aplicando enriquecimento de Níveis 2 e 3 (Constelações, Foguetes e Detritos)...")
+        # Demais categorias
         todos_objetos = db.query(ObjetoOrbital).all()
         ids_com_missao = set(r[0] for r in db.query(InformacaoMissao.objeto_id).all())
         dados_a_inserir = []
@@ -644,33 +633,29 @@ class APIConector:
             nome_up = obj.nome.upper()
             ano_lancamento = str(obj.data_lancamento.year) if obj.data_lancamento else "ano histórico"
 
-            # Nível 2: Starlink
+            # Constelação Starlink
             if "STARLINK" in nome_up:
                 dados_a_inserir.append(InformacaoMissao(
                     objeto_id=obj.id,
-                    wikidata_id=None,
                     descricao="Satélite integrante da megaconstelação Starlink para internet de banda larga global em órbita baixa. Desenvolvido com propulsores de íons de efeito Hall para prevenção de colisões e desorbitação ativa ao fim da vida útil.",
                     operador="SpaceX (EUA)",
                     massa_kg=260.0,
-                    imagem_url="https://upload.wikimedia.org/wikipedia/commons/thumb/c/c2/Starlink_satellite_in_orbit.jpg/640px-Starlink_satellite_in_orbit.jpg",
-                    artigo_url=None
+                    imagem_url="https://upload.wikimedia.org/wikipedia/commons/thumb/c/c2/Starlink_satellite_in_orbit.jpg/640px-Starlink_satellite_in_orbit.jpg"
                 ))
                 ids_com_missao.add(obj.id)
 
-            # Nível 2: OneWeb
+            # Constelação OneWeb
             elif "ONEWEB" in nome_up:
                 dados_a_inserir.append(InformacaoMissao(
                     objeto_id=obj.id,
-                    wikidata_id=None,
                     descricao="Satélite de telecomunicações em constelação operando a cerca de 1.200 km de altitude, fornecendo conectividade de baixa latência corporativa e governamental com descarte propulsionado obrigatório.",
                     operador="Eutelsat OneWeb (Reino Unido)",
                     massa_kg=150.0,
-                    imagem_url="https://upload.wikimedia.org/wikipedia/commons/thumb/1/1a/OneWeb_satellite.jpg/640px-OneWeb_satellite.jpg",
-                    artigo_url=None
+                    imagem_url="https://upload.wikimedia.org/wikipedia/commons/thumb/1/1a/OneWeb_satellite.jpg/640px-OneWeb_satellite.jpg"
                 ))
                 ids_com_missao.add(obj.id)
 
-            # Nível 3: Corpos de Foguetes (R/B) - 100% embasado em física aeroespacial
+            # Corpos de foguetes
             elif obj.categoria_id == 5 or " R/B" in nome_up or "ROCKET" in nome_up:
                 familia = "Estágio Superior de Foguete Orbital Descartado"
                 massa = 2200.0
@@ -698,16 +683,14 @@ class APIConector:
 
                 dados_a_inserir.append(InformacaoMissao(
                     objeto_id=obj.id,
-                    wikidata_id=None,
                     descricao=f"{familia}. Estágio propulsor inerte descartado após a injeção da carga útil (Lançamento: {ano_lancamento}). Permanece desprovido de telemetria ou propulsão ativa, representando massa orbital significativa com risco de fragmentação espontânea por pressurização residual de propelentes.",
                     operador=f"Programa Espacial / Lançador ({obj.pais})",
                     massa_kg=massa,
-                    imagem_url=None,
-                    artigo_url=None
+                    imagem_url=None
                 ))
                 ids_com_missao.add(obj.id)
 
-            # Nível 3: Detritos Espaciais (DEB) - 100% embasado em eventos reais
+            # Detritos espaciais
             elif obj.categoria_id == 3 or " DEB" in nome_up or "FRAGMENT" in nome_up:
                 evento = "Fragmentação mecânica de material em órbita registrada pela rede de vigilância espacial"
                 if "COSMOS 2251" in nome_up or "IRIDIUM 33" in nome_up:
@@ -719,29 +702,25 @@ class APIConector:
 
                 dados_a_inserir.append(InformacaoMissao(
                     objeto_id=obj.id,
-                    wikidata_id=None,
                     descricao=f"Detrito inerte catalogado por radar de rastreamento da Space Surveillance Network. Origem: {evento} (Lançamento: {ano_lancamento}). Não possui controle de atitude ou manobra evasiva, cruzando zonas de alta densidade orbital (LEO) em velocidades superiores a 27.000 km/h.",
                     operador=f"Nação de Registro / Origem ({obj.pais})",
                     massa_kg=None,
-                    imagem_url=None,
-                    artigo_url=None
+                    imagem_url=None
                 ))
                 ids_com_missao.add(obj.id)
 
-            # Satélites Inativos (Categoria 2)
+            # Satélites inativos
             elif obj.categoria_id == 2:
                 dados_a_inserir.append(InformacaoMissao(
                     objeto_id=obj.id,
-                    wikidata_id=None,
                     descricao=f"Satélite científico ou operacional com missão primária encerrada (Lançamento: {ano_lancamento}). Permanece em órbita como carga inerte após esgotamento de baterias ou perda de contato de telemetria, sujeito a decaimento orbital passivo por atrito atmosférico residual.",
                     operador=f"Operador Original ({obj.pais})",
                     massa_kg=None,
-                    imagem_url=None,
-                    artigo_url=None
+                    imagem_url=None
                 ))
                 ids_com_missao.add(obj.id)
 
-            # Módulos e Estações Espaciais (Categoria 4)
+            # Módulos e estações espaciais
             elif obj.categoria_id == 4:
                 desc = f"Estrutura orbital tripulada ou módulo acoplado integrante de complexo espacial internacional permanente (Lançamento: {ano_lancamento})."
                 if obj.norad_id in MODULOS_ISS:
@@ -753,29 +732,25 @@ class APIConector:
 
                 dados_a_inserir.append(InformacaoMissao(
                     objeto_id=obj.id,
-                    wikidata_id=None,
                     descricao=desc,
                     operador=f"Programa Espacial ({obj.pais})",
                     massa_kg=None,
-                    imagem_url=None,
-                    artigo_url=None
+                    imagem_url=None
                 ))
                 ids_com_missao.add(obj.id)
 
-            # Demais Satélites Ativos (Categoria 1)
+            # Satélites ativos
             elif obj.categoria_id == 1:
                 dados_a_inserir.append(InformacaoMissao(
                     objeto_id=obj.id,
-                    wikidata_id=None,
                     descricao=f"Veículo orbital ativo operando em regime regular de telecomunicações, observação da Terra ou pesquisa científica (Lançamento: {ano_lancamento}). Mantém estabilidade de atitude e gera telemetria captada por estações terrestres de rastreamento.",
                     operador="Operador de Registro",
                     massa_kg=None,
-                    imagem_url=None,
-                    artigo_url=None
+                    imagem_url=None
                 ))
                 ids_com_missao.add(obj.id)
 
         if dados_a_inserir:
             db.bulk_save_objects(dados_a_inserir)
             db.commit()
-            logger.info(f"LOG: {len(dados_a_inserir)} registros de Nível 2 e 3 gerados com sucesso no banco.")
+            logger.info(f"LOG: {len(dados_a_inserir)} registros gerados com sucesso no banco.")
