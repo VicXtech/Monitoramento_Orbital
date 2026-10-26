@@ -35,21 +35,17 @@ import SatelliteDetailTabs from './components/SatelliteDetailTabs';
 import ScenarioSimulatorModal from './components/ScenarioSimulatorModal';
 import ErrorBoundary from './components/ErrorBoundary';
 import OrbitalMissionHub from './components/OrbitalMissionHub';
-import OrbitalTacticalVisor from './components/OrbitalTacticalVisor';
-import OrbitalTimelineHolo from './components/OrbitalTimelineHolo';
+import OrbitalModePanel from './components/OrbitalModePanel';
 import {
   criarGeometriasAreas3D,
-  atualizarCoresAreas3D,
-  destacarArea3D,
-  destacarEvento3D,
   removerGeometriasAreas3D,
   criarMarcadoresEventos3D,
-  removerMarcadoresEventos3D
+  removerMarcadoresEventos3D,
+  posicionarCameraModoOrbital,
+  destacarCamadaOrbital,
+  destacarPinoHistorico
 } from './utils/cesiumOrbitalAreas';
-import {
-  DEFINICOES_AREAS_ORBITAIS,
-  calcularMetricasArea
-} from './utils/orbitalAreas3D';
+import { obterPinoHistorico, CAMADAS_ORBITAIS } from './data/orbitalModeData';
 
 // Efeitos sonoros oficiais do sistema
 import somAbreSlide from './assets/sons/abre-slide.mp3';
@@ -356,6 +352,13 @@ function App() {
   const satHoverIdRef = useRef(null);
   const satSelecionadoRef = useRef(null);
   const cameraInicialRef = useRef(null);
+  const cameraSeguindoObjetoRef = useRef(null);
+  const posicaoAnteriorSatRef = useRef(null);
+  const scratchCartesianRef = useRef(null);
+  const scratchSelectedPosRef = useRef(null);
+  const scratchAxisRef = useRef(null);
+  const scratchQuatRef = useRef(null);
+  const scratchRotMatRef = useRef(null);
 
   // Estados de Navegação e Seções
   const [telaAtiva, setTelaAtiva] = useState(() => {
@@ -376,21 +379,37 @@ function App() {
 
       worker.onmessage = (e) => {
         const { tipo, posicoes } = e.data;
-        if (tipo === 'POSICOES' && posicoes) {
+        if (tipo === 'POSICOES' && posicoes && window.Cesium) {
           const indices = satelitesIndicesRef.current;
           const total = indices.length;
+          if (!scratchCartesianRef.current) {
+            scratchCartesianRef.current = new window.Cesium.Cartesian3();
+          }
+          const scratch = scratchCartesianRef.current;
+          const satSelecionadoId = satSelecionadoRef.current ? String(satSelecionadoRef.current.norad_id) : null;
+
           for (let i = 0; i < total; i++) {
             const offset = i * 3;
             const lon = posicoes[offset];
             if (isNaN(lon)) continue;
 
             const noradId = indices[i];
+            if (noradId === satSelecionadoId) continue;
+
             const entry = pointsRef.current.get(noradId);
-            if (entry && entry.point.show) {
+            if (entry && entry.point && entry.point.show) {
               const lat = posicoes[offset + 1];
               const alt = posicoes[offset + 2];
-              window.Cesium.Cartesian3.fromDegrees(lon, lat, alt, undefined, entry.point.position);
+              const novoPos = window.Cesium.Cartesian3.fromDegrees(lon, lat, alt, undefined, scratch);
+              entry.point.position = novoPos;
             }
+          }
+
+          // Atualiza a trilha orbital do satélite selecionado a cada segundo
+          const satAtivo = satSelecionadoRef.current;
+          const v = viewerRef.current;
+          if (satAtivo && satAtivo.ultimo_tle && v && !v.isDestroyed() && !satHoverIdRef.current) {
+            desenharTrilhaOrbital(v, satAtivo.ultimo_tle);
           }
         }
       };
@@ -663,18 +682,16 @@ function App() {
   const [modalCenariosAberto, setModalCenariosAberto] = useState(false);
   const [modalFechando, setModalFechando] = useState(false);
 
-  // MODO ORBITAL UNIFICADO (RADAR 3D)
+  // MODO ORBITAL UNIFICADO (RADAR 3D FIGURATIVO)
   const [modoOrbitalAtivo, setModoOrbitalAtivo] = useState(false);
   const modoOrbitalAtivoRef = useRef(false);
   useEffect(() => {
     modoOrbitalAtivoRef.current = modoOrbitalAtivo;
   }, [modoOrbitalAtivo]);
 
-  const [anoTimeline, setAnoTimeline] = useState(2026);
-  const [areaSelecionadaId, setAreaSelecionadaId] = useState(null);
-  const [eventoSelecionado, setEventoSelecionado] = useState(null);
-  const [hubMissaoVisivel, setHubMissaoVisivel] = useState(true);
-  const entidadesAreas3DRef = useRef([]);
+  const [camadaOrbitalAtiva, setCamadaOrbitalAtiva] = useState(null);
+  const [pinoOrbitalAtivo, setPinoOrbitalAtivo] = useState(null);
+  const entidadesAreas3DRef = useRef(null);
   const entidadesEventos3DRef = useRef([]);
 
   const handleAlternarModoOrbital = () => {
@@ -684,9 +701,10 @@ function App() {
     if (!modoOrbitalAtivo) {
       tocarEfeitoSonoro(somIniciar, 0.7);
       setModoOrbitalAtivo(true);
+      setCamadaOrbitalAtiva(null);
+      setPinoOrbitalAtivo(null);
       setSatSelecionado(null);
       setParametrosOrbitaisSat(null);
-      setEventoSelecionado(null);
       limparTrilhaOrbital(v);
 
       // Oculta todos os satélites individuais
@@ -698,40 +716,20 @@ function App() {
       setPainelEsquerdoAberto(false);
       setPainelDireitoAberto(false);
 
-      // Posiciona câmera em perspectiva 3D inclinada com planeta deslocado para a esquerda
-      v.camera.lookAtTransform(window.Cesium.Matrix4.IDENTITY);
-      v.trackedEntity = undefined;
-      objetoFocadoRef.current = null;
-      entidadeFocadaRef.current = null;
-      v.camera.flyTo({
-        destination: new window.Cesium.Cartesian3(75000000, 32000000, 78000000),
-        orientation: {
-          direction: new window.Cesium.Cartesian3(-0.694658, 0.0, -0.719340),
-          up: new window.Cesium.Cartesian3(-0.719340, 0.0, 0.694658)
-        },
-        duration: 1.5
-      });
+      // Posiciona câmera em perspectiva 3D com planeta à esquerda conforme o esboço
+      posicionarCameraModoOrbital(v);
 
-      // Desativa totalmente controles de mouse no Cesium para manter a visão travada
-      const ctrl = v.scene.screenSpaceCameraController;
-      ctrl.enableRotate = false;
-      ctrl.enableTranslate = false;
-      ctrl.enableZoom = false;
-      ctrl.enableTilt = false;
-      ctrl.enableLook = false;
-
-      // Cria as geometrias 3D das órbitas e marcadores dos eventos
+      // Cria as geometrias figurativas das órbitas e marcadores dos eventos
       removerGeometriasAreas3D(v, entidadesAreas3DRef.current);
-      const criadas = criarGeometriasAreas3D(v, anoTimeline);
-      entidadesAreas3DRef.current = criadas;
+      entidadesAreas3DRef.current = criarGeometriasAreas3D(v);
 
       removerMarcadoresEventos3D(v, entidadesEventos3DRef.current);
-      entidadesEventos3DRef.current = criarMarcadoresEventos3D(v, anoTimeline);
+      entidadesEventos3DRef.current = criarMarcadoresEventos3D(v);
     } else {
       tocarEfeitoSonoro(somFadeOut, 0.65);
       setModoOrbitalAtivo(false);
-      setAreaSelecionadaId(null);
-      setEventoSelecionado(null);
+      setCamadaOrbitalAtiva(null);
+      setPinoOrbitalAtivo(null);
 
       // Reativa controles do mouse no Cesium com foco central no planeta
       const ctrl = v.scene.screenSpaceCameraController;
@@ -741,7 +739,7 @@ function App() {
       ctrl.enableTilt = false;
       ctrl.enableLook = false;
 
-      // Remove geometrias das áreas 3D e marcadores de eventos
+      // Remove geometrias das faixas orbitais e pinos
       removerGeometriasAreas3D(v, entidadesAreas3DRef.current);
       entidadesAreas3DRef.current = null;
       removerMarcadoresEventos3D(v, entidadesEventos3DRef.current);
@@ -780,37 +778,44 @@ function App() {
     }
   };
 
-  const handleAlterarAnoTimeline = (novoAno) => {
-    setAnoTimeline(novoAno);
+  const handleSelecionarCamadaOrbital = (camadaId) => {
+    setCamadaOrbitalAtiva(camadaId);
+    setPinoOrbitalAtivo(null);
     tocarEfeitoSonoro(somTrocaSlide, 0.45);
-    atualizarCoresAreas3D(viewerRef.current, entidadesAreas3DRef.current, novoAno);
-    if (viewerRef.current) {
-      removerMarcadoresEventos3D(viewerRef.current, entidadesEventos3DRef.current);
-      entidadesEventos3DRef.current = criarMarcadoresEventos3D(viewerRef.current, novoAno);
+    destacarCamadaOrbital(entidadesAreas3DRef.current, camadaId);
+    if (entidadesEventos3DRef.current) {
+      entidadesEventos3DRef.current.forEach((ent) => {
+        destacarPinoHistorico(ent, false);
+      });
     }
   };
 
-  const handleSelecionarEvento = (evento) => {
-    if (!evento) return;
-    setEventoSelecionado(evento);
-    setAreaSelecionadaId(null);
+  const handleSelecionarPinoOrbital = (pinoId) => {
+    setPinoOrbitalAtivo(pinoId);
+    setCamadaOrbitalAtiva(null);
     tocarEfeitoSonoro(somIniciar, 0.7);
-    // Câmera permanece travada na visão ampla
+    const pinoObj = obterPinoHistorico(pinoId);
+    if (pinoObj) {
+      destacarCamadaOrbital(entidadesAreas3DRef.current, pinoObj.camadaId);
+    }
+    if (entidadesEventos3DRef.current) {
+      entidadesEventos3DRef.current.forEach((ent) => {
+        const pId = ent.properties?.pinoId?.getValue();
+        destacarPinoHistorico(ent, pId === pinoId);
+      });
+    }
   };
 
-  const handleSelecionarAreaOrbital = (areaId) => {
-    if (!areaId) return;
-    setAreaSelecionadaId(areaId);
-    setEventoSelecionado(null);
-    tocarEfeitoSonoro(somTopPainel, 0.65);
-    // Câmera permanece travada na visão ampla
-  };
-
-  const handleResetarCameraRadar = () => {
-    setAreaSelecionadaId(null);
-    setEventoSelecionado(null);
+  const handleResetarModoOrbital = () => {
+    setCamadaOrbitalAtiva(null);
+    setPinoOrbitalAtivo(null);
     tocarEfeitoSonoro(somFadeOut, 0.5);
-    // Câmera permanece travada na visão ampla
+    destacarCamadaOrbital(entidadesAreas3DRef.current, null);
+    if (entidadesEventos3DRef.current) {
+      entidadesEventos3DRef.current.forEach((ent) => {
+        destacarPinoHistorico(ent, false);
+      });
+    }
   };
 
   const handleAbrirCenarios = () => {
@@ -1066,46 +1071,47 @@ function App() {
   }, [busca]);
 
   // Renderização da trilha orbital em cinza
+  // Traça ou atualiza a rota orbital em cinza prateado
   const desenharTrilhaOrbital = (viewerInstance, tleOuSat) => {
-    if (!viewerInstance || !tleOuSat || telaAtivaRef.current !== 'simulador') return;
+    if (!viewerInstance || !tleOuSat || telaAtivaRef.current !== 'simulador' || !window.Cesium) return;
 
     try {
-      // Remover órbita anterior se existente
-      if (orbitaEntidadeRef.current) {
-        viewerInstance.entities.remove(orbitaEntidadeRef.current);
-        orbitaEntidadeRef.current = null;
-      }
-
       const tempoBase = viewerInstance.clock ? window.Cesium.JulianDate.toDate(viewerInstance.clock.currentTime) : new Date();
       const pontos = gerarPontosOrbita(tleOuSat, tempoBase, 180);
       if (!pontos || pontos.length < 10) return;
 
-      const entidadeOrbita = viewerInstance.entities.add({
-        id: 'trilha-orbital-dinamica',
-        polyline: {
-          positions: pontos,
-          width: 2.0,
-          material: new window.Cesium.Color(0.82, 0.86, 0.92, 0.75), // Cinza prateado translúcido
-          arcType: window.Cesium.ArcType.NONE,
-          loop: true
-        }
-      });
-
-      orbitaEntidadeRef.current = entidadeOrbita;
+      const entidadeExistente = viewerInstance.entities.getById('trilha-orbital-dinamica');
+      if (entidadeExistente) {
+        entidadeExistente.polyline.positions = pontos;
+        orbitaEntidadeRef.current = entidadeExistente;
+      } else {
+        const entidadeOrbita = viewerInstance.entities.add({
+          id: 'trilha-orbital-dinamica',
+          polyline: {
+            positions: pontos,
+            width: 2.0,
+            material: new window.Cesium.Color(0.82, 0.86, 0.92, 0.75),
+            arcType: window.Cesium.ArcType.NONE,
+            loop: true
+          }
+        });
+        orbitaEntidadeRef.current = entidadeOrbita;
+      }
     } catch (e) {
       console.warn("Falha ao traçar polilinha da órbita:", e);
     }
   };
 
   const limparTrilhaOrbital = (viewerInstance) => {
-    if (!viewerInstance) return;
+    if (!viewerInstance || !window.Cesium) return;
     try {
-      if (orbitaEntidadeRef.current) {
-        viewerInstance.entities.remove(orbitaEntidadeRef.current);
-        orbitaEntidadeRef.current = null;
+      const entidade = viewerInstance.entities.getById('trilha-orbital-dinamica');
+      if (entidade) {
+        viewerInstance.entities.remove(entidade);
       }
+      orbitaEntidadeRef.current = null;
     } catch {
-      // Ignorar exceções de remoção assíncrona
+      // Ignora exceções de remoção assíncrona
     }
   };
 
@@ -1178,6 +1184,7 @@ function App() {
 
     objetoFocadoRef.current = null;
     entidadeFocadaRef.current = null;
+    cameraSeguindoObjetoRef.current = null;
     v.camera.cancelFlight();
     v.camera.lookAtTransform(window.Cesium.Matrix4.IDENTITY);
     v.trackedEntity = undefined;
@@ -1202,7 +1209,12 @@ function App() {
         window.Cesium.Math.toRadians(0.0),
         window.Cesium.Math.toRadians(-65.0),
         rangeDist
-      )
+      ),
+      complete: () => {
+        cameraSeguindoObjetoRef.current = noradStr;
+        const e = pointsRef.current.get(noradStr);
+        posicaoAnteriorSatRef.current = e ? e.point.position.clone() : targetPos;
+      }
     });
   };
 
@@ -1262,6 +1274,8 @@ function App() {
       tocarEfeitoSonoro(somFadeOut, 0.65);
     }
 
+    cameraSeguindoObjetoRef.current = null;
+    posicaoAnteriorSatRef.current = null;
     objetoFocadoRef.current = null;
     entidadeFocadaRef.current = null;
     satHoverIdRef.current = null;
@@ -1475,31 +1489,37 @@ function App() {
     clickHandler.setInputAction((click) => {
       if (telaAtivaRef.current !== 'simulador') return;
 
-      // Interação 3D específica do MODO ORBITAL
+      // Interação 3D específica do MODO ORBITAL FIGURATIVO
       if (modoOrbitalAtivoRef.current) {
-        const pickedObject = viewerInstance.scene.pick(click.position);
+        let pickedObject = viewerInstance.scene.pick(click.position);
+        if (!window.Cesium.defined(pickedObject)) {
+          const drillList = viewerInstance.scene.drillPick(click.position);
+          if (drillList && drillList.length > 0) pickedObject = drillList[0];
+        }
+
         if (window.Cesium.defined(pickedObject)) {
           if (pickedObject.id?.properties) {
-            if (pickedObject.id.properties.tipo?.getValue() === 'evento_historico') {
-              const evData = pickedObject.id.properties.eventoData.getValue();
-              handleSelecionarEvento(evData);
+            const tipo = pickedObject.id.properties.tipo?.getValue();
+            if (tipo === 'pino_historico') {
+              const pinoId = pickedObject.id.properties.pinoId?.getValue();
+              handleSelecionarPinoOrbital(pinoId);
               return;
             }
             if (pickedObject.id.properties.areaId) {
               const areaId = pickedObject.id.properties.areaId.getValue();
-              handleSelecionarAreaOrbital(areaId);
+              handleSelecionarCamadaOrbital(areaId);
               return;
             }
           }
           if (typeof pickedObject.id === 'string' && pickedObject.id.startsWith('area_')) {
             const areaId = pickedObject.id.replace('area_', '');
-            handleSelecionarAreaOrbital(areaId);
+            handleSelecionarCamadaOrbital(areaId);
             return;
           }
         }
 
-        // Clicar fora desmarca seleção mantendo câmera travada
-        handleResetarCameraRadar();
+        // Clicar fora desmarca seleção mantendo câmera na visão figurativa
+        handleResetarModoOrbital();
         return;
       }
 
@@ -1565,69 +1585,87 @@ function App() {
         return;
       }
 
-      // Interação 3D sob o cursor no MODO ORBITAL
+      // Interação 3D sob o cursor no MODO ORBITAL FIGURATIVO
       if (modoOrbitalAtivoRef.current) {
-        const pickedObject = viewerInstance.scene.pick(movement.endPosition);
-        let novoEventoHover = null;
-        let novaAreaHover = null;
+        let pickedObject = viewerInstance.scene.pick(movement.endPosition);
+        if (!window.Cesium.defined(pickedObject)) {
+          const drillList = viewerInstance.scene.drillPick(movement.endPosition);
+          if (drillList && drillList.length > 0) pickedObject = drillList[0];
+        }
 
-        if (window.Cesium.defined(pickedObject) && pickedObject.id?.properties) {
-          const tipo = pickedObject.id.properties.tipo?.getValue();
+        let novoPinoHover = null;
+        let novaCamadaHover = null;
 
-          if (tipo === 'evento_historico') {
-            novoEventoHover = pickedObject.id;
-            const evData = pickedObject.id.properties.eventoData?.getValue();
+        if (window.Cesium.defined(pickedObject)) {
+          if (pickedObject.id?.properties) {
+            const tipo = pickedObject.id.properties.tipo?.getValue();
 
-            if (tooltipEl && evData) {
-              tooltipEl.innerHTML = `
-                <div class="tooltip-header" style="border-color: rgba(0, 240, 255, 0.35); padding-bottom: 6px; margin-bottom: 6px;">
-                  <span class="tooltip-dot" style="background:#00f0ff; color:#00f0ff; box-shadow: 0 0 10px #00f0ff;"></span>
-                  <span class="tooltip-name" style="color:#00f0ff; font-size: 11px; letter-spacing: 1px;">EVENTO HISTÓRICO · ${evData.ano}</span>
-                </div>
-                <div style="font-size: 13px; font-weight: 700; color: #ffffff; letter-spacing: 0.5px; margin-bottom: 4px;">
-                  ◆ ${evData.nome.toUpperCase()}
-                </div>
-                <div style="font-size: 11px; color: #94a3b8; line-height: 1.4; margin-bottom: 6px;">
-                  ${evData.causa || evData.consequencias || ''}
-                </div>
-                <div style="font-size: 10px; color: rgba(0, 240, 255, 0.85); border-top: 1px dashed rgba(0, 240, 255, 0.2); padding-top: 5px; display: flex; justify-content: space-between;">
-                  <span>ALTITUDE: <strong>${evData.altitudeKm?.toLocaleString('pt-BR')} km</strong></span>
-                  <span>FRAGMENTOS: <strong>${evData.fragmentosGerados || 0}</strong></span>
-                </div>
-              `;
-              tooltipEl.style.display = 'block';
-              tooltipEl.style.left = `${movement.endPosition.x + 14}px`;
-              tooltipEl.style.top = `${movement.endPosition.y + 14}px`;
+            if (tipo === 'pino_historico') {
+              novoPinoHover = pickedObject.id;
+              const pinoData = pickedObject.id.properties.pinoData?.getValue();
+
+              if (tooltipEl && pinoData) {
+                tooltipEl.innerHTML = `
+                  <div class="tooltip-header" style="border-color: rgba(255, 0, 85, 0.4); padding-bottom: 4px; margin-bottom: 4px;">
+                    <span class="tooltip-name" style="color:#ff0055; font-size: 10px; font-weight:800;">[${pinoData.ano}] ${pinoData.localNome}</span>
+                  </div>
+                  <div style="font-size: 12px; font-weight: 700; color: #ffffff; letter-spacing: 0.4px;">
+                    ${pinoData.nome}
+                  </div>
+                  <div style="font-size: 10px; color: var(--text-muted); margin-top: 2px;">
+                    Altitude: ${pinoData.posicao.altKm} km
+                  </div>
+                `;
+                tooltipEl.style.display = 'block';
+                tooltipEl.style.left = `${movement.endPosition.x + 14}px`;
+                tooltipEl.style.top = `${movement.endPosition.y + 14}px`;
+              }
+            } else if (pickedObject.id.properties.areaId) {
+              novaCamadaHover = pickedObject.id.properties.areaId.getValue();
             }
-          } else if (pickedObject.id.properties.areaId) {
-            const aId = pickedObject.id.properties.areaId.getValue();
-            if (aId === 'heo' || pickedObject.id.properties.isLimite?.getValue()) {
-              novaAreaHover = aId;
-            }
+          } else if (typeof pickedObject.id === 'string' && pickedObject.id.startsWith('area_')) {
+            novaCamadaHover = pickedObject.id.replace('area_', '');
           }
         }
 
-        // Atualização de hover no marcador de evento
-        if (lastHoveredEventoEntity !== novoEventoHover) {
+        // Tooltip e cursor para faixa orbital sob hover
+        if (novaCamadaHover && !novoPinoHover) {
+          const infoCamada = CAMADAS_ORBITAIS[novaCamadaHover];
+          if (tooltipEl && infoCamada) {
+            tooltipEl.innerHTML = `
+              <div class="tooltip-header" style="border-color: ${infoCamada.cor}66; padding-bottom: 4px; margin-bottom: 4px;">
+                <span class="tooltip-name" style="color:${infoCamada.cor}; font-size: 10px; font-weight:800;">ÓRBITA ${infoCamada.sigla}</span>
+              </div>
+              <div style="font-size: 12px; font-weight: 700; color: #ffffff;">
+                ${infoCamada.nome}
+              </div>
+              <div style="font-size: 10px; color: var(--text-muted); margin-top: 2px;">
+                Faixa: ${infoCamada.altitude}
+              </div>
+            `;
+            tooltipEl.style.display = 'block';
+            tooltipEl.style.left = `${movement.endPosition.x + 14}px`;
+            tooltipEl.style.top = `${movement.endPosition.y + 14}px`;
+          }
+        }
+
+        // Atualização de hover no marcador de pino
+        if (lastHoveredEventoEntity !== novoPinoHover) {
           if (lastHoveredEventoEntity) {
-            destacarEvento3D(lastHoveredEventoEntity, false);
+            destacarPinoHistorico(lastHoveredEventoEntity, false);
           }
-          if (novoEventoHover) {
-            destacarEvento3D(novoEventoHover, true);
+          if (novoPinoHover) {
+            destacarPinoHistorico(novoPinoHover, true);
           }
-          lastHoveredEventoEntity = novoEventoHover;
+          lastHoveredEventoEntity = novoPinoHover;
         }
 
-        // Atualização de hover no contorno orbital
-        destacarArea3D(entidadesAreas3DRef.current, novaAreaHover);
-
-        if (novoEventoHover || novaAreaHover) {
+        if (novoPinoHover || novaCamadaHover) {
           viewerInstance.scene.canvas.style.cursor = 'pointer';
         } else {
           viewerInstance.scene.canvas.style.cursor = 'default';
           if (tooltipEl) tooltipEl.style.display = 'none';
         }
-
         return;
       }
 
@@ -1784,7 +1822,68 @@ function App() {
 
     // Acompanhamento do objeto focado no preRender
     const removerPreRender = viewerInstance.scene.preRender.addEventListener(() => {
-      // Loop de renderização com câmera livre para o usuário navegar
+      if (!viewerRef.current || viewerRef.current.isDestroyed() || !window.Cesium) return;
+
+      const satAtivo = satSelecionadoRef.current;
+      if (satAtivo) {
+        const noradStr = String(satAtivo.norad_id);
+        const entry = pointsRef.current.get(noradStr);
+        if (entry && entry.satrec && entry.point && entry.point.show) {
+          try {
+            const agora = new Date();
+            const gmst = satellite.gstime(agora);
+            const pv = satellite.propagate(entry.satrec, agora);
+            if (pv && pv.position && !isNaN(pv.position.x)) {
+              const gd = satellite.eciToGeodetic(pv.position, gmst);
+              const lon = satellite.degreesLong(gd.longitude);
+              const lat = satellite.degreesLat(gd.latitude);
+              const alt = Math.max(0, gd.height * 1000);
+
+              if (!scratchSelectedPosRef.current) {
+                scratchSelectedPosRef.current = new window.Cesium.Cartesian3();
+              }
+              const posAtual = window.Cesium.Cartesian3.fromDegrees(lon, lat, alt, undefined, scratchSelectedPosRef.current);
+              entry.point.position = posAtual;
+
+              // Acompanhamento orbital suave da câmera
+              if (cameraSeguindoObjetoRef.current === noradStr) {
+                const posAnt = posicaoAnteriorSatRef.current;
+                if (posAnt && viewerRef.current) {
+                  const magAnt = window.Cesium.Cartesian3.magnitude(posAnt);
+                  const magAtual = window.Cesium.Cartesian3.magnitude(posAtual);
+                  if (magAnt > 1000 && magAtual > 1000) {
+                    const cosA = window.Cesium.Cartesian3.dot(posAnt, posAtual) / (magAnt * magAtual);
+                    const angle = Math.acos(Math.max(-1, Math.min(1, cosA)));
+
+                    if (angle > 1e-8 && !isNaN(angle)) {
+                      if (!scratchAxisRef.current) scratchAxisRef.current = new window.Cesium.Cartesian3();
+                      if (!scratchQuatRef.current) scratchQuatRef.current = new window.Cesium.Quaternion();
+                      if (!scratchRotMatRef.current) scratchRotMatRef.current = new window.Cesium.Matrix3();
+
+                      window.Cesium.Cartesian3.cross(posAnt, posAtual, scratchAxisRef.current);
+                      const magAxis = window.Cesium.Cartesian3.magnitude(scratchAxisRef.current);
+                      if (magAxis > 1e-6) {
+                        window.Cesium.Cartesian3.normalize(scratchAxisRef.current, scratchAxisRef.current);
+                        window.Cesium.Quaternion.fromAxisAngle(scratchAxisRef.current, angle, scratchQuatRef.current);
+                        window.Cesium.Matrix3.fromQuaternion(scratchQuatRef.current, scratchRotMatRef.current);
+
+                        const cam = viewerRef.current.camera;
+                        window.Cesium.Matrix3.multiplyByVector(scratchRotMatRef.current, cam.position, cam.position);
+                        window.Cesium.Matrix3.multiplyByVector(scratchRotMatRef.current, cam.direction, cam.direction);
+                        window.Cesium.Matrix3.multiplyByVector(scratchRotMatRef.current, cam.up, cam.up);
+                        window.Cesium.Cartesian3.cross(cam.direction, cam.up, cam.right);
+                      }
+                    }
+                  }
+                }
+                posicaoAnteriorSatRef.current = window.Cesium.Cartesian3.clone(posAtual, posicaoAnteriorSatRef.current || new window.Cesium.Cartesian3());
+              }
+            }
+          } catch {
+            // Falha silenciosa de propagação no frame
+          }
+        }
+      }
     });
 
     return () => {
@@ -3339,50 +3438,40 @@ function App() {
             />
           </ErrorBoundary>
 
-          {/* FICHA UNIFICADA DE MISSÕES E DESCUBRA NO CENTRO INFERIOR (MODO LIVRE) */}
-          {!modoOrbitalAtivo && telaAtiva === 'simulador' && (
-            <OrbitalMissionHub
-              visivel={hubMissaoVisivel}
-              onRemover={() => setHubMissaoVisivel(false)}
-              satSelecionado={satSelecionado}
-              parametrosOrbitaisSat={parametrosOrbitaisSat}
-              onInvestigarObjeto={handleInvestigarObjeto}
-              onAplicarFiltroCategorias={handleAplicarFiltroCategorias}
-              onLocalizarGeo={handleLocalizarGeo}
-              onTocarSom={(tipo) => {
-                if (tipo === 'sucesso' || tipo === 'iniciar') tocarEfeitoSonoro(somIniciar, 0.7);
-                else if (tipo === 'falha') tocarEfeitoSonoro(somFadeOut, 0.65);
-                else if (tipo === 'slide') tocarEfeitoSonoro(somTrocaSlide, 0.5);
-              }}
-            />
-          )}
+          {/* MISSÕES TÁTICAS PERIÓDICAS NO CENTRO INFERIOR (MODO LIVRE) */}
+          <OrbitalMissionHub
+            ativo={!modoOrbitalAtivo && telaAtiva === 'simulador'}
+            satSelecionado={satSelecionado}
+            parametrosOrbitaisSat={parametrosOrbitaisSat}
+            pausado={modalTutorialAberto || modalGlossarioAberto || modalCenariosAberto}
+            onInvestigarObjeto={handleInvestigarObjeto}
+            onAplicarFiltroCategorias={handleAplicarFiltroCategorias}
+            onLocalizarGeo={handleLocalizarGeo}
+            onTocarSom={(tipo) => {
+              if (tipo === 'sucesso' || tipo === 'iniciar') tocarEfeitoSonoro(somIniciar, 0.7);
+              else if (tipo === 'falha') tocarEfeitoSonoro(somFadeOut, 0.65);
+              else if (tipo === 'slide') tocarEfeitoSonoro(somTrocaSlide, 0.5);
+            }}
+          />
 
-          {!modoOrbitalAtivo && !hubMissaoVisivel && telaAtiva === 'simulador' && (
-            <button
-              type="button"
-              className="hub-reopen-trigger-btn"
-              onClick={() => setHubMissaoVisivel(true)}
-              title="Abrir Missões e Curiosidades"
-            >
-              <Target size={14} />
-              <span>Missões</span>
-            </button>
-          )}
-
-          {/* ELEMENTOS EXCLUSIVOS DO MODO ORBITAL (COLUNA HUD NA DIREITA) */}
+          {/* ELEMENTO EXCLUSIVO DO MODO ORBITAL (CONTAINER FLEX-BOX BALANCADO OPOSTO AO PLANETA) */}
           {modoOrbitalAtivo && telaAtiva === 'simulador' && (
-            <div className="orbital-hud-column">
-              <OrbitalTimelineHolo
-                ano={anoTimeline}
-                onAlterarAno={handleAlterarAnoTimeline}
-              />
-              <OrbitalTacticalVisor
-                ano={anoTimeline}
-                eventoSelecionado={eventoSelecionado}
-                areaSelecionadaInfo={areaSelecionadaId ? calcularMetricasArea(areaSelecionadaId, anoTimeline) : null}
-                onSelecionarArea={handleSelecionarAreaOrbital}
-                onFechar={handleResetarCameraRadar}
-              />
+            <div className="orbital-mode-stage-container">
+              <div className="orbital-mode-stage-left" />
+              <div className="orbital-mode-stage-right">
+                <OrbitalModePanel
+                  camadaSelecionadaId={camadaOrbitalAtiva}
+                  pinoSelecionadoId={pinoOrbitalAtivo}
+                  onSelecionarCamada={handleSelecionarCamadaOrbital}
+                  onSelecionarPino={handleSelecionarPinoOrbital}
+                  onFechar={handleResetarModoOrbital}
+                  onTocarSom={(tipo) => {
+                    if (tipo === 'slide') tocarEfeitoSonoro(somTrocaSlide, 0.45);
+                    else if (tipo === 'iniciar') tocarEfeitoSonoro(somIniciar, 0.7);
+                    else if (tipo === 'fechar') tocarEfeitoSonoro(somFadeOut, 0.5);
+                  }}
+                />
+              </div>
             </div>
           )}
         </div>

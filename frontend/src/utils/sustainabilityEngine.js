@@ -8,6 +8,14 @@ export function classificarNivelImpacto(valor) {
   return { label: 'BAIXO', cor: 'var(--neon-green, #00ff66)', classe: 'badge-baixo' };
 }
 
+// Retorna cor e classe semantica alinhada ao nivel textual
+export function obterEstiloPorNivel(nivel) {
+  if (nivel === 'CRÍTICO') return { cor: 'var(--neon-red, #ff0055)', classe: 'badge-critico' };
+  if (nivel === 'ALTO') return { cor: 'var(--neon-orange, #ff6600)', classe: 'badge-alto' };
+  if (nivel === 'MÉDIO') return { cor: 'var(--neon-amber, #ffaa00)', classe: 'badge-medio' };
+  return { cor: 'var(--neon-green, #00ff66)', classe: 'badge-baixo' };
+}
+
 // Normaliza categoria do objeto para o modelo de auditoria
 function normalizarCategoria(sat) {
   const catId = Number(sat?.categoria_id);
@@ -50,19 +58,19 @@ export function calculateOrbitalAudit(sat, params = null) {
 
   if (perigee < 400) {
     permanenceScore = 8;
-    decayEstimate = 'Meses a < 2 anos (Conforme FCC 5 anos)';
+    decayEstimate = 'Meses a 2 anos (Conforme FCC)';
     permanenceLevel = 'BAIXO';
   } else if (perigee <= 550) {
     permanenceScore = 16;
-    decayEstimate = '< 5 anos de decaimento natural (Conforme FCC)';
+    decayEstimate = 'Menos de 5 anos (Conforme FCC)';
     permanenceLevel = 'BAIXO';
   } else if (perigee <= 650) {
     permanenceScore = 24;
-    decayEstimate = '10 a 25 anos (Conforme IADC 25 anos)';
+    decayEstimate = '10 a 25 anos (Conforme IADC)';
     permanenceLevel = 'MÉDIO';
   } else if (perigee <= 800) {
     permanenceScore = 32;
-    decayEstimate = '50 a 150 anos (Excede 25 anos sem propulsão)';
+    decayEstimate = '50 a 150 anos (Excede 25 anos)';
     permanenceLevel = 'ALTO';
   } else if (perigee <= 2000) {
     permanenceScore = 40;
@@ -141,7 +149,7 @@ export function calculateOrbitalAudit(sat, params = null) {
   }
 
   // Frases explicativas concisas
-  let explicacaoPermanencia = "Decai naturalmente em poucos anos por atrito com o ar.";
+  let explicacaoPermanencia = "Perde altitude sozinho em poucos anos pelo atrito do ar.";
   if (perigee > 800) {
     explicacaoPermanencia = "Sem ar suficiente para frear o objeto; séculos em órbita.";
   } else if (perigee > 550) {
@@ -159,6 +167,9 @@ export function calculateOrbitalAudit(sat, params = null) {
     ? "Satélite ativo com propulsão para evitar colisões."
     : "Sucata espacial sem motor; não consegue desviar.";
 
+  const estiloPermanencia = obterEstiloPorNivel(permanenceLevel);
+  const estiloDensidade = obterEstiloPorNivel(densityLevel);
+
   return {
     score: totalSio,
     scoreTotal: totalSio,
@@ -172,8 +183,8 @@ export function calculateOrbitalAudit(sat, params = null) {
         label: 'Permanência por Altitude',
         peso: '40%',
         level: permanenceLevel,
-        classe: classificarNivelImpacto(permanenceScore * 2.5).classe,
-        cor: classificarNivelImpacto(permanenceScore * 2.5).cor,
+        classe: estiloPermanencia.classe,
+        cor: estiloPermanencia.cor,
         points: permanenceScore,
         maxPoints: 40,
         explicacao: explicacaoPermanencia
@@ -183,8 +194,8 @@ export function calculateOrbitalAudit(sat, params = null) {
         label: 'Tráfego na Mesma Altitude',
         peso: '35%',
         level: densityLevel,
-        classe: classificarNivelImpacto(densityScore * (100 / 35)).classe,
-        cor: classificarNivelImpacto(densityScore * (100 / 35)).cor,
+        classe: estiloDensidade.classe,
+        cor: estiloDensidade.cor,
         points: densityScore,
         maxPoints: 35,
         explicacao: explicacaoTrafego

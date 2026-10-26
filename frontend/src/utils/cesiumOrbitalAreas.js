@@ -1,10 +1,8 @@
-import { DEFINICOES_AREAS_ORBITAIS, RAIO_TERRA_METROS } from './orbitalAreas3D';
-import { EVENTOS_HISTORICOS_ESA } from '../data/esaSpaceEnvironmentData';
+import { PINOS_HISTORICOS, CAMADAS_ORBITAIS } from '../data/orbitalModeData';
 
-/**
- * Cria a geometria de um anel plano 2D no plano equatorial (Z = 0)
- * Elimina paredes verticais e linhas de silhueta indesejadas
- */
+export const RAIO_TERRA_METROS = 6371000;
+
+// Cria geometria de anel plano equatorial
 function criarGeometriaAnelPlano(raioInterno, raioExterno, segmentos = 96) {
   const numVertices = (segmentos + 1) * 2;
   const positions = new Float64Array(numVertices * 3);
@@ -15,13 +13,11 @@ function criarGeometriaAnelPlano(raioInterno, raioExterno, segmentos = 96) {
     const cos = Math.cos(angle);
     const sin = Math.sin(angle);
 
-    // Vértice interno no plano equatorial
     const idxIn = i * 2 * 3;
     positions[idxIn] = raioInterno * cos;
     positions[idxIn + 1] = raioInterno * sin;
     positions[idxIn + 2] = 0.0;
 
-    // Vértice externo no plano equatorial
     const idxOut = (i * 2 + 1) * 3;
     positions[idxOut] = raioExterno * cos;
     positions[idxOut + 1] = raioExterno * sin;
@@ -35,7 +31,6 @@ function criarGeometriaAnelPlano(raioInterno, raioExterno, segmentos = 96) {
     const v2 = (i + 1) * 2;
     const v3 = (i + 1) * 2 + 1;
 
-    // Face superior (sentido anti-horário)
     indices[indexOffset++] = v0;
     indices[indexOffset++] = v1;
     indices[indexOffset++] = v2;
@@ -44,7 +39,6 @@ function criarGeometriaAnelPlano(raioInterno, raioExterno, segmentos = 96) {
     indices[indexOffset++] = v1;
     indices[indexOffset++] = v3;
 
-    // Face inferior (sentido horário)
     indices[indexOffset++] = v0;
     indices[indexOffset++] = v2;
     indices[indexOffset++] = v1;
@@ -71,111 +65,95 @@ function criarGeometriaAnelPlano(raioInterno, raioExterno, segmentos = 96) {
   });
 }
 
-/**
- * Gera pontos de um círculo equatorial em altitude metros
- */
-function gerarCirculoEquatorial(altitudeMetros, segmentos = 96) {
+// Gera pontos perimétricos para borda neon do anel
+function gerarCirculoEquatorial(raioMetros, segmentos = 96) {
   const pontos = [];
-  const raioTotal = RAIO_TERRA_METROS + altitudeMetros;
   for (let i = 0; i <= segmentos; i++) {
     const angle = (i / segmentos) * 2.0 * Math.PI;
-    const x = raioTotal * Math.cos(angle);
-    const y = raioTotal * Math.sin(angle);
-    const z = 0;
-    pontos.push(new window.Cesium.Cartesian3(x, y, z));
+    const x = raioMetros * Math.cos(angle);
+    const y = raioMetros * Math.sin(angle);
+    pontos.push(new window.Cesium.Cartesian3(x, y, 0));
   }
   return pontos;
 }
 
-/**
- * Gera pontos de uma órbita altamente elíptica (HEO/Molniya)
- */
-function gerarElipseHeo(segmentos = 96, offsetSemiEixo = 0) {
-  const pontos = [];
-  const rPerigeu = RAIO_TERRA_METROS + 600000 + offsetSemiEixo;
-  const rApogeu = RAIO_TERRA_METROS + 39500000 + offsetSemiEixo;
-  const a = (rPerigeu + rApogeu) / 2;
-  const c = a - rPerigeu;
-  const b = Math.sqrt(Math.max(1, a * a - c * c));
-  const inclinacaoRad = window.Cesium.Math.toRadians(63.4);
+// Coordenadas calculadas para posicionamento dos badges no plano equatorial
+export const RAIO_CAMADAS = {
+  leo: { in: 1.25 * RAIO_TERRA_METROS, out: 1.52 * RAIO_TERRA_METROS, cor: '#00f0ff', sigla: 'LEO' },
+  meo: { in: 1.70 * RAIO_TERRA_METROS, out: 2.05 * RAIO_TERRA_METROS, cor: '#0066ff', sigla: 'MEO' },
+  geo: { in: 2.25 * RAIO_TERRA_METROS, out: 2.55 * RAIO_TERRA_METROS, cor: '#a855f7', sigla: 'GEO' },
+  heo: { in: 2.75 * RAIO_TERRA_METROS, out: 3.08 * RAIO_TERRA_METROS, cor: '#e879f9', sigla: 'HEO' }
+};
 
-  for (let i = 0; i <= segmentos; i++) {
-    const theta = (i / segmentos) * 2 * Math.PI;
-    const xOrb = a * Math.cos(theta) - c;
-    const yOrb = b * Math.sin(theta);
+// Retorna posicoes cartesianas dos 4 badges
+export function obterPosicoesBadgesOrbitais() {
+  const anguloRad = window.Cesium ? window.Cesium.Math.toRadians(40.0) : (40 * Math.PI / 180);
+  const cosAng = Math.cos(anguloRad);
+  const sinAng = Math.sin(anguloRad);
 
-    const x = xOrb;
-    const y = yOrb * Math.cos(inclinacaoRad);
-    const z = yOrb * Math.sin(inclinacaoRad);
-
-    pontos.push(new window.Cesium.Cartesian3(x, y, z));
+  const posicoes = {};
+  for (const [chave, dados] of Object.entries(RAIO_CAMADAS)) {
+    const raioMedio = (dados.in + dados.out) / 2;
+    if (window.Cesium) {
+      posicoes[chave] = new window.Cesium.Cartesian3(raioMedio * cosAng, raioMedio * sinAng, 0);
+    }
   }
-  return pontos;
+  return posicoes;
 }
 
-/**
- * Cria os discos equatoriais contínuos sem frestas e sem sobreposição
- */
-export function criarGeometriasAreas3D(viewer, ano = 2026) {
-  if (!viewer || !window.Cesium) return [];
+// Cria as 4 faixas concentricas equatoriais e bordas neon
+export function criarGeometriasAreas3D(viewer) {
+  if (!viewer || !window.Cesium) return null;
 
   const colecao = {
     entidades: [],
     primitivos: []
   };
 
-  // 1. Instâncias dos anéis planos equatoriais (2D sem espessura e sem paredes)
-  // LEO: 200 km a 2.000 km
-  const geomLeo = criarGeometriaAnelPlano(
-    RAIO_TERRA_METROS + 200000,
-    RAIO_TERRA_METROS + 2000000,
-    96
-  );
+  // Instâncias dos 4 anéis concêntricos planos no mesmo formato
   const instLeo = new window.Cesium.GeometryInstance({
-    geometry: geomLeo,
+    geometry: criarGeometriaAnelPlano(RAIO_CAMADAS.leo.in, RAIO_CAMADAS.leo.out, 96),
     attributes: {
       color: window.Cesium.ColorGeometryInstanceAttribute.fromColor(
-        window.Cesium.Color.fromCssColorString('#00f0ff').withAlpha(0.18)
+        window.Cesium.Color.fromCssColorString('#00f0ff').withAlpha(0.22)
       )
     },
     id: 'area_leo'
   });
 
-  // MEO: Inicia exatamente em 2.000 km e vai até 35.500 km (sem espaço vazio)
-  const geomMeo = criarGeometriaAnelPlano(
-    RAIO_TERRA_METROS + 2000000,
-    RAIO_TERRA_METROS + 35500000,
-    128
-  );
   const instMeo = new window.Cesium.GeometryInstance({
-    geometry: geomMeo,
+    geometry: criarGeometriaAnelPlano(RAIO_CAMADAS.meo.in, RAIO_CAMADAS.meo.out, 128),
     attributes: {
       color: window.Cesium.ColorGeometryInstanceAttribute.fromColor(
-        window.Cesium.Color.fromCssColorString('#0066ff').withAlpha(0.10)
+        window.Cesium.Color.fromCssColorString('#0066ff').withAlpha(0.18)
       )
     },
     id: 'area_meo'
   });
 
-  // GEO: Anel do cinturão geoestacionário (35.500 km a 36.100 km, centrado em 35.786 km)
-  const geomGeo = criarGeometriaAnelPlano(
-    RAIO_TERRA_METROS + 35500000,
-    RAIO_TERRA_METROS + 36100000,
-    128
-  );
   const instGeo = new window.Cesium.GeometryInstance({
-    geometry: geomGeo,
+    geometry: criarGeometriaAnelPlano(RAIO_CAMADAS.geo.in, RAIO_CAMADAS.geo.out, 128),
     attributes: {
       color: window.Cesium.ColorGeometryInstanceAttribute.fromColor(
-        window.Cesium.Color.fromCssColorString('#a855f7').withAlpha(0.24)
+        window.Cesium.Color.fromCssColorString('#a855f7').withAlpha(0.20)
       )
     },
     id: 'area_geo'
   });
 
-  // Cria primitivo com renderização translúcida plana uniforme
+  const instHeo = new window.Cesium.GeometryInstance({
+    geometry: criarGeometriaAnelPlano(RAIO_CAMADAS.heo.in, RAIO_CAMADAS.heo.out, 128),
+    attributes: {
+      color: window.Cesium.ColorGeometryInstanceAttribute.fromColor(
+        window.Cesium.Color.fromCssColorString('#e879f9').withAlpha(0.22)
+      )
+    },
+    id: 'area_heo'
+  });
+
+  // Primitivo translúcido contínuo das quatro camadas
   const primitivoDiscos = new window.Cesium.Primitive({
-    geometryInstances: [instLeo, instMeo, instGeo],
+    geometryInstances: [instLeo, instMeo, instGeo, instHeo],
     appearance: new window.Cesium.PerInstanceColorAppearance({
       flat: true,
       translucent: true,
@@ -183,224 +161,186 @@ export function criarGeometriasAreas3D(viewer, ano = 2026) {
     }),
     asynchronous: false
   });
-
   viewer.scene.primitives.add(primitivoDiscos);
   colecao.primitivos.push(primitivoDiscos);
 
-  // 2. Trajetória da órbita altamente elíptica (HEO)
-  const linhaHeoCentro = viewer.entities.add({
-    name: 'Órbita HEO Central',
-    polyline: {
-      positions: gerarElipseHeo(96, 0),
-      width: 2.5,
-      material: window.Cesium.Color.fromCssColorString('#e879f9').withAlpha(0.95)
-    },
-    properties: new window.Cesium.PropertyBag({
-      areaId: 'heo',
-      tipo: 'area_orbital',
-      isCore: true
-    })
-  });
-  colecao.entidades.push(linhaHeoCentro);
+  // Bordas perimétricas neon para realce visual de cada faixa
+  const bordas = [
+    { raio: RAIO_CAMADAS.leo.in, cor: '#00f0ff', alpha: 0.65, areaId: 'leo' },
+    { raio: RAIO_CAMADAS.leo.out, cor: '#00f0ff', alpha: 0.85, areaId: 'leo' },
+    { raio: RAIO_CAMADAS.meo.in, cor: '#0066ff', alpha: 0.60, areaId: 'meo' },
+    { raio: RAIO_CAMADAS.meo.out, cor: '#0066ff', alpha: 0.80, areaId: 'meo' },
+    { raio: RAIO_CAMADAS.geo.in, cor: '#a855f7', alpha: 0.65, areaId: 'geo' },
+    { raio: RAIO_CAMADAS.geo.out, cor: '#a855f7', alpha: 0.85, areaId: 'geo' },
+    { raio: RAIO_CAMADAS.heo.in, cor: '#e879f9', alpha: 0.65, areaId: 'heo' },
+    { raio: RAIO_CAMADAS.heo.out, cor: '#e879f9', alpha: 0.85, areaId: 'heo' }
+  ];
 
-  const linhaHeoAura = viewer.entities.add({
-    name: 'Aura HEO',
-    polyline: {
-      positions: gerarElipseHeo(96, 0),
-      width: 7.5,
-      material: window.Cesium.Color.fromCssColorString('#c084fc').withAlpha(0.25)
-    },
-    properties: new window.Cesium.PropertyBag({
-      areaId: 'heo',
-      tipo: 'area_orbital',
-      isAura: true
-    })
+  bordas.forEach((b) => {
+    const entBorda = viewer.entities.add({
+      polyline: {
+        positions: gerarCirculoEquatorial(b.raio, 96),
+        width: 1.8,
+        material: window.Cesium.Color.fromCssColorString(b.cor).withAlpha(b.alpha)
+      },
+      properties: new window.Cesium.PropertyBag({
+        tipo: 'borda_orbital',
+        areaId: b.areaId
+      })
+    });
+    colecao.entidades.push(entBorda);
   });
-  colecao.entidades.push(linhaHeoAura);
 
   return colecao;
 }
 
-/**
- * Cria marcadores compactos com oclusão esférica natural da Terra
- */
-export function criarMarcadoresEventos3D(viewer, ano) {
+// Cria os marcadores de pinos vermelhos dos eventos historicos no globo
+export function criarMarcadoresEventos3D(viewer) {
   if (!viewer || !window.Cesium) return [];
 
-  const marcadoresCriados = [];
+  const entidadesCriadas = [];
 
-  EVENTOS_HISTORICOS_ESA.forEach((evento) => {
-    if (evento.ano <= ano) {
-      const isAnoAtual = evento.ano === ano;
-      const corBase = window.Cesium.Color.fromCssColorString('#00f0ff');
+  PINOS_HISTORICOS.forEach((pino) => {
+    const posSuperficie = window.Cesium.Cartesian3.fromDegrees(
+      pino.posicao.lon,
+      pino.posicao.lat,
+      10000
+    );
+    const posTopoHaste = window.Cesium.Cartesian3.fromDegrees(
+      pino.posicao.lon,
+      pino.posicao.lat,
+      350000
+    );
 
-      const cartesian = window.Cesium.Cartesian3.fromDegrees(
-        evento.posicao.lon,
-        evento.posicao.lat,
-        evento.posicao.altMetros
-      );
+    // Haste vertical do pino conectada a superficie
+    const hasteEnt = viewer.entities.add({
+      polyline: {
+        positions: [posSuperficie, posTopoHaste],
+        width: 2.0,
+        material: window.Cesium.Color.fromCssColorString('#ff0055').withAlpha(0.85)
+      },
+      properties: new window.Cesium.PropertyBag({
+        tipo: 'haste_pino',
+        pinoId: pino.id
+      })
+    });
+    entidadesCriadas.push(hasteEnt);
 
-      const pontoEntity = viewer.entities.add({
-        name: evento.nome,
-        position: cartesian,
-        point: {
-          pixelSize: isAnoAtual ? 11 : 7,
-          color: isAnoAtual
-            ? window.Cesium.Color.WHITE
-            : corBase,
-          outlineColor: isAnoAtual
-            ? corBase
-            : window.Cesium.Color.fromCssColorString('rgba(0, 240, 255, 0.4)'),
-          outlineWidth: isAnoAtual ? 3.5 : 2.0
-        },
-        label: {
-          text: `◆ ${evento.nome.toUpperCase()}`,
-          font: 'bold 10px monospace',
-          fillColor: window.Cesium.Color.WHITE,
-          outlineColor: corBase,
-          outlineWidth: 2.0,
-          style: window.Cesium.LabelStyle.FILL_AND_OUTLINE,
-          showBackground: true,
-          backgroundColor: window.Cesium.Color.fromCssColorString('rgba(6, 14, 28, 0.9)'),
-          backgroundPadding: new window.Cesium.Cartesian2(6, 3),
-          verticalOrigin: window.Cesium.VerticalOrigin.BOTTOM,
-          pixelOffset: new window.Cesium.Cartesian2(0, -12),
-          show: false
-        },
-        properties: new window.Cesium.PropertyBag({
-          tipo: 'evento_historico',
-          eventoId: evento.id,
-          eventoData: evento,
-          isAnoAtual: isAnoAtual
-        })
-      });
-
-      marcadoresCriados.push(pontoEntity);
-    }
+    // Cabeca esferica do pino vermelho
+    const pinoEnt = viewer.entities.add({
+      name: pino.nome,
+      position: posTopoHaste,
+      point: {
+        pixelSize: 11,
+        color: window.Cesium.Color.fromCssColorString('#ff0044'),
+        outlineColor: window.Cesium.Color.WHITE,
+        outlineWidth: 2.0,
+        disableDepthTestDistance: 1000000
+      },
+      properties: new window.Cesium.PropertyBag({
+        tipo: 'pino_historico',
+        pinoId: pino.id,
+        camadaId: pino.camadaId,
+        pinoData: pino
+      })
+    });
+    entidadesCriadas.push(pinoEnt);
   });
 
-  return marcadoresCriados;
+  return entidadesCriadas;
 }
 
-/**
- * Destaque ao passar o mouse sobre o ponto do evento histórico
- */
-export function destacarEvento3D(entidade, isHover) {
+// Posiciona a camera para enquadramento com planeta a esquerda
+export function posicionarCameraModoOrbital(viewer) {
+  if (!viewer || !window.Cesium) return;
+
+  viewer.camera.lookAtTransform(window.Cesium.Matrix4.IDENTITY);
+  viewer.trackedEntity = undefined;
+
+  // Enquadra a Terra no quadrante inferior-esquerdo
+  viewer.camera.flyTo({
+    destination: new window.Cesium.Cartesian3(42000000, 18000000, 44000000),
+    orientation: {
+      direction: new window.Cesium.Cartesian3(-0.694658, 0.0, -0.719340),
+      up: new window.Cesium.Cartesian3(-0.719340, 0.0, 0.694658)
+    },
+    duration: 1.5
+  });
+
+  const ctrl = viewer.scene.screenSpaceCameraController;
+  ctrl.enableRotate = true;
+  ctrl.enableZoom = true;
+  ctrl.enableTranslate = false;
+  ctrl.enableTilt = false;
+  ctrl.enableLook = false;
+}
+
+// Realca visualmente uma camada orbital selecionada
+export function destacarCamadaOrbital(colecao, camadaIdAtiva) {
+  if (!colecao) return;
+  const entidades = colecao.entidades || [];
+
+  entidades.forEach((ent) => {
+    if (!ent.properties || !ent.properties.areaId) return;
+    const areaId = ent.properties.areaId.getValue();
+    const isAtiva = !camadaIdAtiva || areaId === camadaIdAtiva;
+
+    if (ent.polyline) {
+      ent.polyline.width = isAtiva ? 3.0 : 1.2;
+    }
+  });
+}
+
+// Realca pino historico sob hover ou selecao
+export function destacarPinoHistorico(entidade, isHover) {
   if (!entidade || !entidade.point) return;
-  const isAnoAtual = entidade.properties?.isAnoAtual?.getValue() || false;
-  const corBase = window.Cesium.Color.fromCssColorString('#00f0ff');
 
   if (isHover) {
     entidade.point.pixelSize = 14;
     entidade.point.color = window.Cesium.Color.WHITE;
-    entidade.point.outlineColor = corBase;
-    entidade.point.outlineWidth = 4.0;
-    if (entidade.label) {
-      entidade.label.show = true;
-    }
+    entidade.point.outlineColor = window.Cesium.Color.fromCssColorString('#ff0044');
+    entidade.point.outlineWidth = 3.5;
   } else {
-    entidade.point.pixelSize = isAnoAtual ? 11 : 7;
-    entidade.point.color = isAnoAtual ? window.Cesium.Color.WHITE : corBase;
-    entidade.point.outlineColor = isAnoAtual
-      ? corBase
-      : window.Cesium.Color.fromCssColorString('rgba(0, 240, 255, 0.4)');
-    entidade.point.outlineWidth = isAnoAtual ? 3.5 : 2.0;
-    if (entidade.label) {
-      entidade.label.show = false;
-    }
+    entidade.point.pixelSize = 11;
+    entidade.point.color = window.Cesium.Color.fromCssColorString('#ff0044');
+    entidade.point.outlineColor = window.Cesium.Color.WHITE;
+    entidade.point.outlineWidth = 2.0;
   }
 }
 
-/**
- * Remove marcadores de eventos históricos
- */
+// Remove marcadores de eventos
 export function removerMarcadoresEventos3D(viewer, entidades) {
   if (!viewer || !entidades) return;
   entidades.forEach((ent) => {
     try {
       viewer.entities.remove(ent);
     } catch {
-      // Ignora entidades já removidas
+      // Ignora entidades ja removidas
     }
   });
 }
 
-/**
- * Atualiza cores ao trocar de ano
- */
-export function atualizarCoresAreas3D(viewer, colecao, ano) {
-  // Cores mantidas uniformes
-}
-
-/**
- * Realça elementos perimétricos sob hover
- */
-export function destacarArea3D(colecao, areaIdHover) {
-  if (!colecao) return;
-  const entidades = colecao.entidades || (Array.isArray(colecao) ? colecao : []);
-
-  entidades.forEach((ent) => {
-    if (!ent.properties || !ent.properties.areaId) return;
-    const areaId = ent.properties.areaId.getValue();
-    const isHovered = areaId === areaIdHover;
-
-    // Linhas HEO
-    if (ent.polyline && areaId === 'heo') {
-      const isAura = ent.properties.isAura ? ent.properties.isAura.getValue() : false;
-      const isCore = ent.properties.isCore ? ent.properties.isCore.getValue() : false;
-
-      if (isAura) {
-        ent.polyline.width = isHovered ? 11.0 : 7.5;
-        ent.polyline.material = isHovered
-          ? window.Cesium.Color.fromCssColorString('#c084fc').withAlpha(0.50)
-          : window.Cesium.Color.fromCssColorString('#c084fc').withAlpha(0.25);
-      } else if (isCore) {
-        ent.polyline.width = isHovered ? 3.8 : 2.5;
-        ent.polyline.material = isHovered
-          ? window.Cesium.Color.WHITE
-          : window.Cesium.Color.fromCssColorString('#e879f9').withAlpha(0.95);
-      }
-    }
-  });
-}
-
-/**
- * Remove todas as geometrias e primitivos de áreas do Cesium
- */
+// Remove geometrias das faixas orbitais
 export function removerGeometriasAreas3D(viewer, colecao) {
   if (!viewer || !colecao) return;
 
-  if (Array.isArray(colecao)) {
-    colecao.forEach((item) => {
+  if (colecao.entidades) {
+    colecao.entidades.forEach((ent) => {
       try {
-        if (viewer.entities.contains(item)) {
-          viewer.entities.remove(item);
-        } else if (viewer.scene.primitives.contains(item)) {
-          viewer.scene.primitives.remove(item);
-        }
+        viewer.entities.remove(ent);
       } catch {
-        // Ignora itens já removidos
+        // Ignora entidades ja removidas
       }
     });
-  } else if (typeof colecao === 'object') {
-    if (colecao.entidades) {
-      colecao.entidades.forEach((ent) => {
-        try {
-          viewer.entities.remove(ent);
-        } catch {
-          // Ignora entidades já removidas
-        }
-      });
-    }
-    if (colecao.primitivos) {
-      colecao.primitivos.forEach((prim) => {
-        try {
-          viewer.scene.primitives.remove(prim);
-        } catch {
-          // Ignora primitivos já removidos
-        }
-      });
-    }
+  }
+
+  if (colecao.primitivos) {
+    colecao.primitivos.forEach((prim) => {
+      try {
+        viewer.scene.primitives.remove(prim);
+      } catch {
+        // Ignora primitivos ja removidos
+      }
+    });
   }
 }
-

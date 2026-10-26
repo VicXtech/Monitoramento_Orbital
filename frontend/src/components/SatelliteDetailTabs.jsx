@@ -279,7 +279,7 @@ export default function SatelliteDetailTabs({
                 <div className="telemetry-section-title">Formato e Rota da Órbita</div>
                 <div className="telemetry-metrics-grid">
                   <div className="telemetry-metric-box">
-                    <span className="metric-box-label">ALTITUDE MÁXIMA / MÍNIMA</span>
+                    <span className="metric-box-label">ALTITUDE MÁX. / MÍN.</span>
                     <span className="metric-box-val compact-val">
                       {parametrosOrbitaisSat.apogeuKm.toLocaleString('pt-BR')} / {parametrosOrbitaisSat.perigeuKm.toLocaleString('pt-BR')} km
                     </span>
@@ -305,7 +305,7 @@ export default function SatelliteDetailTabs({
                   </div>
 
                   <div className="telemetry-metric-box">
-                    <span className="metric-box-label">TEMPO DE 1 VOLTA NA TERRA</span>
+                    <span className="metric-box-label">TEMPO DE 1 VOLTA</span>
                     <span className="metric-box-val compact-val">
                       {formatarTempoVolta(parametrosOrbitaisSat.periodoMinutos)}
                     </span>
@@ -501,7 +501,7 @@ export default function SatelliteDetailTabs({
               <div className="normative-card-title">Enquadramento Normativo</div>
 
               <div className="normative-row">
-                <span className="normative-label">Decaimento natural:</span>
+                <span className="normative-label">Tempo de queda natural:</span>
                 <span className="normative-badge-value">{auditoriaSio.decayEstimate}</span>
               </div>
 
