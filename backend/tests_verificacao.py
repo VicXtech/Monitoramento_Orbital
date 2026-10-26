@@ -19,21 +19,24 @@ def test_suite():
     r = client.get("/api/estatisticas")
     assert r.status_code == 200, f"Erro /api/estatisticas: {r.text}"
     stats = r.json()
-    assert stats["total_objetos"] == 11535, f"Total incorreto: {stats['total_objetos']}"
+    assert stats["total_objetos"] == 31842, f"Total incorreto: {stats['total_objetos']}"
     totais = stats.get("totais_oficiais", {})
-    assert totais.get("ativos") == 4916
-    assert totais.get("inativos") == 1473
-    assert totais.get("foguetes") == 2283
-    assert totais.get("detritos") == 2838
+    assert totais.get("total_console") == 31818, f"Total console incorreto: {totais.get('total_console')}"
+    assert totais.get("ativos") == 15651
+    assert totais.get("inativos") == 3530
+    assert totais.get("foguetes") == 3468
+    assert totais.get("detritos") == 9167
     assert totais.get("estacoes") == 2
-    print("   [OK] Estatísticas e totais oficiais de catálogo conferem: 11.535 objetos em órbita (4.916 ativos, 1.473 inativos, 2.283 foguetes, 2.838 detritos, 2 estações).\n")
+    assert totais.get("celestrak_catalogados") == 34729
+    assert totais.get("celestrak_rastreados") == 31818
+    print("   [OK] Estatísticas e totais oficiais de catálogo conferem: 31.818 no console (15.651 ativos, 3.530 inativos, 3.468 foguetes, 9.167 detritos, 2 estações).\n")
 
-    # 3. Radar Padrão (1.000 amostragem + 2 estações fixas = 1.002 objetos)
+    # 3. Radar Padrão (1.000 amostragem incluindo as 2 estações fixas)
     print("3. Testando /api/objetos com as 4 categorias ativas (1, 2, 5, 3)...")
     r = client.get("/api/objetos?limit=1000&categoria_ids=1,2,5,3")
     assert r.status_code == 200
     objs = r.json()
-    assert len(objs) == 1002, f"Esperado 1002 objetos no radar, retornado: {len(objs)}"
+    assert len(objs) == 1000, f"Esperado 1000 objetos no radar, retornado: {len(objs)}"
     norads = {o["norad_id"] for o in objs}
     assert "25544" in norads, "ISS (25544) não encontrada no radar!"
     assert "48274" in norads, "Tiangong (48274) não encontrada no radar!"
@@ -43,16 +46,16 @@ def test_suite():
     for o in objs:
         cid = o.get("categoria_id")
         cat_counts[cid] = cat_counts.get(cid, 0) + 1
-    print(f"   [OK] Retornados exatamente 1.002 objetos. Distribuição no radar: {cat_counts}\n")
+    print(f"   [OK] Retornados exatamente 1.000 objetos. Distribuição no radar: {cat_counts}\n")
 
     # 4. Amostragem Redistributiva (Desativando Satélites Ativos - categoria 1)
     print("4. Testando Amostragem Redistributiva (Categorias 2, 5, 3 - sem ativos)...")
     r = client.get("/api/objetos?limit=1000&categoria_ids=2,5,3")
     assert r.status_code == 200
     objs_sem_ativos = r.json()
-    assert len(objs_sem_ativos) == 1002, f"Esperado 1002 objetos redistribuídos, retornado: {len(objs_sem_ativos)}"
+    assert len(objs_sem_ativos) == 1000, f"Esperado 1000 objetos redistribuídos, retornado: {len(objs_sem_ativos)}"
     assert not any(o["categoria_id"] == 1 for o in objs_sem_ativos), "Não deveria conter objetos da categoria 1!"
-    print("   [OK] Amostragem redistribuiu automaticamente vagas ociosas preenchendo o limite com 1.002 objetos.\n")
+    print("   [OK] Amostragem redistribuiu automaticamente vagas ociosas preenchendo o limite com 1.000 objetos.\n")
 
     # 5. Todas as categorias do radar desativadas (categoria_ids=none)
     print("5. Testando todas categorias desativadas (categoria_ids=none)...")

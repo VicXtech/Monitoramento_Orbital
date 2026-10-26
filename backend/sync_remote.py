@@ -2,6 +2,7 @@
 
 import sys
 import os
+import json
 from sqlalchemy import create_engine, text
 from app.database import SessionLocal
 
@@ -35,8 +36,13 @@ def sync(remote_url: str):
         """))
         remote_conn.commit()
 
+        # Garante colunas de regime e dados_omm no banco remoto
+        remote_conn.execute(text("ALTER TABLE objeto_orbital ADD COLUMN IF NOT EXISTS regime VARCHAR(10);"))
+        remote_conn.execute(text("ALTER TABLE objeto_orbital ADD COLUMN IF NOT EXISTS dados_omm JSONB;"))
+        remote_conn.commit()
+
         print("[2/4] Sincronizando 11.536 Objetos Orbitais...")
-        objs = local_db.execute(text("SELECT id, nome, norad_id, cospar_id, pais, status, data_lancamento, data_decaimento, local_lancamento, codigo_status, categoria_id, estacao_pai_norad FROM objeto_orbital ORDER BY id")).fetchall()
+        objs = local_db.execute(text("SELECT id, nome, norad_id, cospar_id, pais, status, data_lancamento, data_decaimento, local_lancamento, codigo_status, categoria_id, estacao_pai_norad, regime, dados_omm FROM objeto_orbital ORDER BY id")).fetchall()
         
         for i in range(0, len(objs), 500):
             chunk = objs[i:i+500]
@@ -47,11 +53,12 @@ def sync(remote_url: str):
                     "pais": o.pais, "status": o.status, "data_lancamento": o.data_lancamento,
                     "data_decaimento": o.data_decaimento, "local_lancamento": o.local_lancamento,
                     "codigo_status": o.codigo_status, "categoria_id": o.categoria_id,
-                    "estacao_pai_norad": o.estacao_pai_norad
+                    "estacao_pai_norad": o.estacao_pai_norad, "regime": o.regime,
+                    "dados_omm": json.dumps(o.dados_omm) if o.dados_omm else None
                 })
             remote_conn.execute(text("""
-                INSERT INTO objeto_orbital (id, nome, norad_id, cospar_id, pais, status, data_lancamento, data_decaimento, local_lancamento, codigo_status, categoria_id, estacao_pai_norad)
-                VALUES (:id, :nome, :norad_id, :cospar_id, :pais, :status, :data_lancamento, :data_decaimento, :local_lancamento, :codigo_status, :categoria_id, :estacao_pai_norad)
+                INSERT INTO objeto_orbital (id, nome, norad_id, cospar_id, pais, status, data_lancamento, data_decaimento, local_lancamento, codigo_status, categoria_id, estacao_pai_norad, regime, dados_omm)
+                VALUES (:id, :nome, :norad_id, :cospar_id, :pais, :status, :data_lancamento, :data_decaimento, :local_lancamento, :codigo_status, :categoria_id, :estacao_pai_norad, :regime, CAST(:dados_omm AS JSONB))
                 ON CONFLICT (id) DO UPDATE SET
                     nome = EXCLUDED.nome,
                     norad_id = EXCLUDED.norad_id,
@@ -63,7 +70,9 @@ def sync(remote_url: str):
                     local_lancamento = EXCLUDED.local_lancamento,
                     codigo_status = EXCLUDED.codigo_status,
                     categoria_id = EXCLUDED.categoria_id,
-                    estacao_pai_norad = EXCLUDED.estacao_pai_norad;
+                    estacao_pai_norad = EXCLUDED.estacao_pai_norad,
+                    regime = EXCLUDED.regime,
+                    dados_omm = EXCLUDED.dados_omm;
             """), params)
             remote_conn.commit()
             print(f" -> Objetos inseridos: {min(i+500, len(objs))}/{len(objs)}")

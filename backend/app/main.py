@@ -23,6 +23,23 @@ logging.basicConfig(
 logger = logging.getLogger("MonitoramentoOrbital")
 conector = APIConector()
 
+# Satélites fixos de alto valor científico, missões brasileiras e estações espaciais (sempre preservados)
+PINNED_NORAD_IDS = [
+    "25544",  # ISS (Zarya)
+    "48274",  # Tiangong (CSS Tianhe)
+    "22490",  # SCD-1 (Primeiro satélite brasileiro)
+    "25504",  # SCD-2 (Coleta de dados ambientais Brasil)
+    "47699",  # Amazonia-1 (Satélite óptico nacional INPE)
+    "44883",  # CBERS-4A (Sino-Brasileiro)
+    "40336",  # CBERS-4
+    "20580",  # Telescópio Espacial Hubble (HST)
+    "24946",  # Iridium 33 (Colisão histórica de 2009)
+    "22675",  # Cosmos 2251 (Colisão histórica de 2009)
+    "43013",  # NOAA-20 / JPSS-1
+    "00012",  # Vanguard 1 R/B (Pioneiro histórico)
+    "00016"   # Vanguard 2 R/B
+]
+
 
 def executar_coleta_diaria():
     """Tarefa periódica que consome os TLEs e atualiza o PostgreSQL."""
@@ -193,19 +210,21 @@ async def health_check():
 @app.get("/api/objetos", response_model=List[schemas.ObjetoOrbitalResponse])
 def listar_objetos(
     skip: int = Query(0, ge=0, description="Offset para paginação"),
-    limit: int = Query(1000, ge=1, le=2000, description="Limite de amostragem no radar (padrão 1000)"),
+    limit: int = Query(1000, ge=1, le=15000, description="Limite de amostragem no radar (padrão 1000, até 15000)"),
     categoria_id: Optional[int] = Query(None, description="Filtro opcional por ID da categoria"),
     categoria_ids: Optional[str] = Query(None, description="IDs de categorias ativas separados por vírgula (ex: 1,2,3,5)"),
+    regime: Optional[str] = Query(None, description="Filtro opcional por camada orbital: LEO, MEO, GEO, HEO"),
     busca: Optional[str] = Query(None, description="Filtro de texto opcional para Nome ou NORAD ID"),
     seed: Optional[str] = Query(None, description="Semente ou timestamp para forçar nova amostragem pseudo-aleatória"),
     db: Session = Depends(get_db)
 ):
     """
     Retorna a lista de objetos orbitais com categoria, dados de missão e último TLE.
-    Garante presença das estações principais e amostragem proporcional das categorias.
+    Garante presença de satélites históricos/científicos essenciais (PINNED),
+    amostragem estratificada 2D calibrada na proporção da ESA e suporte a filtro por camada orbital.
     """
     try:
-        # Aplica seed pseudo-aleatória no PostgreSQL para garantir novo embaralhamento ao clicar em recarregar
+        # Aplica seed pseudo-aleatória no PostgreSQL se fornecida
         if seed:
             try:
                 seed_float = (abs(hash(str(seed))) % 1000000) / 1000000.0
@@ -244,6 +263,8 @@ def listar_objetos(
                 ObjetoOrbital.nome.ilike(f"%{busca_limpa}%") | 
                 ObjetoOrbital.norad_id.like(f"%{busca_limpa}%")
             )
+            if regime:
+                query = query.filter(ObjetoOrbital.regime == regime.strip().upper())
             if categoria_id is not None:
                 query = query.filter(ObjetoOrbital.categoria_id == categoria_id)
             elif categoria_ids:
@@ -260,61 +281,128 @@ def listar_objetos(
                     pass
 
         else:
-            # 2. No radar do simulador 3D: apenas objetos em órbita ativa (expurga objetos reentrados/decaídos)
+            # 2. No radar do simulador 3D: apenas objetos em órbita ativa (expurga objetos decaídos)
             query_base = query_base.filter(
                 ObjetoOrbital.data_decaimento.is_(None),
                 (ObjetoOrbital.codigo_status != 'D') | (ObjetoOrbital.codigo_status.is_(None))
             )
 
-            # As 2 Estações Espaciais Principais permanecem 100% fixas e presentes
-            estacoes = query_base.filter(
-                ObjetoOrbital.norad_id.in_(["25544", "48274"])
-            ).all()
-
-            # Determinar quais categorias de satélites e detritos estão ativas
+            # Categorias ativas
             if categoria_ids:
                 cats_ativas = [int(x.strip()) for x in categoria_ids.split(",") if x.strip().isdigit()]
             elif categoria_id is not None:
                 cats_ativas = [categoria_id]
             else:
-                # Padrão: as 4 categorias do radar (1: Ativos, 2: Inativos, 3: Detritos, 5: Foguetes)
-                cats_ativas = [1, 2, 3, 5]
+                cats_ativas = [1, 2, 3, 4, 5]
 
-            # Filtra apenas as categorias do radar (1, 2, 3, 5)
-            cats_radar = [c for c in cats_ativas if c in [1, 2, 3, 5]]
+            cats_radar = [c for c in cats_ativas if c in [1, 2, 3, 4, 5]]
+            regime_filtro = regime.strip().upper() if regime else None
 
-            if not cats_radar:
-                results = estacoes
-            else:
-                # Amostragem dinâmica redistributiva:
-                # Distribui as vagas do limite (ex: 1000) entre as categorias ativas.
-                # Categorias com menor estoque (Foguetes: ~110, Inativos: ~191) cedem vagas excedentes
-                # para categorias de maior volume (Detritos: ~717, Ativos: ~5298).
-                vagas_restantes = limit
-                ordem = sorted(cats_radar, key=lambda c: 0 if c == 5 else (1 if c == 2 else (2 if c == 3 else 3)))
-                amostras = []
+            # CASO A: Filtro específico por camada orbital (Drill-Down / isolamento de camada)
+            if regime_filtro in ["LEO", "MEO", "GEO", "HEO"]:
+                pinned_filter = (
+                    ObjetoOrbital.norad_id.in_(["25544", "48274"]) | (
+                        ObjetoOrbital.categoria_id.in_(cats_radar) &
+                        ObjetoOrbital.norad_id.in_(PINNED_NORAD_IDS)
+                    )
+                )
+                pinned_na_camada = query_base.filter(
+                    pinned_filter,
+                    ObjetoOrbital.regime == regime_filtro
+                ).all()
+                pinned_ids = set(p[0].id for p in pinned_na_camada)
 
-                for idx, cid in enumerate(ordem):
-                    n_restantes = len(ordem) - idx
-                    cota = vagas_restantes // n_restantes
-                    itens = query_base.filter(
-                        ObjetoOrbital.categoria_id == cid,
+                vagas_restantes = max(0, limit - len(pinned_na_camada))
+                outros = []
+                if vagas_restantes > 0:
+                    outros_query = query_base.filter(
+                        ObjetoOrbital.regime == regime_filtro,
+                        ObjetoOrbital.categoria_id.in_(cats_radar),
                         ObjetoOrbital.estacao_pai_norad.is_(None),
-                        ~ObjetoOrbital.norad_id.in_(["25544", "48274"]),
                         ~ObjetoOrbital.nome.ilike("ISS (%"),
                         ~ObjetoOrbital.nome.ilike("CSS (%")
-                    ).order_by(prioridade_pais.asc(), func.random()).limit(cota).all()
+                    )
+                    if pinned_ids:
+                        outros_query = outros_query.filter(~ObjetoOrbital.id.in_(pinned_ids))
 
-                    amostras.extend(itens)
-                    vagas_restantes -= len(itens)
-                    if vagas_restantes <= 0:
-                        break
+                    outros = outros_query.order_by(prioridade_pais.asc(), func.random()).limit(vagas_restantes).all()
 
-                results = estacoes + amostras
+                results = pinned_na_camada + outros
+
+            # CASO B: Amostragem Estratificada 2D Proporcional da ESA (84% LEO, 9% GEO, 5% HEO, 2% MEO)
+            else:
+                cota_leo = int(round(limit * 0.84))
+                cota_geo = int(round(limit * 0.09))
+                cota_heo = int(round(limit * 0.05))
+                cota_meo = max(1, limit - (cota_leo + cota_geo + cota_heo))
+
+                cotas_camadas = {
+                    "LEO": cota_leo,
+                    "GEO": cota_geo,
+                    "HEO": cota_heo,
+                    "MEO": cota_meo
+                }
+
+                # Objetos VIP / Pinned sempre garantidos (inclui as 2 estações principais permanentemente)
+                pinned_filter = (
+                    ObjetoOrbital.norad_id.in_(["25544", "48274"]) | (
+                        ObjetoOrbital.categoria_id.in_(cats_radar) &
+                        ObjetoOrbital.norad_id.in_(PINNED_NORAD_IDS)
+                    )
+                )
+                pinned = query_base.filter(pinned_filter).all()
+                pinned_ids = set(p[0].id for p in pinned)
+
+                pinned_por_reg = {"LEO": [], "GEO": [], "HEO": [], "MEO": []}
+                for p in pinned:
+                    reg_obj = p[0].regime or "LEO"
+                    if reg_obj in pinned_por_reg:
+                        pinned_por_reg[reg_obj].append(p)
+                    else:
+                        pinned_por_reg["LEO"].append(p)
+
+                amostras_totais = []
+                sobra_vagas = 0
+
+                for reg_nome, cota_alvo in cotas_camadas.items():
+                    pinned_camada = pinned_por_reg[reg_nome]
+                    amostras_totais.extend(pinned_camada)
+                    vagas = max(0, cota_alvo - len(pinned_camada))
+                    if vagas > 0:
+                        itens_query = query_base.filter(
+                            ObjetoOrbital.regime == reg_nome,
+                            ObjetoOrbital.categoria_id.in_(cats_radar),
+                            ObjetoOrbital.estacao_pai_norad.is_(None),
+                            ~ObjetoOrbital.nome.ilike("ISS (%"),
+                            ~ObjetoOrbital.nome.ilike("CSS (%")
+                        )
+                        if pinned_ids:
+                            itens_query = itens_query.filter(~ObjetoOrbital.id.in_(pinned_ids))
+
+                        itens_camada = itens_query.order_by(prioridade_pais.asc(), func.random()).limit(vagas).all()
+                        amostras_totais.extend(itens_camada)
+                        if len(itens_camada) < vagas:
+                            sobra_vagas += (vagas - len(itens_camada))
+
+                # Se sobrar alguma vaga (ex: camada pequena com menos itens que a cota), compensa em LEO
+                if sobra_vagas > 0:
+                    ids_ja_inclusos = set(r[0].id for r in amostras_totais)
+                    extras_leo = query_base.filter(
+                        ObjetoOrbital.regime == "LEO",
+                        ObjetoOrbital.categoria_id.in_(cats_radar),
+                        ObjetoOrbital.estacao_pai_norad.is_(None),
+                        ~ObjetoOrbital.id.in_(ids_ja_inclusos),
+                        ~ObjetoOrbital.nome.ilike("ISS (%"),
+                        ~ObjetoOrbital.nome.ilike("CSS (%")
+                    ).order_by(prioridade_pais.asc(), func.random()).limit(sobra_vagas).all()
+                    amostras_totais.extend(extras_leo)
+
+                results = amostras_totais
 
         response_data = []
         for objeto, tle in results:
             objeto.ultimo_tle = tle
+            objeto.omm = objeto.dados_omm
             response_data.append(objeto)
 
         return response_data
@@ -353,6 +441,7 @@ def obter_objeto_por_norad(norad_id: str, db: Session = Depends(get_db)):
     ).order_by(TLEHistorico.epoch.desc()).first()
     
     objeto.ultimo_tle = ultimo_tle
+    objeto.omm = objeto.dados_omm
     return objeto
 
 
@@ -384,6 +473,7 @@ def listar_modulos_estacao(norad_id: str, db: Session = Depends(get_db)):
         response_data = []
         for objeto, tle in modulos:
             objeto.ultimo_tle = tle
+            objeto.omm = objeto.dados_omm
             response_data.append(objeto)
 
         return response_data
@@ -491,34 +581,24 @@ def obter_estatisticas(db: Session = Depends(get_db)):
         ]
 
         try:
-            subq_reg = db.query(
-                TLEHistorico.objeto_id, func.max(TLEHistorico.id).label("max_id")
-            ).group_by(TLEHistorico.objeto_id).subquery()
-            tles_query = db.query(TLEHistorico.linha2).join(subq_reg, TLEHistorico.id == subq_reg.c.max_id).all()
+            contagens_regimes_query = db.query(
+                ObjetoOrbital.regime,
+                func.count(ObjetoOrbital.id)
+            ).filter(
+                ObjetoOrbital.data_decaimento.is_(None),
+                (ObjetoOrbital.codigo_status != 'D') | (ObjetoOrbital.codigo_status.is_(None))
+            ).group_by(ObjetoOrbital.regime).all()
 
-            regimes_count = {"leo": 0, "meo": 0, "geo": 0, "heo": 0}
-            for (l2,) in tles_query:
-                try:
-                    ecc = float("0." + l2[26:33].strip())
-                    if ecc > 0.25:
-                        regimes_count["heo"] += 1
-                        continue
-                    mm = float(l2[52:63].strip())
-                    nRadS = (mm * 2 * math.pi) / 86400.0
-                    a = (398600.4418 / (nRadS * nRadS)) ** (1.0 / 3.0)
-                    alt = a - 6378.137
-                    if alt >= 35000:
-                        regimes_count["geo"] += 1
-                    elif alt >= 2000:
-                        regimes_count["meo"] += 1
-                    else:
-                        regimes_count["leo"] += 1
-                except Exception:
-                    regimes_count["leo"] += 1
-
-            distribuicao_regimes = schemas.DistribuicaoRegimes(**regimes_count)
-        except Exception:
-            distribuicao_regimes = schemas.DistribuicaoRegimes(leo=5519, meo=183, geo=590, heo=44)
+            regimes_dict = {str(r).lower(): c for r, c in contagens_regimes_query if r}
+            distribuicao_regimes = schemas.DistribuicaoRegimes(
+                leo=regimes_dict.get("leo", 8831),
+                meo=regimes_dict.get("meo", 290),
+                geo=regimes_dict.get("geo", 1282),
+                heo=regimes_dict.get("heo", 1132)
+            )
+        except Exception as e:
+            logger.warning(f"Aviso ao calcular distribuicao_regimes: {e}")
+            distribuicao_regimes = schemas.DistribuicaoRegimes(leo=8831, meo=290, geo=1282, heo=1132)
 
         # Contagens reais por categoria de objetos atualmente em órbita ativa
         contagens_cat = dict(
@@ -527,30 +607,37 @@ def obter_estatisticas(db: Session = Depends(get_db)):
                 func.count(ObjetoOrbital.id)
             ).filter(
                 ObjetoOrbital.data_decaimento.is_(None),
-                (ObjetoOrbital.codigo_status != 'D') | (ObjetoOrbital.codigo_status.is_(None))
+                (ObjetoOrbital.codigo_status != 'D') | (ObjetoOrbital.codigo_status.is_(None)),
+                ObjetoOrbital.estacao_pai_norad.is_(None)
             ).group_by(ObjetoOrbital.categoria_id).all()
         )
 
-        ativos_em_orbita = contagens_cat.get(1, 4918)
-        inativos_em_orbita = contagens_cat.get(2, 1476)
-        detritos_em_orbita = contagens_cat.get(3, 2838)
+        ativos_em_orbita = contagens_cat.get(1, 5275)
+        inativos_em_orbita = contagens_cat.get(2, 1117)
+        detritos_em_orbita = contagens_cat.get(3, 2835)
         estacoes_em_orbita = 2  # As 2 estações espaciais principais permanentes (ISS e Tiangong)
         foguetes_em_orbita = contagens_cat.get(5, 2283)
 
+        total_console = ativos_em_orbita + inativos_em_orbita + foguetes_em_orbita + detritos_em_orbita + estacoes_em_orbita  # 11512
+
         totais_oficiais = schemas.TotaisOficiaisCatalogo(
-            total=total_em_orbita,
+            total=total_banco,
             total_em_orbita=total_em_orbita,
+            total_console=total_console,
             ativos=ativos_em_orbita,
             inativos=inativos_em_orbita,
             foguetes=foguetes_em_orbita,
             detritos=detritos_em_orbita,
-            estacoes=estacoes_em_orbita
+            estacoes=estacoes_em_orbita,
+            celestrak_catalogados=34729,
+            celestrak_rastreados=31818,
+            nao_catalogados_estimativa="Mais de 140 milhões"
         )
 
         perc_detritos = round((detritos_em_orbita / total_em_orbita) * 100.0, 2) if total_em_orbita > 0 else 0.0
 
         return schemas.EstatisticasResponse(
-            total_objetos=total_em_orbita,
+            total_objetos=total_banco,
             total_em_orbita=total_em_orbita,
             percentual_detritos=perc_detritos,
             distribuicao_paises=distribuicao_paises,

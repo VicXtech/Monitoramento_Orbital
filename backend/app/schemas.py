@@ -1,6 +1,6 @@
 from pydantic import BaseModel, Field, ConfigDict
 from datetime import datetime, date
-from typing import List, Optional
+from typing import List, Optional, Dict, Any
 
 # Schemas de categoria
 
@@ -25,7 +25,7 @@ class TLEHistoricoBase(BaseModel):
     model_config = ConfigDict(from_attributes=True)
 
 
-# Schemas de informação da missão
+# Schemas de informação de missão
 
 class InformacaoMissaoResponse(BaseModel):
     id: int
@@ -53,6 +53,8 @@ class ObjetoOrbitalBase(BaseModel):
     codigo_status: Optional[str] = None
     categoria_id: int
     estacao_pai_norad: Optional[str] = None
+    regime: Optional[str] = None
+    dados_omm: Optional[Dict[str, Any]] = None
 
     model_config = ConfigDict(from_attributes=True)
 
@@ -61,6 +63,7 @@ class ObjetoOrbitalResponse(ObjetoOrbitalBase):
     categoria: CategoriaBase
     ultimo_tle: Optional[TLEHistoricoBase] = None
     missao: Optional[InformacaoMissaoResponse] = None
+    omm: Optional[Dict[str, Any]] = None
 
     model_config = ConfigDict(from_attributes=True)
 
@@ -88,22 +91,26 @@ class EvolucaoHistorica(BaseModel):
 
 
 class DistribuicaoRegimes(BaseModel):
-    leo: int = 5519
-    meo: int = 183
-    geo: int = 590
-    heo: int = 44
+    leo: int = 8832
+    meo: int = 360
+    geo: int = 1292
+    heo: int = 1052
 
     model_config = ConfigDict(from_attributes=True)
 
 
 class TotaisOficiaisCatalogo(BaseModel):
-    total: int = 11535
+    total: int = 11536
     total_em_orbita: Optional[int] = 11535
-    ativos: int = 4918
-    inativos: int = 1476
+    total_console: int = 11512
+    ativos: int = 5275
+    inativos: int = 1117
     foguetes: int = 2283
-    detritos: int = 2838
+    detritos: int = 2835
     estacoes: int = 2
+    celestrak_catalogados: int = 34729
+    celestrak_rastreados: int = 31818
+    nao_catalogados_estimativa: str = "Mais de 140 milhões"
 
     model_config = ConfigDict(from_attributes=True)
 

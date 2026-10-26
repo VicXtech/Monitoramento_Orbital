@@ -1,9 +1,10 @@
 import httpx
+import math
 from datetime import datetime, timedelta, date
 import logging
 from sqlalchemy.orm import Session
 from sqlalchemy.dialects.postgresql import insert as pg_insert
-from sqlalchemy import text
+from sqlalchemy import text, func
 from app.models import CategoriaObjeto, ObjetoOrbital, TLEHistorico, InformacaoMissao
 
 # Configurar logging
@@ -285,11 +286,72 @@ class APIConector:
             logger.error(f"Erro ao converter epoch TLE '{epoch_str}': {e}")
             return datetime.utcnow()
 
+    @staticmethod
+    def classificar_regime_esa(linha1: str, linha2: str) -> str:
+        """
+        Classifica o regime orbital rigorosamente segundo geometria e astrodinâmica:
+        GEO: Sincronizada (~24h, 1350 <= T <= 1650 min) ou anel/cemitério (34000 <= hp e ha <= 50000 km) com e < 0.25
+        LEO: Órbita baixa restrita (hp < 2000 km e ha <= 2000 km e e < 0.25)
+        MEO: Órbita média restrita (hp >= 2000 km e ha < 35500 km e e < 0.25)
+        HEO: Rotas ovais (GTO, Molniya, cruzadoras de altitude e e >= 0.25)
+        """
+        if not linha2 or len(linha2) < 69:
+            return "LEO"
+        try:
+            ecc_str = "0." + linha2[26:33].strip()
+            ecc = float(ecc_str)
+            mm_str = linha2[52:63].strip()
+            mm = float(mm_str)
+            if mm <= 0:
+                return "LEO"
+            period_min = 1440.0 / mm
+            n_rad_s = (mm * 2.0 * math.pi) / 86400.0
+            a = (398600.4418 / (n_rad_s * n_rad_s)) ** (1.0 / 3.0)
+            h_p = a * (1.0 - ecc) - 6378.137
+            h_a = a * (1.0 + ecc) - 6378.137
+
+            if ((1350.0 <= period_min <= 1650.0) or (34000.0 <= h_p and h_a <= 50000.0)) and ecc < 0.25:
+                return "GEO"
+            elif h_p < 2000.0 and h_a <= 2000.0 and ecc < 0.25:
+                return "LEO"
+            elif h_p >= 2000.0 and h_a < 35500.0 and ecc < 0.25:
+                return "MEO"
+            else:
+                return "HEO"
+        except Exception:
+            return "LEO"
+
+    def classificar_regime_esa_omm(self, omm: dict) -> str:
+        """Classifica o regime orbital (LEO, MEO, GEO, HEO) a partir dos parâmetros numéricos do OMM."""
+        try:
+            e = float(omm.get("ECCENTRICITY", 0.0))
+            n = float(omm.get("MEAN_MOTION", 0.0))
+            if n <= 0.0:
+                return "LEO"
+
+            n_rad = n * (2.0 * math.pi / 86400.0)
+            mu = 398600.4418
+            a = (mu / (n_rad ** 2)) ** (1.0 / 3.0)
+            r_terra = 6378.137
+            hp = a * (1.0 - e) - r_terra
+            ha = a * (1.0 + e) - r_terra
+            periodo_min = 1440.0 / n
+
+            if ((1350.0 <= periodo_min <= 1650.0) or (34000.0 <= hp and ha <= 50000.0)) and e < 0.25:
+                return "GEO"
+            if hp < 2000.0 and ha <= 2000.0 and e < 0.25:
+                return "LEO"
+            if hp >= 2000.0 and ha < 35500.0 and e < 0.25:
+                return "MEO"
+            return "HEO"
+        except Exception:
+            return "LEO"
+
     def coletar_e_processar(self, db: Session, grupo: str = None, name: str = None, special: str = None, categoria_nome: str = None):
-        """Consome o endpoint do CelesTrak por grupo, name ou special e salva via Bulk UPSERT no PostgreSQL."""
+        """Consome o endpoint do CelesTrak no formato OMM (JSON) ou TLE legado e salva via Bulk UPSERT no PostgreSQL."""
         origem = grupo or name or special or "desconhecido"
         logger.info(f"Iniciando requisição ao CelesTrak para '{origem}'...")
-        params = {"FORMAT": "tle"}
+        params = {"FORMAT": "json"}
         if grupo:
             params["GROUP"] = grupo
         elif name:
@@ -298,87 +360,147 @@ class APIConector:
             params["SPECIAL"] = special
         
         try:
-            with httpx.Client(timeout=15.0, headers=self.headers) as client:
+            with httpx.Client(timeout=20.0, headers=self.headers) as client:
                 response = client.get(self.url_base, params=params)
                 if response.status_code == 403:
                     logger.warning(f"CelesTrak retornou 403 (limitação temporária de taxa) para '{origem}'.")
                     return
                 response.raise_for_status()
-                texto_bruto = response.text
+                
+                # Tenta parsear como JSON OMM (padrão internacional moderno)
+                try:
+                    dados_json = response.json()
+                except Exception:
+                    dados_json = None
+                texto_bruto = response.text if dados_json is None else ""
         except httpx.TimeoutException:
-            logger.warning(f"Tempo limite (timeout de 15s) esgotado para o CelesTrak para '{origem}'. Pulando com segurança.")
+            logger.warning(f"Tempo limite (timeout) esgotado para o CelesTrak para '{origem}'. Pulando com segurança.")
             return
         except Exception as e:
             logger.error(f"Falha na requisição HTTP para o CelesTrak para '{origem}': {e}")
             return
 
-        linhas = [l.strip() for l in texto_bruto.splitlines() if l.strip()]
-        total_linhas = len(linhas)
-        logger.info(f"Resposta recebida de '{origem}'. Parseando {total_linhas} linhas de texto...")
-
         objetos_a_inserir = []
         tle_dados_temporarios = []
         starlinks_processados = 0
 
-        for i in range(0, total_linhas - 2, 3):
-            linha0 = linhas[i]
-            linha1 = linhas[i+1]
-            linha2 = linhas[i+2]
-
-            if not (linha1.startswith("1 ") and linha2.startswith("2 ") and len(linha1) >= 69 and len(linha2) >= 69):
-                continue
-
-            # Mantém diversidade permitindo até 500 Starlinks da frota
-            if "STARLINK" in linha0.upper():
-                if starlinks_processados >= 500:
+        # Fluxo 1: Payload OMM em JSON (Suporta IDs de 6 ou mais dígitos)
+        if isinstance(dados_json, list) and len(dados_json) > 0:
+            logger.info(f"Resposta OMM JSON recebida de '{origem}'. Processando {len(dados_json)} objetos orbitais...")
+            for item in dados_json:
+                if not isinstance(item, dict):
                     continue
-                starlinks_processados += 1
 
-            try:
-                norad_id = linha1[2:7].strip()
-                epoch_str = linha1[18:32].strip()
-                epoch_dt = self.parse_tle_epoch(epoch_str)
-                pais = self.inferir_pais_por_nome(linha0, norad_id)
+                nome = str(item.get("OBJECT_NAME", "")).strip()
+                norad_id = str(item.get("NORAD_CAT_ID", "")).strip()
+                if not norad_id:
+                    continue
 
-                cospar_str = linha1[9:17].strip()
-                cospar_id = self.formatar_cospar_de_tle(cospar_str)
+                # Mantém diversidade limitando Starlinks por lote
+                if "STARLINK" in nome.upper():
+                    if starlinks_processados >= 500:
+                        continue
+                    starlinks_processados += 1
 
-                ano_str = linha1[9:11].strip()
+                cospar_id = str(item.get("OBJECT_ID", "")).strip() or None
+                epoch_str = str(item.get("EPOCH", "")).strip()
+                epoch_dt = None
+                if epoch_str:
+                    try:
+                        epoch_dt = datetime.fromisoformat(epoch_str.replace("Z", "+00:00"))
+                    except Exception:
+                        epoch_dt = datetime.utcnow()
+
+                pais = self.inferir_pais_por_nome(nome, norad_id)
+
                 ano = None
-                if ano_str.isdigit():
-                    ano_part = int(ano_str)
-                    ano = 1900 + ano_part if ano_part >= 57 else 2000 + ano_part
+                if cospar_id and len(cospar_id) >= 4 and cospar_id[:4].isdigit():
+                    ano = int(cospar_id[:4])
                     data_lancamento = date(ano, 1, 1)
                 else:
                     data_lancamento = None
 
-                # Classificação multi-categoria inteligente
-                cat_id_final, status_final, estacao_pai = self.classificar_objeto(linha0, norad_id, ano, grupo, name, special)
+                cat_id_final, status_final, estacao_pai = self.classificar_objeto(nome, norad_id, ano, grupo, name, special)
+                regime_final = self.classificar_regime_esa_omm(item)
 
                 objetos_a_inserir.append({
-                    "nome": linha0,
+                    "nome": nome,
                     "norad_id": norad_id,
                     "cospar_id": cospar_id,
                     "pais": pais,
                     "status": status_final,
                     "data_lancamento": data_lancamento,
                     "categoria_id": cat_id_final,
-                    "estacao_pai_norad": estacao_pai
+                    "estacao_pai_norad": estacao_pai,
+                    "regime": regime_final,
+                    "dados_omm": item
                 })
 
-                tle_dados_temporarios.append({
-                    "norad_id": norad_id,
-                    "epoch": epoch_dt,
-                    "linha1": linha1,
-                    "linha2": linha2
-                })
+        # Fluxo 2: Fallback para formato texto TLE legado
+        elif texto_bruto:
+            linhas = [l.strip() for l in texto_bruto.splitlines() if l.strip()]
+            total_linhas = len(linhas)
+            logger.info(f"Resposta de texto bruto recebida de '{origem}'. Parseando {total_linhas} linhas de texto...")
 
-            except Exception as ex:
-                logger.error(f"Erro ao processar bloco TLE do objeto '{linha0}': {ex}")
-                continue
+            for i in range(0, total_linhas - 2, 3):
+                linha0 = linhas[i]
+                linha1 = linhas[i+1]
+                linha2 = linhas[i+2]
+
+                if not (linha1.startswith("1 ") and linha2.startswith("2 ") and len(linha1) >= 69 and len(linha2) >= 69):
+                    continue
+
+                if "STARLINK" in linha0.upper():
+                    if starlinks_processados >= 500:
+                        continue
+                    starlinks_processados += 1
+
+                try:
+                    norad_id = linha1[2:7].strip()
+                    epoch_str = linha1[18:32].strip()
+                    epoch_dt = self.parse_tle_epoch(epoch_str)
+                    pais = self.inferir_pais_por_nome(linha0, norad_id)
+
+                    cospar_str = linha1[9:17].strip()
+                    cospar_id = self.formatar_cospar_de_tle(cospar_str)
+
+                    ano_str = linha1[9:11].strip()
+                    ano = None
+                    if ano_str.isdigit():
+                        ano_part = int(ano_str)
+                        ano = 1900 + ano_part if ano_part >= 57 else 2000 + ano_part
+                        data_lancamento = date(ano, 1, 1)
+                    else:
+                        data_lancamento = None
+
+                    cat_id_final, status_final, estacao_pai = self.classificar_objeto(linha0, norad_id, ano, grupo, name, special)
+                    regime_final = self.classificar_regime_esa(linha1, linha2)
+
+                    objetos_a_inserir.append({
+                        "nome": linha0,
+                        "norad_id": norad_id,
+                        "cospar_id": cospar_id,
+                        "pais": pais,
+                        "status": status_final,
+                        "data_lancamento": data_lancamento,
+                        "categoria_id": cat_id_final,
+                        "estacao_pai_norad": estacao_pai,
+                        "regime": regime_final,
+                        "dados_omm": None
+                    })
+
+                    tle_dados_temporarios.append({
+                        "norad_id": norad_id,
+                        "epoch": epoch_dt,
+                        "linha1": linha1,
+                        "linha2": linha2
+                    })
+                except Exception as ex:
+                    logger.error(f"Erro ao processar bloco TLE do objeto '{linha0}': {ex}")
+                    continue
 
         if not objetos_a_inserir:
-            logger.info(f"Nenhum objeto válido parseado para o grupo '{grupo}'.")
+            logger.info(f"Nenhum objeto válido parseado para a origem '{origem}'.")
             return
 
         # Bulk UPSERT
@@ -396,7 +518,9 @@ class APIConector:
                 "pais": stmt.excluded.pais,
                 "status": stmt.excluded.status,
                 "categoria_id": stmt.excluded.categoria_id,
-                "estacao_pai_norad": stmt.excluded.estacao_pai_norad
+                "estacao_pai_norad": stmt.excluded.estacao_pai_norad,
+                "regime": stmt.excluded.regime,
+                "dados_omm": stmt.excluded.dados_omm
             }
         ).returning(ObjetoOrbital.id, ObjetoOrbital.norad_id)
 
@@ -405,7 +529,7 @@ class APIConector:
             norad_to_id = {row.norad_id: row.id for row in result}
             objetos_salvos = len(norad_to_id)
         except Exception as e:
-            logger.error(f"Erro ao executar Bulk UPSERT de objetos para o grupo '{grupo}': {e}")
+            logger.error(f"Erro ao executar Bulk UPSERT de objetos para a origem '{origem}': {e}")
             db.rollback()
             return
 
@@ -453,15 +577,22 @@ class APIConector:
 
     def reclassificar_todos_objetos(self, db: Session):
         """
-        Varre todos os objetos no banco e sincroniza categoria_id, status e estacao_pai_norad
-        de acordo com as regras oficiais (5 categorias: Ativos, Inativos, Detritos, Estações, Foguetes).
+        Varre todos os objetos no banco e sincroniza categoria_id, status, estacao_pai_norad
+        e regime de acordo com as regras oficiais da ESA e IADC.
         """
         logger.info("LOG: Reclassificando todos os objetos orbitais do banco de dados...")
-        objetos = db.query(ObjetoOrbital).all()
+        subq = db.query(TLEHistorico.objeto_id, func.max(TLEHistorico.id).label("max_id")).group_by(TLEHistorico.objeto_id).subquery()
+        rows = db.query(ObjetoOrbital, TLEHistorico.linha1, TLEHistorico.linha2).outerjoin(
+            subq, ObjetoOrbital.id == subq.c.objeto_id
+        ).outerjoin(
+            TLEHistorico, TLEHistorico.id == subq.c.max_id
+        ).all()
+
         atualizados = 0
-        for obj in objetos:
+        for obj, l1, l2 in rows:
             ano = obj.data_lancamento.year if obj.data_lancamento else None
             nova_cat, novo_status, pai_norad = self.classificar_objeto(obj.nome, obj.norad_id, ano, "")
+            novo_regime = self.classificar_regime_esa(l1, l2) if l2 else "LEO"
             alterou = False
             if obj.categoria_id != nova_cat:
                 obj.categoria_id = nova_cat
@@ -471,6 +602,9 @@ class APIConector:
                 alterou = True
             if obj.estacao_pai_norad != pai_norad:
                 obj.estacao_pai_norad = pai_norad
+                alterou = True
+            if obj.regime != novo_regime:
+                obj.regime = novo_regime
                 alterou = True
             if alterou:
                 atualizados += 1

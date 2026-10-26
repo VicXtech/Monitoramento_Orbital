@@ -6,42 +6,108 @@ const RAIO_TERRA_KM = 6378.137;
 const MU_TERRA = 398600.4418;
 
 /**
- * Decodifica uma linha TLE e extrai seus elementos keplerianos brutos e derivados.
- * @param {string} linha1 - Primeira linha do TLE NORAD
- * @param {string} linha2 - Segunda linha do TLE NORAD
+ * Converte satélite, registro OMM ou linhas TLE em registro satrec do satellite.js.
+ * @param {object|string} satOuLinha1 - Objeto com dados OMM/TLE ou primeira linha TLE
+ * @param {string} [linha2] - Segunda linha TLE caso satOuLinha1 seja string
+ * @returns {object|null} Instância satrec ou null
+ */
+export function obterSatrec(satOuLinha1, linha2 = null) {
+  if (!satOuLinha1) return null;
+
+  try {
+    if (typeof satOuLinha1 === 'object') {
+      const omm = satOuLinha1.omm || satOuLinha1.dados_omm || (satOuLinha1.OBJECT_NAME ? satOuLinha1 : null);
+      if (omm && typeof omm === 'object') {
+        return satellite.json2satrec(omm);
+      }
+      if (satOuLinha1.ultimo_tle?.linha1 && satOuLinha1.ultimo_tle?.linha2) {
+        return satellite.twoline2satrec(satOuLinha1.ultimo_tle.linha1, satOuLinha1.ultimo_tle.linha2);
+      }
+      if (satOuLinha1.linha1 && satOuLinha1.linha2) {
+        return satellite.twoline2satrec(satOuLinha1.linha1, satOuLinha1.linha2);
+      }
+    }
+
+    if (typeof satOuLinha1 === 'string' && typeof linha2 === 'string') {
+      if (satOuLinha1.length >= 69 && linha2.length >= 69) {
+        return satellite.twoline2satrec(satOuLinha1, linha2);
+      }
+    }
+  } catch {
+    return null;
+  }
+  return null;
+}
+
+/**
+ * Calcula elementos orbitais e parâmetros físicos a partir de OMM ou TLE.
+ * @param {object|string} satOuLinha1 - Satélite, objeto OMM ou linha 1 do TLE
+ * @param {string|Date} [linha2OuData] - Linha 2 do TLE ou data de referência
  * @param {Date} [dataReferencia] - Data atual para cálculo de posição instantânea
  * @returns {object|null} Metadados físicos calculados
  */
-export function calcularParametrosOrbitais(linha1, linha2, dataReferencia = new Date()) {
-  if (!linha1 || !linha2 || linha1.length < 69 || linha2.length < 69) {
-    return null;
+export function calcularParametrosOrbitais(satOuLinha1, linha2OuData = null, dataReferencia = new Date()) {
+  let linha1 = null;
+  let linha2 = null;
+  let dataRef = dataReferencia;
+  let omm = null;
+
+  if (typeof satOuLinha1 === 'object' && satOuLinha1 !== null) {
+    if (linha2OuData instanceof Date) {
+      dataRef = linha2OuData;
+    }
+    omm = satOuLinha1.omm || satOuLinha1.dados_omm || (satOuLinha1.OBJECT_NAME ? satOuLinha1 : null);
+    if (!omm) {
+      if (satOuLinha1.ultimo_tle?.linha1 && satOuLinha1.ultimo_tle?.linha2) {
+        linha1 = satOuLinha1.ultimo_tle.linha1;
+        linha2 = satOuLinha1.ultimo_tle.linha2;
+      } else if (satOuLinha1.linha1 && satOuLinha1.linha2) {
+        linha1 = satOuLinha1.linha1;
+        linha2 = satOuLinha1.linha2;
+      }
+    }
+  } else if (typeof satOuLinha1 === 'string' && typeof linha2OuData === 'string') {
+    linha1 = satOuLinha1;
+    linha2 = linha2OuData;
   }
 
-  try {
-    const satrec = satellite.twoline2satrec(linha1, linha2);
+  const satrec = obterSatrec(omm || (linha1 && linha2 ? { linha1, linha2 } : satOuLinha1), linha2);
+  if (!satrec) return null;
 
-    // 1. Elementos Keplerianos fundamentais extraídos da Linha 2
-    // Inclinação em graus
-    const inclinacaoGraus = parseFloat(linha2.substring(8, 16).trim()) || 0;
-    
-    // Excentricidade (decimal com 7 casas implícitas)
-    const excentricidadeStr = '0.' + linha2.substring(26, 33).trim();
-    const excentricidade = parseFloat(excentricidadeStr) || 0;
-    
-    // Movimento Médio (revoluções por dia)
-    const movimentoMedio = parseFloat(linha2.substring(52, 63).trim()) || 1;
-    
-    // Termo de arrasto BSTAR da Linha 1 (fração com expoente, ex: 19357-3 = 0.19357e-3)
+  try {
+    let inclinacaoGraus = 0;
+    let excentricidade = 0;
+    let movimentoMedio = 1;
     let bstar = 0;
-    try {
-      const bstarRaw = linha1.substring(53, 61).trim();
-      if (bstarRaw && bstarRaw.length >= 2) {
-        const mantissa = parseFloat(bstarRaw.slice(0, -2)) / 100000;
-        const expoente = parseInt(bstarRaw.slice(-2), 10);
-        bstar = mantissa * Math.pow(10, expoente);
+
+    if (omm) {
+      inclinacaoGraus = parseFloat(omm.INCLINATION) || 0;
+      excentricidade = parseFloat(omm.ECCENTRICITY) || 0;
+      movimentoMedio = parseFloat(omm.MEAN_MOTION) || 1;
+      bstar = parseFloat(omm.BSTAR) || 0;
+    } else if (linha2 && linha2.length >= 69) {
+      inclinacaoGraus = parseFloat(linha2.substring(8, 16).trim()) || 0;
+      const excentricidadeStr = '0.' + linha2.substring(26, 33).trim();
+      excentricidade = parseFloat(excentricidadeStr) || 0;
+      movimentoMedio = parseFloat(linha2.substring(52, 63).trim()) || 1;
+
+      if (linha1 && linha1.length >= 69) {
+        try {
+          const bstarRaw = linha1.substring(53, 61).trim();
+          if (bstarRaw && bstarRaw.length >= 2) {
+            const mantissa = parseFloat(bstarRaw.slice(0, -2)) / 100000;
+            const expoente = parseInt(bstarRaw.slice(-2), 10);
+            bstar = mantissa * Math.pow(10, expoente);
+          }
+        } catch {
+          bstar = 0;
+        }
       }
-    } catch {
-      bstar = 0;
+    } else {
+      inclinacaoGraus = (satrec.inclo * 180) / Math.PI;
+      excentricidade = satrec.ecco || 0;
+      movimentoMedio = (satrec.no_kozai * 1440) / (2 * Math.PI) || 1;
+      bstar = satrec.bstar || 0;
     }
 
     // 2. Cálculo do Semi-eixo maior (a) em km
@@ -94,22 +160,22 @@ export function calcularParametrosOrbitais(linha1, linha2, dataReferencia = new 
     }
 
     // 6. Classificação de Regime Orbital
-    let regimeCodigo = 'LEO';
-    let regimeNome = 'Órbita Terrestre Baixa (LEO)';
-    let regimeDescricao = 'Altitude inferior a 2.000 km. Região de maior concentração operacional e maior densidade de lixo espacial.';
+    let regimeCodigo = 'HEO';
+    let regimeNome = 'Órbita Altamente Elíptica (HEO)';
+    let regimeDescricao = 'Trajetória com formato oval ou alongado (GTO, Molniya), alternando passagens rápidas no perigeu e permanência prolongada no apogeu.';
 
-    if (excentricidade > 0.25) {
-      regimeCodigo = 'HEO';
-      regimeNome = 'Órbita Altamente Elíptica (HEO)';
-      regimeDescricao = 'Trajetória com formato muito alongado, alternando passagens rápidas no perigeu e permanência prolongada no apogeu.';
-    } else if (altitudeInstantaneaKm >= 35000) {
+    if (((periodoMinutos >= 1350 && periodoMinutos <= 1650) || (perigeuKm >= 34000 && apogeuKm <= 50000)) && excentricidade < 0.25) {
       regimeCodigo = 'GEO';
       regimeNome = 'Órbita Geoestacionária (GEO)';
-      regimeDescricao = 'Altitude de ~35.786 km. O satélite acompanha a rotação exata da Terra, permanecendo fixo sobre o mesmo ponto do equador.';
-    } else if (altitudeInstantaneaKm >= 2000) {
+      regimeDescricao = 'Altitude de ~35.786 km ou anel cemitério. O satélite acompanha a rotação da Terra ou deriva no cinturão geoestacionário.';
+    } else if (perigeuKm < 2000 && apogeuKm <= 2000 && excentricidade < 0.25) {
+      regimeCodigo = 'LEO';
+      regimeNome = 'Órbita Terrestre Baixa (LEO)';
+      regimeDescricao = 'Altitude inferior a 2.000 km. Região de maior concentração operacional e maior densidade de lixo espacial.';
+    } else if (perigeuKm >= 2000 && apogeuKm < 35500 && excentricidade < 0.25) {
       regimeCodigo = 'MEO';
       regimeNome = 'Órbita Terrestre Média (MEO)';
-      regimeDescricao = 'Altitude entre 2.000 km e 35.000 km. Região estratégica utilizada por constelações de posicionamento global (GPS, Galileo, Glonass).';
+      regimeDescricao = 'Altitude entre 2.000 km e 35.500 km. Região estratégica utilizada por constelações de posicionamento global (GPS, Galileo, Glonass).';
     }
 
     // 7. Descrição Didática da Inclinação
@@ -200,21 +266,83 @@ export function calcularParametrosOrbitais(linha1, linha2, dataReferencia = new 
 /**
  * Gera os pontos cartesianos 3D de uma volta orbital completa para exibição no Cesium.
  * Deriva a elipse orbital osculadora instantânea a partir do estado inercial exato (posição e velocidade)
- * propagado pelo SGP4 para o instante de referência, garantindo que a trajetória passe
- * rigorosamente em cima do satélite, seja perfeitamente fechada e suave.
+ * propagado pelo SGP4 para o instante de referência.
  * 
- * @param {string} linha1 - Linha 1 do TLE
- * @param {string} linha2 - Linha 2 do TLE
- * @param {Date} [dataBase] - Data inicial de referência
- * @param {number} [amostras=120] - Quantidade de pontos na elipse
+ * @param {object|string} satOuLinha1 - Satélite, objeto OMM ou linha 1 do TLE
+ * @param {string|Date} [linha2OuDataBase] - Linha 2 do TLE ou data inicial de referência
+ * @param {Date|number} [dataBaseOuAmostras] - Data inicial de referência ou quantidade de amostras
+ * @param {number} [amostrasNum=120] - Quantidade de pontos na elipse
  * @returns {Array<object>|null} Array de Cesium.Cartesian3 ou null
  */
-export function gerarPontosOrbita(linha1, linha2, dataBase = new Date(), amostras = 120) {
-  if (!window.Cesium || !linha1 || !linha2) return null;
+export function gerarPontosOrbita(satOuLinha1, linha2OuDataBase = null, dataBaseOuAmostras = new Date(), amostrasNum = 120) {
+  if (!window.Cesium || !satOuLinha1) return null;
+
+  let linha1 = null;
+  let linha2 = null;
+  let dataBase = new Date();
+  let amostras = 120;
+  let omm = null;
+
+  if (typeof satOuLinha1 === 'object' && satOuLinha1 !== null) {
+    omm = satOuLinha1.omm || satOuLinha1.dados_omm || (satOuLinha1.OBJECT_NAME ? satOuLinha1 : null);
+    if (linha2OuDataBase instanceof Date) {
+      dataBase = linha2OuDataBase;
+    }
+    if (typeof dataBaseOuAmostras === 'number') {
+      amostras = dataBaseOuAmostras;
+    }
+    if (!omm) {
+      if (satOuLinha1.ultimo_tle?.linha1 && satOuLinha1.ultimo_tle?.linha2) {
+        linha1 = satOuLinha1.ultimo_tle.linha1;
+        linha2 = satOuLinha1.ultimo_tle.linha2;
+      } else if (satOuLinha1.linha1 && satOuLinha1.linha2) {
+        linha1 = satOuLinha1.linha1;
+        linha2 = satOuLinha1.linha2;
+      }
+    }
+  } else if (typeof satOuLinha1 === 'string' && typeof linha2OuDataBase === 'string') {
+    linha1 = satOuLinha1;
+    linha2 = linha2OuDataBase;
+    if (dataBaseOuAmostras instanceof Date) {
+      dataBase = dataBaseOuAmostras;
+    }
+    if (typeof amostrasNum === 'number') {
+      amostras = amostrasNum;
+    }
+  }
+
+  const satrec = obterSatrec(omm || (linha1 && linha2 ? { linha1, linha2 } : satOuLinha1), linha2);
+  if (!satrec) return null;
 
   try {
-    const satrec = satellite.twoline2satrec(linha1, linha2);
-    const pv = satellite.propagate(satrec, dataBase);
+    let pv = satellite.propagate(satrec, dataBase);
+    let r0 = pv?.position;
+    let v0 = pv?.velocity;
+    let rMagCheck = r0 ? Math.sqrt(r0.x * r0.x + r0.y * r0.y + r0.z * r0.z) : 0;
+    let altKmCheck = rMagCheck - RAIO_TERRA_KM;
+
+    const satRegime = typeof satOuLinha1 === 'object' ? satOuLinha1.regime : null;
+    const isLeoinvalido = satRegime === 'LEO' && (altKmCheck > 2000 || altKmCheck < 60);
+    const isGeralInvalido = altKmCheck < 60 || altKmCheck > 100000;
+
+    if (!pv || !r0 || !v0 || isLeoinvalido || isGeralInvalido) {
+      try {
+        let mm = 15;
+        if (omm && omm.MEAN_MOTION) mm = parseFloat(omm.MEAN_MOTION) || 15;
+        else if (linha2) mm = parseFloat(linha2.substring(52, 63).trim()) || 15;
+        const periodMs = (1440 / Math.max(0.1, mm)) * 60000;
+        const epochyr = satrec.epochyr < 57 ? 2000 + satrec.epochyr : 1900 + satrec.epochyr;
+        const epochDate = new Date(Date.UTC(epochyr, 0, 1) + (satrec.epochdays - 1) * 86400000);
+        const elapsedMs = dataBase.getTime() - epochDate.getTime();
+        const modDate = new Date(epochDate.getTime() + (Math.abs(elapsedMs) % periodMs));
+        const freshSatrec = obterSatrec(omm || (linha1 && linha2 ? { linha1, linha2 } : satOuLinha1), linha2);
+        if (freshSatrec) {
+          pv = satellite.propagate(freshSatrec, modDate);
+        }
+      } catch {
+        // Fallback
+      }
+    }
 
     // Se o SGP4 propagou o estado inercial com sucesso (posição e velocidade no instante dataBase)
     if (pv && pv.position && pv.velocity) {
@@ -240,7 +368,6 @@ export function gerarPontosOrbita(linha1, linha2, dataBase = new Date(), amostra
         const eMag = Math.sqrt(ex * ex + ey * ey + ez * ez);
 
         // 3. Base ortonormal no plano orbital (P, Q, W)
-        // P aponta para o periapsis (ou para r0 em órbitas estritamente circulares)
         let Px, Py, Pz;
         if (eMag < 1e-5) {
           Px = r0.x / rMag;
@@ -264,7 +391,7 @@ export function gerarPontosOrbita(linha1, linha2, dataBase = new Date(), amostra
         // Semilatus rectum p = h^2 / mu
         const p = (h * h) / MU_TERRA;
 
-        // Anomalia verdadeira nu0 no instante de referência (garante que nu0 passe pelo satélite r0)
+        // Anomalia verdadeira nu0 no instante de referência
         const cosNu0 = (r0.x * Px + r0.y * Py + r0.z * Pz) / rMag;
         const sinNu0 = (r0.x * Qx + r0.y * Qy + r0.z * Qz) / rMag;
         const nu0 = Math.atan2(sinNu0, cosNu0);
@@ -295,12 +422,33 @@ export function gerarPontosOrbita(linha1, linha2, dataBase = new Date(), amostra
     }
 
     // Fallback kepleriano analítico clássico
-    const inc = (parseFloat(linha2.substring(8, 16)) || 0) * Math.PI / 180;
-    const raan = (parseFloat(linha2.substring(17, 25)) || 0) * Math.PI / 180;
-    const eccStr = '0.' + linha2.substring(26, 33).trim();
-    const ecc = parseFloat(eccStr) || 0;
-    const argP = (parseFloat(linha2.substring(34, 42)) || 0) * Math.PI / 180;
-    const mm = parseFloat(linha2.substring(52, 63).trim()) || 15;
+    let inc = 0;
+    let raan = 0;
+    let ecc = 0;
+    let argP = 0;
+    let mm = 15;
+
+    if (omm) {
+      inc = ((parseFloat(omm.INCLINATION) || 0) * Math.PI) / 180;
+      raan = ((parseFloat(omm.RA_OF_ASC_NODE) || 0) * Math.PI) / 180;
+      ecc = parseFloat(omm.ECCENTRICITY) || 0;
+      argP = ((parseFloat(omm.ARG_OF_PERICENTER) || 0) * Math.PI) / 180;
+      mm = parseFloat(omm.MEAN_MOTION) || 15;
+    } else if (linha2 && linha2.length >= 69) {
+      inc = (parseFloat(linha2.substring(8, 16)) || 0) * Math.PI / 180;
+      raan = (parseFloat(linha2.substring(17, 25)) || 0) * Math.PI / 180;
+      const eccStr = '0.' + linha2.substring(26, 33).trim();
+      ecc = parseFloat(eccStr) || 0;
+      argP = (parseFloat(linha2.substring(34, 42)) || 0) * Math.PI / 180;
+      mm = parseFloat(linha2.substring(52, 63).trim()) || 15;
+    } else {
+      inc = satrec.inclo || 0;
+      raan = satrec.nodeo || 0;
+      ecc = satrec.ecco || 0;
+      argP = satrec.argpo || 0;
+      mm = (satrec.no_kozai * 1440) / (2 * Math.PI) || 15;
+    }
+
     const nRadS = (mm * 2 * Math.PI) / 86400;
     const a = Math.cbrt(MU_TERRA / (nRadS * nRadS));
 
@@ -381,42 +529,62 @@ export function calcularPosicaoKepleriana(linha1, linha2, dataAtual = new Date()
 }
 
 /**
- * Classifica de forma ultra-rápida o regime orbital a partir das duas linhas TLE NORAD.
- * @param {string} linha1 - Primeira linha do TLE NORAD
- * @param {string} linha2 - Segunda linha do TLE NORAD
+ * Classifica o regime orbital a partir de objeto orbital, OMM ou linhas TLE.
+ * @param {object|string} satOuLinha1 - Objeto orbital, registro OMM ou primeira linha TLE
+ * @param {string} [linha2] - Segunda linha TLE
  * @returns {'LEO'|'MEO'|'GEO'|'HEO'} Código do regime orbital
  */
-export function classificarRegimeOrbital(linha1, linha2) {
-  if (!linha2 || linha2.length < 69) return 'LEO';
+export function classificarRegimeOrbital(satOuLinha1, linha2 = null) {
+  if (!satOuLinha1) return 'LEO';
 
   try {
-    const excentricidadeStr = '0.' + linha2.substring(26, 33).trim();
-    const excentricidade = parseFloat(excentricidadeStr) || 0;
+    if (typeof satOuLinha1 === 'object') {
+      if (satOuLinha1.regime) {
+        return satOuLinha1.regime;
+      }
+      const omm = satOuLinha1.omm || satOuLinha1.dados_omm || (satOuLinha1.OBJECT_NAME ? satOuLinha1 : null);
+      if (omm) {
+        const ecc = parseFloat(omm.ECCENTRICITY) || 0;
+        const mm = parseFloat(omm.MEAN_MOTION) || 1;
+        if (mm <= 0) return 'LEO';
 
-    // 1. Órbitas Altamente Elípticas (Molniya, Tundra, trajetórias com e > 0.25)
-    if (excentricidade > 0.25) {
+        const nRadS = (mm * 2 * Math.PI) / 86400;
+        const semiEixoMaior = Math.cbrt(MU_TERRA / (nRadS * nRadS));
+        const hp = semiEixoMaior * (1 - ecc) - RAIO_TERRA_KM;
+        const ha = semiEixoMaior * (1 + ecc) - RAIO_TERRA_KM;
+        const periodMin = 1440 / mm;
+
+        if (((periodMin >= 1350 && periodMin <= 1650) || (hp >= 34000 && ha <= 50000)) && ecc < 0.25) return 'GEO';
+        if (hp < 2000 && ha <= 2000 && ecc < 0.25) return 'LEO';
+        if (hp >= 2000 && ha < 35500 && ecc < 0.25) return 'MEO';
+        return 'HEO';
+      }
+      if (satOuLinha1.ultimo_tle?.linha2) {
+        return classificarRegimeOrbital(satOuLinha1.ultimo_tle.linha1, satOuLinha1.ultimo_tle.linha2);
+      }
+    }
+
+    if (typeof satOuLinha1 === 'string' && typeof linha2 === 'string') {
+      if (linha2.length < 69) return 'LEO';
+      const excentricidadeStr = '0.' + linha2.substring(26, 33).trim();
+      const ecc = parseFloat(excentricidadeStr) || 0;
+      const mm = parseFloat(linha2.substring(52, 63).trim()) || 1;
+      if (mm <= 0) return 'LEO';
+
+      const nRadS = (mm * 2 * Math.PI) / 86400;
+      const semiEixoMaior = Math.cbrt(MU_TERRA / (nRadS * nRadS));
+      const hp = semiEixoMaior * (1 - ecc) - RAIO_TERRA_KM;
+      const ha = semiEixoMaior * (1 + ecc) - RAIO_TERRA_KM;
+      const periodMin = 1440 / mm;
+
+      if (((periodMin >= 1350 && periodMin <= 1650) || (hp >= 34000 && ha <= 50000)) && ecc < 0.25) return 'GEO';
+      if (hp < 2000 && ha <= 2000 && ecc < 0.25) return 'LEO';
+      if (hp >= 2000 && ha < 35500 && ecc < 0.25) return 'MEO';
       return 'HEO';
-    }
-
-    const movimentoMedio = parseFloat(linha2.substring(52, 63).trim()) || 1;
-    const nRadS = (movimentoMedio * 2 * Math.PI) / 86400;
-    const semiEixoMaior = Math.cbrt(MU_TERRA / (nRadS * nRadS));
-    const altitudeMediaKm = semiEixoMaior - RAIO_TERRA_KM;
-
-    // 2. Regime GEO (~35.786 km de altitude)
-    if (altitudeMediaKm >= 35000) {
-      return 'GEO';
-    }
-    // 3. Regime MEO (entre 2.000 km e 35.000 km)
-    else if (altitudeMediaKm >= 2000) {
-      return 'MEO';
-    }
-    // 4. Regime LEO (abaixo de 2.000 km)
-    else {
-      return 'LEO';
     }
   } catch {
     return 'LEO';
   }
+  return 'LEO';
 }
 

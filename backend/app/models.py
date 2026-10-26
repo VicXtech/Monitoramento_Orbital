@@ -1,4 +1,4 @@
-from sqlalchemy import Column, Integer, String, Text, Date, DateTime, ForeignKey, CHAR, Numeric
+from sqlalchemy import Column, Integer, String, Text, Date, DateTime, ForeignKey, CHAR, Numeric, JSON
 from sqlalchemy.orm import relationship
 from datetime import datetime
 from app.database import Base
@@ -29,6 +29,8 @@ class ObjetoOrbital(Base):
     codigo_status = Column(String(10), nullable=True)
     categoria_id = Column(Integer, ForeignKey("categoria_objeto.id", ondelete="RESTRICT"), nullable=False, index=True)
     estacao_pai_norad = Column(String(50), nullable=True, index=True)
+    regime = Column(String(10), nullable=True, index=True)
+    dados_omm = Column(JSON, nullable=True)
 
     categoria = relationship("CategoriaObjeto", back_populates="objetos")
     historico_tle = relationship("TLEHistorico", back_populates="objeto", cascade="all, delete-orphan")

@@ -21,14 +21,35 @@ import {
   Crosshair,
   Target,
   Orbit,
+  Clock,
   Volume2,
   VolumeOff,
-  Home
+  Home,
+  Radar
 } from 'lucide-react';
 import * as satellite from 'satellite.js';
 import './App.css';
-import { calcularParametrosOrbitais, gerarPontosOrbita, classificarRegimeOrbital } from './utils/orbitalPhysics';
+import { calcularParametrosOrbitais, gerarPontosOrbita, classificarRegimeOrbital, obterSatrec } from './utils/orbitalPhysics';
 import { obterFichaFactual, GLOSSARIO_ORBITAL } from './data/orbitalEncyclopedia';
+import SatelliteDetailTabs from './components/SatelliteDetailTabs';
+import ScenarioSimulatorModal from './components/ScenarioSimulatorModal';
+import ErrorBoundary from './components/ErrorBoundary';
+import OrbitalMissionHub from './components/OrbitalMissionHub';
+import OrbitalTacticalVisor from './components/OrbitalTacticalVisor';
+import OrbitalTimelineHolo from './components/OrbitalTimelineHolo';
+import {
+  criarGeometriasAreas3D,
+  atualizarCoresAreas3D,
+  destacarArea3D,
+  destacarEvento3D,
+  removerGeometriasAreas3D,
+  criarMarcadoresEventos3D,
+  removerMarcadoresEventos3D
+} from './utils/cesiumOrbitalAreas';
+import {
+  DEFINICOES_AREAS_ORBITAIS,
+  calcularMetricasArea
+} from './utils/orbitalAreas3D';
 
 // Efeitos sonoros oficiais do sistema
 import somAbreSlide from './assets/sons/abre-slide.mp3';
@@ -103,6 +124,84 @@ const CORES_CATEGORIAS = {
   4: '#00f0ff', // Estação Espacial (Ciano Neon)
   5: '#b026ff'  // Corpo de Foguete (Roxo Neon)
 };
+
+/**
+ * Retorna os parâmetros de estilização de ponto no Cesium com suporte
+ * à alternância dinâmica entre Modo Orbital e Modo Sustentabilidade ("A Terra em Risco").
+ */
+function obterEstiloPontoCesium(catId, modo = 'padrao', noradId = null) {
+  if (typeof window === 'undefined' || !window.Cesium) {
+    return {
+      pixelSize: 6,
+      outlineWidth: 1
+    };
+  }
+
+  const isEstacaoPrincipal = String(noradId) === '25544' || String(noradId) === '48274';
+  if (isEstacaoPrincipal) {
+    return {
+      pixelSize: 10,
+      color: window.Cesium.Color.fromCssColorString('#00f0ff'),
+      outlineColor: window.Cesium.Color.WHITE,
+      outlineWidth: 1.5
+    };
+  }
+
+  if (modo === 'sustentabilidade') {
+    if (catId === 3) {
+      // Detrito Espacial: Alerta Máximo hipervisível
+      return {
+        pixelSize: 9,
+        color: window.Cesium.Color.fromCssColorString('#ff0055'),
+        outlineColor: window.Cesium.Color.WHITE,
+        outlineWidth: 1.5
+      };
+    }
+    if (catId === 5) {
+      // Corpo de Foguete Abandonado: Grande Massa Inerte
+      return {
+        pixelSize: 8,
+        color: window.Cesium.Color.fromCssColorString('#ff2a85'),
+        outlineColor: window.Cesium.Color.fromCssColorString('#ffaa00'),
+        outlineWidth: 1.5
+      };
+    }
+    if (catId === 2) {
+      // Satélite Inativo Desativado
+      return {
+        pixelSize: 7,
+        color: window.Cesium.Color.fromCssColorString('#ffaa00'),
+        outlineColor: window.Cesium.Color.BLACK,
+        outlineWidth: 1
+      };
+    }
+    if (catId === 4) {
+      // Estação Espacial Tripulada
+      return {
+        pixelSize: 14,
+        color: window.Cesium.Color.fromCssColorString('#00f0ff'),
+        outlineColor: window.Cesium.Color.WHITE,
+        outlineWidth: 2
+      };
+    }
+    // Satélite Ativo Operacional: Atenuado suavemente para evidenciar a poluição e os detritos
+    return {
+      pixelSize: 4,
+      color: window.Cesium.Color.fromCssColorString('rgba(0, 255, 102, 0.22)'),
+      outlineColor: window.Cesium.Color.TRANSPARENT,
+      outlineWidth: 0
+    };
+  }
+
+  // Modo Orbital Padrão: Cores sólidas por categoria
+  const corHex = CORES_CATEGORIAS[catId] || '#00ff66';
+  return {
+    pixelSize: catId === 4 ? 14 : catId === 5 ? 7 : catId === 2 ? 6 : catId === 3 ? 5 : 7,
+    color: window.Cesium.Color.fromCssColorString(corHex),
+    outlineColor: window.Cesium.Color.BLACK,
+    outlineWidth: catId === 4 ? 2 : 1.5
+  };
+}
 
 // Ponto fixo oficial de visão inicial e retorno da câmera (América do Sul / Brasil)
 const POSICAO_ORBITAL_PADRAO = {
@@ -246,6 +345,11 @@ function App() {
   const [viewer, setViewer] = useState(null);
   const viewerRef = useRef(null);
   const containerRef = useRef(null);
+  const pointCollectionRef = useRef(null);
+  const pointsRef = useRef(new Map());
+  const objetoFocadoRef = useRef(null);
+  const workerRef = useRef(null);
+  const satelitesIndicesRef = useRef([]);
   const entitiesRef = useRef(new Map());
   const entidadeFocadaRef = useRef(null);
   const orbitaEntidadeRef = useRef(null);
@@ -263,6 +367,42 @@ function App() {
     telaAtivaRef.current = telaAtiva;
   }, [telaAtiva]);
   const [transicaoCyber, setTransicaoCyber] = useState(null); // 'para-simulador' | 'para-inicio' | null
+
+  // Inicialização e gerenciamento do Web Worker SGP4
+  useEffect(() => {
+    try {
+      const worker = new Worker(new URL('./workers/sgp4Worker.js', import.meta.url), { type: 'module' });
+      workerRef.current = worker;
+
+      worker.onmessage = (e) => {
+        const { tipo, posicoes } = e.data;
+        if (tipo === 'POSICOES' && posicoes) {
+          const indices = satelitesIndicesRef.current;
+          const total = indices.length;
+          for (let i = 0; i < total; i++) {
+            const offset = i * 3;
+            const lon = posicoes[offset];
+            if (isNaN(lon)) continue;
+
+            const noradId = indices[i];
+            const entry = pointsRef.current.get(noradId);
+            if (entry && entry.point.show) {
+              const lat = posicoes[offset + 1];
+              const alt = posicoes[offset + 2];
+              window.Cesium.Cartesian3.fromDegrees(lon, lat, alt, undefined, entry.point.position);
+            }
+          }
+        }
+      };
+
+      return () => {
+        worker.terminate();
+        workerRef.current = null;
+      };
+    } catch (err) {
+      console.warn("Falha ao inicializar Web Worker SGP4:", err);
+    }
+  }, []);
   const [secaoAtiva, setSecaoAtiva] = useState(() => {
     const params = new URLSearchParams(window.location.search);
     const s = params.get('secao');
@@ -518,33 +658,180 @@ function App() {
   const [painelDireitoAberto, setPainelDireitoAberto] = useState(false);
 
   // Modais de Aprofundamento no Console com controle de animação suave
-  const [modalSustentabilidadeAberto, setModalSustentabilidadeAberto] = useState(false);
   const [modalGlossarioAberto, setModalGlossarioAberto] = useState(false);
   const [modalTutorialAberto, setModalTutorialAberto] = useState(false);
+  const [modalCenariosAberto, setModalCenariosAberto] = useState(false);
   const [modalFechando, setModalFechando] = useState(false);
+
+  // MODO ORBITAL UNIFICADO (RADAR 3D)
+  const [modoOrbitalAtivo, setModoOrbitalAtivo] = useState(false);
+  const modoOrbitalAtivoRef = useRef(false);
+  useEffect(() => {
+    modoOrbitalAtivoRef.current = modoOrbitalAtivo;
+  }, [modoOrbitalAtivo]);
+
+  const [anoTimeline, setAnoTimeline] = useState(2026);
+  const [areaSelecionadaId, setAreaSelecionadaId] = useState(null);
+  const [eventoSelecionado, setEventoSelecionado] = useState(null);
+  const [hubMissaoVisivel, setHubMissaoVisivel] = useState(true);
+  const entidadesAreas3DRef = useRef([]);
+  const entidadesEventos3DRef = useRef([]);
+
+  const handleAlternarModoOrbital = () => {
+    const v = viewerRef.current;
+    if (!v || !window.Cesium) return;
+
+    if (!modoOrbitalAtivo) {
+      tocarEfeitoSonoro(somIniciar, 0.7);
+      setModoOrbitalAtivo(true);
+      setSatSelecionado(null);
+      setParametrosOrbitaisSat(null);
+      setEventoSelecionado(null);
+      limparTrilhaOrbital(v);
+
+      // Oculta todos os satélites individuais
+      pointsRef.current.forEach(({ point }) => {
+        point.show = false;
+      });
+
+      // Recolhe ambos os painéis laterais
+      setPainelEsquerdoAberto(false);
+      setPainelDireitoAberto(false);
+
+      // Posiciona câmera em perspectiva 3D inclinada com planeta deslocado para a esquerda
+      v.camera.lookAtTransform(window.Cesium.Matrix4.IDENTITY);
+      v.trackedEntity = undefined;
+      objetoFocadoRef.current = null;
+      entidadeFocadaRef.current = null;
+      v.camera.flyTo({
+        destination: new window.Cesium.Cartesian3(75000000, 32000000, 78000000),
+        orientation: {
+          direction: new window.Cesium.Cartesian3(-0.694658, 0.0, -0.719340),
+          up: new window.Cesium.Cartesian3(-0.719340, 0.0, 0.694658)
+        },
+        duration: 1.5
+      });
+
+      // Desativa totalmente controles de mouse no Cesium para manter a visão travada
+      const ctrl = v.scene.screenSpaceCameraController;
+      ctrl.enableRotate = false;
+      ctrl.enableTranslate = false;
+      ctrl.enableZoom = false;
+      ctrl.enableTilt = false;
+      ctrl.enableLook = false;
+
+      // Cria as geometrias 3D das órbitas e marcadores dos eventos
+      removerGeometriasAreas3D(v, entidadesAreas3DRef.current);
+      const criadas = criarGeometriasAreas3D(v, anoTimeline);
+      entidadesAreas3DRef.current = criadas;
+
+      removerMarcadoresEventos3D(v, entidadesEventos3DRef.current);
+      entidadesEventos3DRef.current = criarMarcadoresEventos3D(v, anoTimeline);
+    } else {
+      tocarEfeitoSonoro(somFadeOut, 0.65);
+      setModoOrbitalAtivo(false);
+      setAreaSelecionadaId(null);
+      setEventoSelecionado(null);
+
+      // Reativa controles do mouse no Cesium com foco central no planeta
+      const ctrl = v.scene.screenSpaceCameraController;
+      ctrl.enableRotate = true;
+      ctrl.enableZoom = true;
+      ctrl.enableTranslate = false;
+      ctrl.enableTilt = false;
+      ctrl.enableLook = false;
+
+      // Remove geometrias das áreas 3D e marcadores de eventos
+      removerGeometriasAreas3D(v, entidadesAreas3DRef.current);
+      entidadesAreas3DRef.current = null;
+      removerMarcadoresEventos3D(v, entidadesEventos3DRef.current);
+      entidadesEventos3DRef.current = [];
+
+      // Reexibe todos os satélites individuais
+      pointsRef.current.forEach(({ point, sat }) => {
+        const catId = Number(sat.categoria_id);
+        const isAtiva = (catId in categoriasAtivas) ? categoriasAtivas[catId] : true;
+        point.show = isAtiva;
+      });
+
+      // Restaura câmera inicial
+      v.camera.lookAtTransform(window.Cesium.Matrix4.IDENTITY);
+      const camTarget = cameraInicialRef.current || {
+        destination: window.Cesium.Cartesian3.fromDegrees(
+          POSICAO_ORBITAL_PADRAO.longitude,
+          POSICAO_ORBITAL_PADRAO.latitude,
+          POSICAO_ORBITAL_PADRAO.altitude
+        ),
+        orientation: {
+          heading: window.Cesium.Math.toRadians(POSICAO_ORBITAL_PADRAO.heading),
+          pitch: window.Cesium.Math.toRadians(POSICAO_ORBITAL_PADRAO.pitch),
+          roll: POSICAO_ORBITAL_PADRAO.roll
+        }
+      };
+      v.camera.flyTo({
+        destination: camTarget.destination.clone(),
+        orientation: {
+          heading: camTarget.orientation.heading,
+          pitch: camTarget.orientation.pitch,
+          roll: camTarget.orientation.roll
+        },
+        duration: 1.5
+      });
+    }
+  };
+
+  const handleAlterarAnoTimeline = (novoAno) => {
+    setAnoTimeline(novoAno);
+    tocarEfeitoSonoro(somTrocaSlide, 0.45);
+    atualizarCoresAreas3D(viewerRef.current, entidadesAreas3DRef.current, novoAno);
+    if (viewerRef.current) {
+      removerMarcadoresEventos3D(viewerRef.current, entidadesEventos3DRef.current);
+      entidadesEventos3DRef.current = criarMarcadoresEventos3D(viewerRef.current, novoAno);
+    }
+  };
+
+  const handleSelecionarEvento = (evento) => {
+    if (!evento) return;
+    setEventoSelecionado(evento);
+    setAreaSelecionadaId(null);
+    tocarEfeitoSonoro(somIniciar, 0.7);
+    // Câmera permanece travada na visão ampla
+  };
+
+  const handleSelecionarAreaOrbital = (areaId) => {
+    if (!areaId) return;
+    setAreaSelecionadaId(areaId);
+    setEventoSelecionado(null);
+    tocarEfeitoSonoro(somTopPainel, 0.65);
+    // Câmera permanece travada na visão ampla
+  };
+
+  const handleResetarCameraRadar = () => {
+    setAreaSelecionadaId(null);
+    setEventoSelecionado(null);
+    tocarEfeitoSonoro(somFadeOut, 0.5);
+    // Câmera permanece travada na visão ampla
+  };
+
+  const handleAbrirCenarios = () => {
+    tocarEfeitoSonoro(somTopPainel, 0.65);
+    setModalFechando(false);
+    setModalCenariosAberto(true);
+  };
 
   const handleFecharModais = () => {
     setModalFechando(true);
     setTimeout(() => {
-      setModalSustentabilidadeAberto(false);
       setModalGlossarioAberto(false);
       setModalTutorialAberto(false);
+      setModalCenariosAberto(false);
       setModalFechando(false);
     }, 220);
-  };
-
-  const handleAbrirSustentabilidade = () => {
-    tocarEfeitoSonoro(somTopPainel, 0.65);
-    setModalFechando(false);
-    setModalGlossarioAberto(false);
-    setModalTutorialAberto(false);
-    setModalSustentabilidadeAberto(true);
   };
 
   const handleAbrirGlossario = () => {
     tocarEfeitoSonoro(somTopPainel, 0.65);
     setModalFechando(false);
-    setModalSustentabilidadeAberto(false);
     setModalTutorialAberto(false);
     setModalGlossarioAberto(true);
   };
@@ -552,7 +839,6 @@ function App() {
   const handleAbrirTutorial = () => {
     tocarEfeitoSonoro(somTopPainel, 0.65);
     setModalFechando(false);
-    setModalSustentabilidadeAberto(false);
     setModalGlossarioAberto(false);
     setModalTutorialAberto(true);
   };
@@ -588,13 +874,16 @@ function App() {
   const [parametrosOrbitaisSat, setParametrosOrbitaisSat] = useState(null);
   const [recarregandoAmostra, setRecarregandoAmostra] = useState(false);
   const [amostraSeed, setAmostraSeed] = useState(0);
+  const [densidadeCatalogo, setDensidadeCatalogo] = useState('tatica'); // 'tatica' (3000) | 'completo' (10000)
+  const [regimeAtivo, setRegimeAtivo] = useState(null); // null | 'LEO' | 'MEO' | 'GEO' | 'HEO'
 
   // Filtros de Categoria do Radar (4 categorias clicáveis, Estações Espaciais são 100% permanentes)
   const [categoriasAtivas, setCategoriasAtivas] = useState({
     1: true, // Satélite Ativo
     2: true, // Satélite Inativo
     5: true, // Corpo de Foguete
-    3: true  // Detrito Espacial
+    3: true, // Detrito Espacial
+    4: true  // Estações Espaciais Principais
   });
   const [modulosEstacao, setModulosEstacao] = useState([]);
   const [carregandoModulos, setCarregandoModulos] = useState(false);
@@ -699,12 +988,16 @@ function App() {
         setLoading(true);
       }
       try {
-        const ativas = Object.entries(categoriasAtivas)
-          .filter(([, ativa]) => ativa)
-          .map(([k]) => Number(k));
+        const ativas = Array.from(new Set([
+          ...Object.entries(categoriasAtivas).filter(([, ativa]) => ativa).map(([k]) => Number(k)),
+          4
+        ]));
 
-        // Carga padrão calibrada para 1.000 objetos (+ 2 estações permanentes = 1.002 objetos)
-        let url = `${API_URL}/api/objetos?limit=1000&seed=${amostraSeed || Date.now()}`;
+        const limite = densidadeCatalogo === 'tatica' ? 3000 : 10000;
+        let url = `${API_URL}/api/objetos?limit=${limite}&seed=${amostraSeed || Date.now()}`;
+        if (regimeAtivo) {
+          url += `&regime=${regimeAtivo}`;
+        }
         if (ativas.length > 0) {
           url += `&categoria_ids=${ativas.join(',')}`;
         } else {
@@ -727,13 +1020,26 @@ function App() {
     };
 
     carregarObjetosFiltrados();
-  }, [categoriasAtivas, amostraSeed]);
+  }, [categoriasAtivas, amostraSeed, densidadeCatalogo, regimeAtivo]);
 
   const handleRecarregarAmostra = () => {
     if (recarregandoAmostra || loading) return;
     tocarEfeitoSonoro(somRecarregarAmostragem, 0.65);
     setRecarregandoAmostra(true);
     setAmostraSeed(Date.now());
+  };
+
+  const handleAlternarDensidade = (novoModo) => {
+    if (novoModo === densidadeCatalogo) return;
+    tocarEfeitoSonoro(somConsoleButtons, 0.5);
+    setDensidadeCatalogo(novoModo);
+    setAmostraSeed(Date.now());
+  };
+
+  const handleAlternarRegime = (regime) => {
+    tocarEfeitoSonoro(somConsoleButtons, 0.5);
+    const novoRegime = regimeAtivo === regime ? null : regime;
+    setRegimeAtivo(novoRegime);
   };
 
   // 3. BUSCA DE SATÉLITES COM DEBOUNCE
@@ -759,9 +1065,9 @@ function App() {
     return () => clearTimeout(delayDebounce);
   }, [busca]);
 
-  // FUNÇÕES AUXILIARES DE RENDERIZAÇÃO DA TRILHA ORBITAL EM CINZA
-  const desenharTrilhaOrbital = (viewerInstance, tle) => {
-    if (!viewerInstance || !tle || !tle.linha1 || !tle.linha2 || telaAtivaRef.current !== 'simulador') return;
+  // Renderização da trilha orbital em cinza
+  const desenharTrilhaOrbital = (viewerInstance, tleOuSat) => {
+    if (!viewerInstance || !tleOuSat || telaAtivaRef.current !== 'simulador') return;
 
     try {
       // Remover órbita anterior se existente
@@ -771,7 +1077,7 @@ function App() {
       }
 
       const tempoBase = viewerInstance.clock ? window.Cesium.JulianDate.toDate(viewerInstance.clock.currentTime) : new Date();
-      const pontos = gerarPontosOrbita(tle.linha1, tle.linha2, tempoBase, 180);
+      const pontos = gerarPontosOrbita(tleOuSat, tempoBase, 180);
       if (!pontos || pontos.length < 10) return;
 
       const entidadeOrbita = viewerInstance.entities.add({
@@ -803,8 +1109,105 @@ function App() {
     }
   };
 
+  // Cria ou recupera ponto de satélite no Cesium sob demanda
+  const obterOuCriarPontoSatelite = (sat, v) => {
+    if (!sat || !v || !window.Cesium) return null;
+    const noradStr = String(sat.norad_id);
+
+    if (pointsRef.current.has(noradStr)) {
+      return pointsRef.current.get(noradStr);
+    }
+
+    if (sat.estacao_pai_norad && pointsRef.current.has(String(sat.estacao_pai_norad))) {
+      return pointsRef.current.get(String(sat.estacao_pai_norad));
+    }
+
+    const satrec = obterSatrec(sat);
+    if (!satrec) return null;
+
+    try {
+      const dataBase = new Date();
+      const gmstBase = satellite.gstime(dataBase);
+      const posAndVel = satellite.propagate(satrec, dataBase);
+      if (!posAndVel || !posAndVel.position) return null;
+
+      const posGd = satellite.eciToGeodetic(posAndVel.position, gmstBase);
+      const longitude = satellite.degreesLong(posGd.longitude);
+      const latitude = satellite.degreesLat(posGd.latitude);
+      const altitude = posGd.height * 1000;
+      const initialPos = window.Cesium.Cartesian3.fromDegrees(longitude, latitude, altitude);
+
+      if (!pointCollectionRef.current || pointCollectionRef.current.isDestroyed()) {
+        pointCollectionRef.current = v.scene.primitives.add(new window.Cesium.PointPrimitiveCollection());
+      }
+      const colecao = pointCollectionRef.current;
+      const catId = Number(sat.categoria_id) || 1;
+      const estilo = obterEstiloPontoCesium(catId, 'padrao', sat.norad_id);
+
+      const point = colecao.add({
+        id: noradStr,
+        position: initialPos,
+        pixelSize: Math.max(estilo.pixelSize || 6, 7),
+        color: estilo.color,
+        outlineColor: estilo.outlineColor,
+        outlineWidth: estilo.outlineWidth,
+        show: true
+      });
+
+      point._satCategoriaId = catId;
+      point._noradId = noradStr;
+      const entry = { point, sat, satrec };
+      pointsRef.current.set(noradStr, entry);
+      return entry;
+    } catch (err) {
+      console.warn("Aviso ao instanciar ponto sob demanda:", err);
+      return null;
+    }
+  };
+
+  // Centraliza e acompanha o satélite na câmera do Cesium
+  const centralizarCameraNoObjeto = (sat) => {
+    const v = viewerRef.current;
+    if (!v || !window.Cesium || !sat || modoOrbitalAtivoRef.current) return;
+
+    let entry = pointsRef.current.get(String(sat.norad_id));
+    if (!entry || !entry.point) {
+      entry = obterOuCriarPontoSatelite(sat, v);
+    }
+    if (!entry || !entry.point) return;
+
+    objetoFocadoRef.current = null;
+    entidadeFocadaRef.current = null;
+    v.camera.cancelFlight();
+    v.camera.lookAtTransform(window.Cesium.Matrix4.IDENTITY);
+    v.trackedEntity = undefined;
+
+    let rangeDist = 3200000.0;
+    const noradStr = String(sat.norad_id);
+    const altSatKm = Number(sat.perigeu_km || sat.apogeu_km) || 500;
+    if (altSatKm > 30000 || sat.regime === 'GEO') {
+      rangeDist = 18000000.0;
+    } else if (altSatKm > 5000 || sat.regime === 'MEO') {
+      rangeDist = 7500000.0;
+    } else if (noradStr === '25544' || noradStr === '48274') {
+      rangeDist = 2400000.0;
+    }
+
+    const currentEntry = entry;
+    const targetPos = currentEntry.point.position.clone();
+
+    v.camera.flyToBoundingSphere(new window.Cesium.BoundingSphere(targetPos, 1000), {
+      duration: 1.2,
+      offset: new window.Cesium.HeadingPitchRange(
+        window.Cesium.Math.toRadians(0.0),
+        window.Cesium.Math.toRadians(-65.0),
+        rangeDist
+      )
+    });
+  };
+
   // 4. SELEÇÃO E CÁLCULO FÍSICO DO SATÉLITE
-  const handleSelecionarSat = (sat, reproduzirSom = true) => {
+  const handleSelecionarSat = (sat, reproduzirSom = true, focarCamera = true) => {
     if (reproduzirSom) {
       tocarEfeitoSonoro(somFadeIn, 0.65);
     }
@@ -816,15 +1219,20 @@ function App() {
       setPainelEsquerdoAberto(false);
     }
 
+    const v = viewerRef.current;
     if (sat && sat.ultimo_tle) {
       const params = calcularParametrosOrbitais(sat.ultimo_tle.linha1, sat.ultimo_tle.linha2);
       setParametrosOrbitaisSat(params);
-      const v = viewerRef.current;
       if (v) {
         desenharTrilhaOrbital(v, sat.ultimo_tle);
       }
     } else {
       setParametrosOrbitaisSat(null);
+    }
+
+    // Foca câmera no objeto selecionado
+    if (focarCamera && v) {
+      centralizarCameraNoObjeto(sat);
     }
 
     // Busca dados enriquecidos sob demanda (COSPAR, local de lançamento, status e histórico SATCAT)
@@ -854,7 +1262,10 @@ function App() {
       tocarEfeitoSonoro(somFadeOut, 0.65);
     }
 
+    objetoFocadoRef.current = null;
     entidadeFocadaRef.current = null;
+    satHoverIdRef.current = null;
+    v.camera.cancelFlight();
     v.camera.lookAtTransform(window.Cesium.Matrix4.IDENTITY);
     v.trackedEntity = undefined;
     satSelecionadoRef.current = null;
@@ -868,28 +1279,101 @@ function App() {
       setPainelEsquerdoAberto(true);
     }
 
-    const camTarget = cameraInicialRef.current || {
-      destination: window.Cesium.Cartesian3.fromDegrees(
-        POSICAO_ORBITAL_PADRAO.longitude,
-        POSICAO_ORBITAL_PADRAO.latitude,
-        POSICAO_ORBITAL_PADRAO.altitude
-      ),
-      orientation: {
-        heading: window.Cesium.Math.toRadians(POSICAO_ORBITAL_PADRAO.heading),
-        pitch: window.Cesium.Math.toRadians(POSICAO_ORBITAL_PADRAO.pitch),
-        roll: POSICAO_ORBITAL_PADRAO.roll
-      }
-    };
+    const camTarget = cameraInicialRef.current;
+    if (camTarget && camTarget.direction && camTarget.up) {
+      v.camera.flyTo({
+        destination: camTarget.destination.clone(),
+        orientation: {
+          direction: camTarget.direction.clone(),
+          up: camTarget.up.clone()
+        },
+        duration: 1.2
+      });
+    } else {
+      v.camera.flyTo({
+        destination: window.Cesium.Cartesian3.fromDegrees(
+          POSICAO_ORBITAL_PADRAO.longitude,
+          POSICAO_ORBITAL_PADRAO.latitude,
+          POSICAO_ORBITAL_PADRAO.altitude
+        ),
+        orientation: {
+          heading: window.Cesium.Math.toRadians(POSICAO_ORBITAL_PADRAO.heading),
+          pitch: window.Cesium.Math.toRadians(-89.5),
+          roll: 0.0
+        },
+        duration: 1.2
+      });
+    }
+  };
 
-    v.camera.flyTo({
-      destination: camTarget.destination.clone(),
-      orientation: {
-        heading: camTarget.orientation.heading,
-        pitch: camTarget.orientation.pitch,
-        roll: camTarget.orientation.roll
-      },
-      duration: 1.5
+  // Funções de Descoberta Rápida e Investigação Guiada (Passo 2.1)
+  const focarEntidadeNoCesium = (noradId) => {
+    let sat = objetos.find(o => String(o.norad_id) === String(noradId));
+    if (!sat && pointsRef.current.has(String(noradId))) {
+      sat = pointsRef.current.get(String(noradId)).sat;
+    }
+    if (sat) {
+      centralizarCameraNoObjeto(sat);
+    }
+  };
+
+  const handleInvestigarObjeto = async (noradId) => {
+    const noradStr = String(noradId).trim();
+    tocarEfeitoSonoro(somFadeIn, 0.65);
+
+    let sat = objetos.find(o => String(o.norad_id) === noradStr);
+
+    if (!sat) {
+      try {
+        const res = await fetch(`${API_URL}/api/objetos/${noradStr}`);
+        if (res.ok) {
+          sat = await res.json();
+        }
+      } catch (err) {
+        console.warn("Erro ao buscar objeto para investigação:", err);
+      }
+    }
+
+    if (sat) {
+      const catId = Number(sat.categoria_id) || 1;
+      setCategoriasAtivas(prev => ({ ...prev, [catId]: true }));
+      handleSelecionarSat(sat, true);
+      focarEntidadeNoCesium(sat.norad_id);
+    }
+  };
+
+  const handleAplicarFiltroCategorias = (novasCategorias) => {
+    tocarEfeitoSonoro(somConsoleButtons, 0.5);
+    setCategoriasAtivas(prev => ({
+      ...prev,
+      ...novasCategorias
+    }));
+  };
+
+  const handleLocalizarGeo = async () => {
+    tocarEfeitoSonoro(somFadeIn, 0.65);
+    let satGeo = objetos.find(o => {
+      if (!o.ultimo_tle) return false;
+      const p = calcularParametrosOrbitais(o.ultimo_tle.linha1, o.ultimo_tle.linha2);
+      return p && p.regimeCodigo === 'GEO';
     });
+
+    if (!satGeo) {
+      try {
+        const res = await fetch(`${API_URL}/api/objetos/42698`);
+        if (res.ok) {
+          satGeo = await res.json();
+        }
+      } catch {
+        // fallback
+      }
+    }
+
+    if (satGeo) {
+      setCategoriasAtivas(prev => ({ ...prev, 1: true }));
+      handleSelecionarSat(satGeo, true);
+      focarEntidadeNoCesium(satGeo.norad_id);
+    }
   };
 
   const handleVoltarInicio = () => {
@@ -928,6 +1412,18 @@ function App() {
     viewerInstance.scene.globe.atmosphereLightIntensity = 1.3;
     viewerInstance.scene.globe.depthTestAgainstTerrain = true;
 
+    // Configurações da câmera: trava a rotação e o foco no centro do planeta
+    const ctrl = viewerInstance.scene.screenSpaceCameraController;
+    ctrl.enableRotate = true;
+    ctrl.enableZoom = true;
+    ctrl.enableTranslate = false;
+    ctrl.enableTilt = false;
+    ctrl.enableLook = false;
+    ctrl.minimumZoomDistance = 6378137 + 150000;
+    ctrl.maximumZoomDistance = 150000000;
+    ctrl.inertiaSpin = 0.85;
+    ctrl.inertiaZoom = 0.8;
+
     // Provedor ArcGIS fotorrealista com fallback NaturalEarthII
     if (window.Cesium.ArcGisMapServerImageryProvider && window.Cesium.ArcGisMapServerImageryProvider.fromUrl) {
       window.Cesium.ArcGisMapServerImageryProvider.fromUrl(
@@ -959,8 +1455,8 @@ function App() {
     );
     const orientacaoInicial = {
       heading: window.Cesium.Math.toRadians(POSICAO_ORBITAL_PADRAO.heading),
-      pitch: window.Cesium.Math.toRadians(POSICAO_ORBITAL_PADRAO.pitch),
-      roll: POSICAO_ORBITAL_PADRAO.roll
+      pitch: window.Cesium.Math.toRadians(-89.5),
+      roll: 0.0
     };
 
     viewerInstance.camera.setView({
@@ -969,104 +1465,96 @@ function App() {
     });
 
     cameraInicialRef.current = {
-      destination: destinoInicial,
-      orientation: orientacaoInicial
+      destination: viewerInstance.camera.position.clone(),
+      direction: viewerInstance.camera.direction.clone(),
+      up: viewerInstance.camera.up.clone()
     };
 
     // Manipulador de Clique no Globo (Seleção)
     const clickHandler = new window.Cesium.ScreenSpaceEventHandler(viewerInstance.scene.canvas);
     clickHandler.setInputAction((click) => {
       if (telaAtivaRef.current !== 'simulador') return;
-      const pickedObject = viewerInstance.scene.pick(click.position);
-      if (window.Cesium.defined(pickedObject) && pickedObject.id && pickedObject.id.properties) {
-        const entity = pickedObject.id;
-        const satData = entity.properties.getValue(window.Cesium.JulianDate.now());
-        satSelecionadoRef.current = satData;
-        handleSelecionarSat(satData);
 
-        // Traçar e fixar a órbita no Cesium
-        if (satData && satData.ultimo_tle) {
-          desenharTrilhaOrbital(viewerInstance, satData.ultimo_tle);
-        }
-
-        // Focar a câmera
-        const rangeDist = 3500000.0; // 3.500 km
-        entidadeFocadaRef.current = null;
-        viewerInstance.camera.lookAtTransform(window.Cesium.Matrix4.IDENTITY);
-        viewerInstance.trackedEntity = undefined;
-
-        viewerInstance.flyTo(entity, {
-          duration: 1.5,
-          offset: new window.Cesium.HeadingPitchRange(
-            window.Cesium.Math.toRadians(0.0),
-            window.Cesium.Math.toRadians(-72.0),
-            rangeDist
-          )
-        }).then((completed) => {
-          if (completed && viewerInstance && !viewerInstance.isDestroyed()) {
-            const time = viewerInstance.clock.currentTime;
-            const position = entity.position.getValue(time);
-            if (position) {
-              const transform = window.Cesium.Transforms.eastNorthUpToFixedFrame(position);
-              const initialOffset = new window.Cesium.HeadingPitchRange(
-                window.Cesium.Math.toRadians(0.0),
-                window.Cesium.Math.toRadians(-72.0),
-                rangeDist
-              );
-              viewerInstance.camera.lookAtTransform(transform, initialOffset);
-              entidadeFocadaRef.current = entity;
+      // Interação 3D específica do MODO ORBITAL
+      if (modoOrbitalAtivoRef.current) {
+        const pickedObject = viewerInstance.scene.pick(click.position);
+        if (window.Cesium.defined(pickedObject)) {
+          if (pickedObject.id?.properties) {
+            if (pickedObject.id.properties.tipo?.getValue() === 'evento_historico') {
+              const evData = pickedObject.id.properties.eventoData.getValue();
+              handleSelecionarEvento(evData);
+              return;
+            }
+            if (pickedObject.id.properties.areaId) {
+              const areaId = pickedObject.id.properties.areaId.getValue();
+              handleSelecionarAreaOrbital(areaId);
+              return;
             }
           }
-        });
-      } else {
-        // Clicar no espaço vazio deseleciona
-        if (satSelecionadoRef.current) {
-          tocarEfeitoSonoro(somFadeOut, 0.65);
-        }
-        satSelecionadoRef.current = null;
-        setSatSelecionado(null);
-        setParametrosOrbitaisSat(null);
-        limparTrilhaOrbital(viewerInstance);
-
-        // Em telas compactas, fecha o painel de telemetria e restaura o painel de dados
-        if (window.innerWidth < 950) {
-          setPainelDireitoAberto(false);
-          setPainelEsquerdoAberto(true);
+          if (typeof pickedObject.id === 'string' && pickedObject.id.startsWith('area_')) {
+            const areaId = pickedObject.id.replace('area_', '');
+            handleSelecionarAreaOrbital(areaId);
+            return;
+          }
         }
 
-        if (viewerInstance) {
-          entidadeFocadaRef.current = null;
-          viewerInstance.camera.lookAtTransform(window.Cesium.Matrix4.IDENTITY);
-          viewerInstance.trackedEntity = undefined;
+        // Clicar fora desmarca seleção mantendo câmera travada
+        handleResetarCameraRadar();
+        return;
+      }
 
-          const camTarget = cameraInicialRef.current || {
-            destination: window.Cesium.Cartesian3.fromDegrees(
-              POSICAO_ORBITAL_PADRAO.longitude,
-              POSICAO_ORBITAL_PADRAO.latitude,
-              POSICAO_ORBITAL_PADRAO.altitude
-            ),
-            orientation: {
-              heading: window.Cesium.Math.toRadians(POSICAO_ORBITAL_PADRAO.heading),
-              pitch: window.Cesium.Math.toRadians(POSICAO_ORBITAL_PADRAO.pitch),
-              roll: POSICAO_ORBITAL_PADRAO.roll
+      // 1. Tentar pegar o objeto via drillPick no pixel exato
+      let satEntryClique = null;
+      const pickedList = viewerInstance.scene.drillPick(click.position);
+      if (pickedList && pickedList.length > 0) {
+        for (let i = 0; i < pickedList.length; i++) {
+          const item = pickedList[i];
+          const noradId = typeof item.id === 'string' ? item.id : (item.primitive?.id || null);
+          if (noradId && pointsRef.current.has(String(noradId))) {
+            satEntryClique = pointsRef.current.get(String(noradId));
+            break;
+          }
+        }
+      }
+
+      // 2. Tolerância sutil de até 4px via drillPick na GPU
+      if (!satEntryClique) {
+        const offsets = [
+          [-2, 0], [2, 0], [0, -2], [0, 2],
+          [-3, -3], [3, -3], [-3, 3], [3, 3],
+          [-4, 0], [4, 0], [0, -4], [0, 4]
+        ];
+        for (let i = 0; i < offsets.length; i++) {
+          const p = new window.Cesium.Cartesian2(
+            click.position.x + offsets[i][0],
+            click.position.y + offsets[i][1]
+          );
+          const vizList = viewerInstance.scene.drillPick(p);
+          if (vizList && vizList.length > 0) {
+            for (let j = 0; j < vizList.length; j++) {
+              const item = vizList[j];
+              const noradId = typeof item.id === 'string' ? item.id : (item.primitive?.id || null);
+              if (noradId && pointsRef.current.has(String(noradId))) {
+                satEntryClique = pointsRef.current.get(String(noradId));
+                break;
+              }
             }
-          };
-
-          viewerInstance.camera.flyTo({
-            destination: camTarget.destination.clone(),
-            orientation: {
-              heading: camTarget.orientation.heading,
-              pitch: camTarget.orientation.pitch,
-              roll: camTarget.orientation.roll
-            },
-            duration: 1.5
-          });
+          }
+          if (satEntryClique) break;
         }
+      }
+
+      if (satEntryClique) {
+        handleSelecionarSat(satEntryClique.sat, true, true);
+      } else {
+        satHoverIdRef.current = null;
+        handleDesfocarCamera(true);
       }
     }, window.Cesium.ScreenSpaceEventType.LEFT_CLICK);
 
     // Manipulador de Hover do Mouse (Gera trilha orbital dinamicamente sob o cursor)
     let lastHoveredEntity = null;
+    let lastHoveredEventoEntity = null;
     const hoverHandler = new window.Cesium.ScreenSpaceEventHandler(viewerInstance.scene.canvas);
     const tooltipEl = document.getElementById('hud-tooltip');
 
@@ -1076,38 +1564,118 @@ function App() {
         if (tooltipEl) tooltipEl.style.display = 'none';
         return;
       }
-      const pickedObject = viewerInstance.scene.pick(movement.endPosition);
 
-      if (window.Cesium.defined(pickedObject) && pickedObject.id && pickedObject.id.properties) {
-        const entity = pickedObject.id;
-        const satData = entity.properties.getValue(window.Cesium.JulianDate.now());
+      // Interação 3D sob o cursor no MODO ORBITAL
+      if (modoOrbitalAtivoRef.current) {
+        const pickedObject = viewerInstance.scene.pick(movement.endPosition);
+        let novoEventoHover = null;
+        let novaAreaHover = null;
+
+        if (window.Cesium.defined(pickedObject) && pickedObject.id?.properties) {
+          const tipo = pickedObject.id.properties.tipo?.getValue();
+
+          if (tipo === 'evento_historico') {
+            novoEventoHover = pickedObject.id;
+            const evData = pickedObject.id.properties.eventoData?.getValue();
+
+            if (tooltipEl && evData) {
+              tooltipEl.innerHTML = `
+                <div class="tooltip-header" style="border-color: rgba(0, 240, 255, 0.35); padding-bottom: 6px; margin-bottom: 6px;">
+                  <span class="tooltip-dot" style="background:#00f0ff; color:#00f0ff; box-shadow: 0 0 10px #00f0ff;"></span>
+                  <span class="tooltip-name" style="color:#00f0ff; font-size: 11px; letter-spacing: 1px;">EVENTO HISTÓRICO · ${evData.ano}</span>
+                </div>
+                <div style="font-size: 13px; font-weight: 700; color: #ffffff; letter-spacing: 0.5px; margin-bottom: 4px;">
+                  ◆ ${evData.nome.toUpperCase()}
+                </div>
+                <div style="font-size: 11px; color: #94a3b8; line-height: 1.4; margin-bottom: 6px;">
+                  ${evData.causa || evData.consequencias || ''}
+                </div>
+                <div style="font-size: 10px; color: rgba(0, 240, 255, 0.85); border-top: 1px dashed rgba(0, 240, 255, 0.2); padding-top: 5px; display: flex; justify-content: space-between;">
+                  <span>ALTITUDE: <strong>${evData.altitudeKm?.toLocaleString('pt-BR')} km</strong></span>
+                  <span>FRAGMENTOS: <strong>${evData.fragmentosGerados || 0}</strong></span>
+                </div>
+              `;
+              tooltipEl.style.display = 'block';
+              tooltipEl.style.left = `${movement.endPosition.x + 14}px`;
+              tooltipEl.style.top = `${movement.endPosition.y + 14}px`;
+            }
+          } else if (pickedObject.id.properties.areaId) {
+            const aId = pickedObject.id.properties.areaId.getValue();
+            if (aId === 'heo' || pickedObject.id.properties.isLimite?.getValue()) {
+              novaAreaHover = aId;
+            }
+          }
+        }
+
+        // Atualização de hover no marcador de evento
+        if (lastHoveredEventoEntity !== novoEventoHover) {
+          if (lastHoveredEventoEntity) {
+            destacarEvento3D(lastHoveredEventoEntity, false);
+          }
+          if (novoEventoHover) {
+            destacarEvento3D(novoEventoHover, true);
+          }
+          lastHoveredEventoEntity = novoEventoHover;
+        }
+
+        // Atualização de hover no contorno orbital
+        destacarArea3D(entidadesAreas3DRef.current, novaAreaHover);
+
+        if (novoEventoHover || novaAreaHover) {
+          viewerInstance.scene.canvas.style.cursor = 'pointer';
+        } else {
+          viewerInstance.scene.canvas.style.cursor = 'default';
+          if (tooltipEl) tooltipEl.style.display = 'none';
+        }
+
+        return;
+      }
+
+      let satEntryHover = null;
+      const pickedListHover = viewerInstance.scene.drillPick(movement.endPosition);
+      if (pickedListHover && pickedListHover.length > 0) {
+        for (let i = 0; i < pickedListHover.length; i++) {
+          const item = pickedListHover[i];
+          const noradId = typeof item.id === 'string' ? item.id : (item.primitive?.id || null);
+          if (noradId && pointsRef.current.has(String(noradId))) {
+            satEntryHover = pointsRef.current.get(String(noradId));
+            break;
+          }
+        }
+      }
+
+      if (satEntryHover) {
+        const { point: hoveredPoint, sat: satData } = satEntryHover;
         viewerInstance.scene.canvas.style.cursor = 'pointer';
 
-        if (lastHoveredEntity !== entity) {
+        if (lastHoveredEntity !== hoveredPoint) {
           // Restaurar estilo anterior
           if (lastHoveredEntity) {
             try {
-              const lastSat = lastHoveredEntity.properties.getValue(window.Cesium.JulianDate.now());
-              const catId = Number(lastSat.categoria_id);
-              lastHoveredEntity.point.pixelSize = catId === 4 ? 10 : 7;
-              lastHoveredEntity.point.outlineColor = window.Cesium.Color.BLACK;
-              lastHoveredEntity.point.outlineWidth = 1.5;
+              const lastCatId = Number(lastHoveredEntity._satCategoriaId) || 1;
+              const lastNoradId = lastHoveredEntity._noradId;
+              const estiloPadrao = obterEstiloPontoCesium(lastCatId, 'padrao', lastNoradId);
+              lastHoveredEntity.pixelSize = estiloPadrao.pixelSize;
+              lastHoveredEntity.outlineColor = estiloPadrao.outlineColor;
+              lastHoveredEntity.outlineWidth = estiloPadrao.outlineWidth;
             } catch {
-              // Objeto fora de visibilidade
+              // Ponto indisponível
             }
           }
 
-          lastHoveredEntity = entity;
+          lastHoveredEntity = hoveredPoint;
           satHoverIdRef.current = satData.norad_id;
 
           // Realçar ponto sob hover
           try {
-            const currentSize = entity.point.pixelSize.getValue();
-            entity.point.pixelSize = currentSize + 4;
-            entity.point.outlineColor = window.Cesium.Color.WHITE;
-            entity.point.outlineWidth = 2.5;
+            hoveredPoint._satCategoriaId = Number(satData.categoria_id) || 1;
+            hoveredPoint._noradId = String(satData.norad_id);
+            const isEstacao = String(satData.norad_id) === '25544' || String(satData.norad_id) === '48274';
+            hoveredPoint.pixelSize = isEstacao ? 13 : (hoveredPoint.pixelSize || 6) + 3;
+            hoveredPoint.outlineColor = window.Cesium.Color.WHITE;
+            hoveredPoint.outlineWidth = isEstacao ? 2 : 2.5;
           } catch {
-            // Frame ignorado
+            // Ponto indisponível
           }
 
           // Traçar a órbita no Cesium sob hover caso o satélite não seja o já selecionado
@@ -1187,13 +1755,14 @@ function App() {
 
         if (lastHoveredEntity) {
           try {
-            const lastSat = lastHoveredEntity.properties.getValue(window.Cesium.JulianDate.now());
-            const catId = Number(lastSat.categoria_id);
-            lastHoveredEntity.point.pixelSize = catId === 4 ? 10 : 7;
-            lastHoveredEntity.point.outlineColor = window.Cesium.Color.BLACK;
-            lastHoveredEntity.point.outlineWidth = 1.5;
+            const lastCatId = Number(lastHoveredEntity._satCategoriaId) || 1;
+            const lastNoradId = lastHoveredEntity._noradId;
+            const estiloPadrao = obterEstiloPontoCesium(lastCatId, 'padrao', lastNoradId);
+            lastHoveredEntity.pixelSize = estiloPadrao.pixelSize;
+            lastHoveredEntity.outlineColor = estiloPadrao.outlineColor;
+            lastHoveredEntity.outlineWidth = estiloPadrao.outlineWidth;
           } catch {
-            // Frame ignorado
+            // Ponto indisponível
           }
           lastHoveredEntity = null;
           satHoverIdRef.current = null;
@@ -1214,19 +1783,8 @@ function App() {
     }, window.Cesium.ScreenSpaceEventType.MOUSE_MOVE);
 
     // Acompanhamento do objeto focado no preRender
-    const removerPreRender = viewerInstance.scene.preRender.addEventListener((scene, time) => {
-      if (entidadeFocadaRef.current && viewerInstance && !viewerInstance.isDestroyed()) {
-        try {
-          const entity = entidadeFocadaRef.current;
-          const position = entity.position.getValue(time);
-          if (position) {
-            const transform = window.Cesium.Transforms.eastNorthUpToFixedFrame(position);
-            viewerInstance.camera.lookAtTransform(transform);
-          }
-        } catch {
-          // Render loop silencioso
-        }
-      }
+    const removerPreRender = viewerInstance.scene.preRender.addEventListener(() => {
+      // Loop de renderização com câmera livre para o usuário navegar
     });
 
     return () => {
@@ -1259,31 +1817,23 @@ function App() {
     return () => window.removeEventListener('resize', handleResize);
   }, [viewer]);
 
-  // 5. PROPAGAÇÃO EM TEMPO REAL SGP4 E PLOTAGEM DAS 4 CATEGORIAS NO CESIUM
+  // 5. PROPAGAÇÃO E PLOTAGEM DE SATÉLITES COM POINT PRIMITIVE COLLECTION
   useEffect(() => {
-    if (!viewer || objetos.length === 0) return;
+    if (!viewer || objetos.length === 0 || !window.Cesium) return;
 
-    const limparEntidades = () => {
-      try {
-        if (viewer && !viewer.isDestroyed() && viewer.entities) {
-          entitiesRef.current.forEach((entity) => {
-            try {
-              viewer.entities.remove(entity);
-            } catch {
-              // Entidade desanexada
-            }
-          });
-        }
-      } catch {
-        // Limpeza concluída
-      }
-      entitiesRef.current.clear();
-    };
+    if (!pointCollectionRef.current || pointCollectionRef.current.isDestroyed()) {
+      pointCollectionRef.current = viewer.scene.primitives.add(new window.Cesium.PointPrimitiveCollection());
+    }
 
-    limparEntidades();
+    const colecao = pointCollectionRef.current;
+    colecao.removeAll();
+    pointsRef.current.clear();
 
     const satelitesFiltrados = objetos.filter(sat => {
       const catId = Number(sat.categoria_id);
+      // Se houver regime orbital isolado, filtra estritamente por esse regime
+      if (regimeAtivo && sat.regime !== regimeAtivo) return false;
+
       // Estações Espaciais Principais: apenas ISS e Tiangong permanecem renderizadas e fixas
       if (catId === 4) {
         return (sat.norad_id === '25544' || sat.norad_id === '48274') && Boolean(sat.ultimo_tle);
@@ -1295,82 +1845,127 @@ function App() {
       if (nomeUpper.startsWith('CSS (') && sat.norad_id !== '48274') return false;
 
       const isAtiva = (catId in categoriasAtivas) && categoriasAtivas[catId];
-      return isAtiva && Boolean(sat.ultimo_tle);
+      return isAtiva && Boolean(sat.omm || sat.ultimo_tle);
     });
+
+    const dataBase = new Date();
+    const gmstBase = satellite.gstime(dataBase);
 
     satelitesFiltrados.forEach(sat => {
       try {
         const catId = Number(sat.categoria_id);
-        const corHex = CORES_CATEGORIAS[catId] || '#00ff66';
+        const satrec = obterSatrec(sat);
+        if (!satrec) return;
 
-        if (viewer.entities.getById(sat.norad_id)) return;
+        let posAndVel = satellite.propagate(satrec, dataBase);
+        let rMag = posAndVel && posAndVel.position ? Math.sqrt(posAndVel.position.x * posAndVel.position.x + posAndVel.position.y * posAndVel.position.y + posAndVel.position.z * posAndVel.position.z) : 0;
+        let altKm = rMag - 6378.137;
 
-        const entity = viewer.entities.add({
-          id: sat.norad_id,
-          name: sat.nome,
-          show: telaAtivaRef.current === 'simulador',
-          position: new window.Cesium.CallbackProperty((time, result) => {
-            try {
-              const tle = sat.ultimo_tle;
-              if (!tle) return undefined;
+        const isLeoinvalido = sat.regime === 'LEO' && (altKm > 2000 || altKm < 60);
+        const isGeralInvalido = altKm < 60 || altKm > 100000;
 
-              const dataAtual = window.Cesium.JulianDate.toDate(time);
-              const gmst = satellite.gstime(dataAtual);
-
-              const satrec = satellite.twoline2satrec(tle.linha1, tle.linha2);
-              const posAndVel = satellite.propagate(satrec, dataAtual);
-              const posEci = posAndVel.position;
-
-              if (posEci) {
-                const posGd = satellite.eciToGeodetic(posEci, gmst);
-                const longitude = satellite.degreesLong(posGd.longitude);
-                const latitude = satellite.degreesLat(posGd.latitude);
-                const altitude = posGd.height * 1000;
-
-                return window.Cesium.Cartesian3.fromDegrees(longitude, latitude, altitude, undefined, result);
-              }
-            } catch {
-              // Posição orbital indisponível para o frame
+        if (!posAndVel || !posAndVel.position || isLeoinvalido || isGeralInvalido) {
+          try {
+            const line2 = sat.ultimo_tle?.linha2 || '';
+            let mm = parseFloat(line2.substring(52, 63).trim()) || sat.omm?.MEAN_MOTION || 15;
+            if (mm <= 0) mm = 15;
+            const periodMs = (1440 / mm) * 60000;
+            const epochyr = satrec.epochyr < 57 ? 2000 + satrec.epochyr : 1900 + satrec.epochyr;
+            const epochDate = new Date(Date.UTC(epochyr, 0, 1) + (satrec.epochdays - 1) * 86400000);
+            const elapsedMs = dataBase.getTime() - epochDate.getTime();
+            const modDate = new Date(epochDate.getTime() + (Math.abs(elapsedMs) % periodMs));
+            const freshSatrec = obterSatrec(sat);
+            if (freshSatrec) {
+              posAndVel = satellite.propagate(freshSatrec, modDate);
             }
-            return undefined;
-          }, false),
-          point: {
-            pixelSize: catId === 4 ? 12 : catId === 5 ? 7 : catId === 2 ? 6 : catId === 3 ? 5 : 7,
-            color: window.Cesium.Color.fromCssColorString(corHex),
-            outlineColor: window.Cesium.Color.BLACK,
-            outlineWidth: catId === 4 ? 2 : 1.5
-          },
-          properties: sat
+          } catch {
+            // Mantém cálculo original
+          }
+        }
+
+        if (!posAndVel || !posAndVel.position) return;
+
+        const posGd = satellite.eciToGeodetic(posAndVel.position, gmstBase);
+        const longitude = satellite.degreesLong(posGd.longitude);
+        const latitude = satellite.degreesLat(posGd.latitude);
+        const altitude = posGd.height * 1000;
+        const initialPos = window.Cesium.Cartesian3.fromDegrees(longitude, latitude, altitude);
+
+        const isEstacaoPrincipal = String(sat.norad_id) === '25544' || String(sat.norad_id) === '48274';
+        const estilo = obterEstiloPontoCesium(catId, 'padrao', sat.norad_id);
+        const point = colecao.add({
+          id: String(sat.norad_id),
+          position: initialPos,
+          pixelSize: estilo.pixelSize,
+          color: estilo.color,
+          outlineColor: estilo.outlineColor,
+          outlineWidth: estilo.outlineWidth,
+          scaleByDistance: isEstacaoPrincipal
+            ? new window.Cesium.NearFarScalar(1.5e6, 1.25, 8.0e7, 0.65)
+            : new window.Cesium.NearFarScalar(1.5e6, 1.2, 8.0e7, 0.35),
+          show: (telaAtivaRef.current === 'simulador') && (catId in categoriasAtivas ? categoriasAtivas[catId] : true) && (!regimeAtivo || sat.regime === regimeAtivo)
         });
 
-        entitiesRef.current.set(sat.norad_id, entity);
+        point._satCategoriaId = catId;
+        point._noradId = String(sat.norad_id);
+        pointsRef.current.set(String(sat.norad_id), { point, sat, satrec });
       } catch (err) {
-        console.warn("Erro ao plotar satélite:", sat.nome, err);
+        // Ignora objeto com TLE instável
       }
     });
 
-    return () => limparEntidades();
-  }, [objetos, categoriasAtivas, viewer]);
+    // Inicializa lista de satélites no Web Worker
+    satelitesIndicesRef.current = satelitesFiltrados.map(s => String(s.norad_id));
+    if (workerRef.current) {
+      workerRef.current.postMessage({
+        tipo: 'INICIALIZAR',
+        satelites: satelitesFiltrados.map(s => ({
+          norad_id: s.norad_id,
+          regime: s.regime,
+          ultimo_tle: s.ultimo_tle,
+          omm: s.omm
+        }))
+      });
 
-  // Sincroniza a visibilidade de todos os objetos orbitais com a tela ativa:
-  // - Ocultos na tela principal (deixando apenas o globo terrestre puro no fundo)
-  // - Visíveis apenas quando o simulador de monitoramento é acionado
+      if (telaAtivaRef.current === 'simulador' && !modoOrbitalAtivoRef.current) {
+        workerRef.current.postMessage({ tipo: 'INICIAR', intervaloMs: 1000 });
+      }
+    }
+
+    return () => {
+      if (workerRef.current) {
+        workerRef.current.postMessage({ tipo: 'PARAR' });
+      }
+      colecao.removeAll();
+      pointsRef.current.clear();
+    };
+  }, [objetos, categoriasAtivas, regimeAtivo, viewer]);
+
+  // Sincroniza a visibilidade dos pontos e atividade do Web Worker com a tela ativa
   useEffect(() => {
-    if (!viewer || viewer.isDestroyed() || !viewer.entities) return;
-    const mostrarObjetos = (telaAtiva === 'simulador');
-    entitiesRef.current.forEach((entity) => {
-      try {
-        entity.show = mostrarObjetos;
-      } catch {
-        // Atualização de visibilidade
-      }
+    if (!viewer || viewer.isDestroyed() || !pointCollectionRef.current) return;
+    const mostrarObjetos = (telaAtiva === 'simulador') && !modoOrbitalAtivo;
+    pointsRef.current.forEach(({ point, sat }) => {
+      const catId = Number(sat.categoria_id);
+      const isAtiva = (catId in categoriasAtivas) ? categoriasAtivas[catId] : true;
+      const matchRegime = !regimeAtivo || (sat.regime === regimeAtivo);
+      point.show = mostrarObjetos && isAtiva && matchRegime;
     });
+
+    if (workerRef.current) {
+      if (mostrarObjetos) {
+        workerRef.current.postMessage({ tipo: 'INICIAR', intervaloMs: 1000 });
+      } else {
+        workerRef.current.postMessage({ tipo: 'PARAR' });
+      }
+    }
+
     if (!mostrarObjetos) {
       limparTrilhaOrbital(viewer);
       const tooltipEl = document.getElementById('hud-tooltip');
       if (tooltipEl) tooltipEl.style.display = 'none';
     }
-  }, [telaAtiva, viewer]);
+  }, [telaAtiva, categoriasAtivas, modoOrbitalAtivo, regimeAtivo, viewer]);
 
 
   const handleAlternarCategoria = (catId) => {
@@ -1383,29 +1978,37 @@ function App() {
   const handleIniciarMonitoramento = () => {
     tocarEfeitoSonoro(somIniciar, 0.65);
     setTransicaoCyber('para-simulador');
-    const v = viewerRef.current;
-    if (v && window.Cesium) {
-      entidadeFocadaRef.current = null;
-      v.camera.lookAtTransform(window.Cesium.Matrix4.IDENTITY);
-      v.trackedEntity = undefined;
-      const destino = window.Cesium.Cartesian3.fromDegrees(
-        POSICAO_ORBITAL_PADRAO.longitude,
-        POSICAO_ORBITAL_PADRAO.latitude,
-        POSICAO_ORBITAL_PADRAO.altitude
-      );
-      v.camera.setView({
-        destination: destino,
-        orientation: {
-          heading: window.Cesium.Math.toRadians(POSICAO_ORBITAL_PADRAO.heading),
-          pitch: window.Cesium.Math.toRadians(POSICAO_ORBITAL_PADRAO.pitch),
-          roll: POSICAO_ORBITAL_PADRAO.roll
+    try {
+      const v = viewerRef.current;
+      if (v && window.Cesium) {
+        objetoFocadoRef.current = null;
+        entidadeFocadaRef.current = null;
+        try {
+          v.camera.lookAtTransform(window.Cesium.Matrix4.IDENTITY);
+        } catch {
+          // Mantém integridade do transform da câmera
         }
-      });
+        v.trackedEntity = undefined;
+        const destino = window.Cesium.Cartesian3.fromDegrees(
+          POSICAO_ORBITAL_PADRAO.longitude,
+          POSICAO_ORBITAL_PADRAO.latitude,
+          POSICAO_ORBITAL_PADRAO.altitude
+        );
+        v.camera.setView({
+          destination: destino,
+          orientation: {
+            heading: window.Cesium.Math.toRadians(POSICAO_ORBITAL_PADRAO.heading),
+            pitch: window.Cesium.Math.toRadians(POSICAO_ORBITAL_PADRAO.pitch),
+            roll: POSICAO_ORBITAL_PADRAO.roll
+          }
+        });
+      }
+    } catch (err) {
+      console.warn("Aviso ao definir posição inicial do Cesium:", err);
     }
     setTimeout(() => {
       setTelaAtiva('simulador');
       setTransicaoCyber(null);
-      setModalTutorialAberto(true);
     }, 600);
   };
 
@@ -1415,13 +2018,17 @@ function App() {
       return estatisticas.totais_oficiais;
     }
     return {
-      ativos: 4916,
-      inativos: 1473,
-      foguetes: 2283,
-      detritos: 2838,
+      ativos: 15651,
+      inativos: 3530,
+      foguetes: 3468,
+      detritos: 9167,
       estacoes: 2,
-      total: 11535,
-      total_em_orbita: 11535
+      total: 31842,
+      total_em_orbita: 31841,
+      total_console: 31818,
+      celestrak_catalogados: 34729,
+      celestrak_rastreados: 31818,
+      nao_catalogados_estimativa: "Mais de 140 milhões"
     };
   };
 
@@ -1435,10 +2042,10 @@ function App() {
       return estatisticas.distribuicao_regimes;
     }
     return {
-      leo: 5519,
-      meo: 183,
-      geo: 590,
-      heo: 44
+      leo: 26180,
+      meo: 637,
+      geo: 1830,
+      heo: 3171
     };
   };
 
@@ -1489,7 +2096,7 @@ function App() {
       if (nomeUpper.startsWith('CSS (') && sat.norad_id !== '48274') return;
 
       if (categoriasAtivas[catId] && sat.ultimo_tle && sat.ultimo_tle.linha1 && sat.ultimo_tle.linha2) {
-        const regime = classificarRegimeOrbital(sat.ultimo_tle.linha1, sat.ultimo_tle.linha2);
+        const regime = sat.regime || classificarRegimeOrbital(sat.ultimo_tle.linha1, sat.ultimo_tle.linha2);
         if (regime === 'LEO') regimes.leo++;
         else if (regime === 'MEO') regimes.meo++;
         else if (regime === 'GEO') regimes.geo++;
@@ -1982,7 +2589,7 @@ function App() {
                           <div className="tactical-table-footer">
                             <Info size={14} className="tactical-table-footer-icon" />
                             <div className="tactical-table-footer-text">
-                              <span className="tactical-table-footer-highlight">CENSO GLOBAL OFICIAL (35.000+ OBJETOS):</span> Dados consolidados via <strong>SATCAT Boxscore (CelesTrak / Space-Track / 18th Space Defense Squadron - US Space Force)</strong>. Representa a totalidade de objetos catalogados por radar em órbita terrestre.
+                              <span className="tactical-table-footer-highlight">CENSO GLOBAL:</span> Totalidade de objetos catalogados em órbita terrestre.
                             </div>
                           </div>
                         </div>
@@ -2031,10 +2638,20 @@ function App() {
               <h1 className="brand-title">
                 Orbital<span>ED</span>
               </h1>
-              <div className="system-status">
-                <span className="status-dot"></span>
-                STATUS: RASTREIO SGP4 EM TEMPO REAL
-              </div>
+              <button
+                type="button"
+                className={`cinema-planet-btn cinema-sound-btn ${musicaMutada ? 'muted' : 'active'}`}
+                onClick={handleAlternarMusicaPrincipal}
+                aria-label={musicaMutada ? "Desmutar trilha sonora" : "Mutar trilha sonora"}
+                title={musicaMutada ? "Desmutar trilha sonora (Ativar áudio)" : "Mutar trilha sonora (Silenciar)"}
+              >
+                {musicaMutada ? (
+                  <VolumeOff size={18} className="cinema-planet-icon cinema-sound-icon muted" />
+                ) : (
+                  <Volume2 size={18} className="cinema-planet-icon cinema-sound-icon" />
+                )}
+                <span className="planet-btn-halo sound-btn-halo"></span>
+              </button>
             </div>
 
             {/* PAINEL TÁTICO CENTRAL TRAPEZOIDAL DE FERRAMENTAS NO HUD */}
@@ -2080,12 +2697,12 @@ function App() {
 
                 <button
                   type="button"
-                  className={`hud-tool-btn ${modalSustentabilidadeAberto ? 'active' : ''}`}
-                  onClick={handleAbrirSustentabilidade}
-                  title="Monitor de Sustentabilidade Espacial"
+                  className={`hud-tool-btn ${modoOrbitalAtivo ? 'active' : ''}`}
+                  onClick={handleAlternarModoOrbital}
+                  title={modoOrbitalAtivo ? "Retornar para a exploração livre do catálogo" : "Ativar visualização tridimensional de camadas e áreas da Terra"}
                 >
-                  <ShieldAlert size={15} className="hud-tool-icon" />
-                  <span>SUSTENTABILIDADE</span>
+                  <Orbit size={15} className="hud-tool-icon" />
+                  <span>MODO ORBITAL</span>
                 </button>
 
                 <button
@@ -2106,66 +2723,56 @@ function App() {
                   <BookOpen size={15} className="hud-tool-icon" />
                   <span>GLOSSÁRIO</span>
                 </button>
-
-                <button
-                  type="button"
-                  className={`hud-tool-btn sound-tool-btn ${musicaMutada ? 'muted' : 'active'}`}
-                  onClick={handleAlternarMusicaPrincipal}
-                  title={musicaMutada ? "Desmutar música principal" : "Mutar música principal"}
-                >
-                  {musicaMutada ? (
-                    <VolumeOff size={15} className="hud-tool-icon" />
-                  ) : (
-                    <Volume2 size={15} className="hud-tool-icon" />
-                  )}
-                  <span>{musicaMutada ? "MUDO" : "ÁUDIO"}</span>
-                </button>
               </div>
             </div>
 
-            {/* BUSCADOR DE SATÉLITES TÁTICO */}
-            <div className="search-section">
-              <div className="search-bar-container">
-                <Search size={18} className="search-icon" />
-                <input
-                  type="text"
-                  className="search-input"
-                  placeholder="BUSCAR SATÉLITE OU NORAD ID..."
-                  value={busca}
-                  onChange={(e) => setBusca(e.target.value)}
-                />
-                {busca && (
-                  <X
-                    size={16}
-                    style={{ cursor: 'pointer', color: 'var(--text-muted)' }}
-                    onClick={() => { setBusca(''); setSugestoes([]); }}
+            {/* BUSCADOR DE SATÉLITES TÁTICO (OMITIDO NO MODO ORBITAL) */}
+            {!modoOrbitalAtivo && (
+              <div className="search-section">
+                <div className="search-bar-container">
+                  <Search size={18} className="search-icon" />
+                  <input
+                    type="text"
+                    className="search-input"
+                    placeholder="BUSCAR SATÉLITE OU NORAD ID..."
+                    value={busca}
+                    onChange={(e) => setBusca(e.target.value)}
                   />
+                  {busca && (
+                    <X
+                      size={16}
+                      style={{ cursor: 'pointer', color: 'var(--text-muted)' }}
+                      onClick={() => { setBusca(''); setSugestoes([]); }}
+                    />
+                  )}
+                </div>
+
+                {sugestoes.length > 0 && (
+                  <div className="search-suggestions">
+                    {sugestoes.map((sat) => (
+                      <div
+                        key={sat.norad_id}
+                        className="suggestion-item"
+                        onClick={() => {
+                          handleSelecionarSat(sat);
+                          setBusca('');
+                          setSugestoes([]);
+                        }}
+                      >
+                        <span>{sat.nome}</span>
+                        <span className="suggestion-norad">#{sat.norad_id}</span>
+                      </div>
+                    ))}
+                  </div>
                 )}
               </div>
-
-              {sugestoes.length > 0 && (
-                <div className="search-suggestions">
-                  {sugestoes.map((sat) => (
-                    <div
-                      key={sat.norad_id}
-                      className="suggestion-item"
-                      onClick={() => {
-                        handleSelecionarSat(sat);
-                        setBusca('');
-                        setSugestoes([]);
-                      }}
-                    >
-                      <span>{sat.nome}</span>
-                      <span className="suggestion-norad">#{sat.norad_id}</span>
-                    </div>
-                  ))}
-                </div>
-              )}
-            </div>
+            )}
           </header>
 
-          {/* PAINÉIS LATERAIS FLUTUANTES (HUD) */}
-          <div className="panels-container">
+          {/* PAINÉIS LATERAIS FLUTUANTES (HUD - OMITIDOS NO MODO ORBITAL) */}
+          {!modoOrbitalAtivo && (
+            <>
+              <div className="panels-container">
 
             {/* PAINEL ESQUERDO: MÉTRICAS E FILTROS */}
             <aside className={`hud-panel left-panel ${!painelEsquerdoAberto ? 'collapsed' : ''}`}>
@@ -2185,26 +2792,55 @@ function App() {
               </div>
 
               <div className="panel-content">
-                {/* Total no Radar com contagem de objetos atualmente em órbita */}
-                <div className="stat-card" style={{ display: 'flex', flexDirection: 'column', minHeight: '105px', flexShrink: 0, padding: '14px 16px', boxSizing: 'border-box' }}>
-                  <div className="stat-label">Objetos em Órbita</div>
-                  <div className="stat-value" style={{ display: 'flex', alignItems: 'baseline', gap: '6px', fontSize: '30px', fontWeight: 700, color: '#ffffff', marginTop: '8px', lineHeight: 1 }}>
-                    {loading ? "---" : (estatisticas?.total_em_orbita || obterContadoresCategorias().total_em_orbita || 11535).toLocaleString('pt-BR')}
-                    <span style={{ color: 'var(--neon-cyan)', fontSize: '13px', fontWeight: 600, letterSpacing: '0.8px' }}>ATIVOS</span>
+                {/* Métricas principais: console, catalogados e não catalogados */}
+                <div className="stat-card" style={{ display: 'flex', flexDirection: 'column', minHeight: '128px', flexShrink: 0, padding: '14px 16px', boxSizing: 'border-box' }}>
+                  <div className="stat-label">Objetos no console</div>
+                  <div className="stat-value" style={{ display: 'flex', alignItems: 'baseline', gap: '6px', fontSize: '28px', fontWeight: 700, color: '#ffffff', marginTop: '6px', lineHeight: 1 }}>
+                    {loading && objetos.length === 0 ? "---" : (obterContadoresCategorias().total_console || 31818).toLocaleString('pt-BR')}
                   </div>
-                  <div className="stat-sublabel" style={{ display: 'block', marginTop: '8px', paddingTop: '6px', borderTop: '1px dashed rgba(0, 240, 255, 0.15)', fontSize: '9.5px', color: 'var(--text-muted)', lineHeight: 1.3 }}>
-                    Amostragem ativa: <strong style={{ color: 'var(--neon-cyan)', fontWeight: 700 }}>{loading ? '...' : (objetos.length || 1002).toLocaleString('pt-BR')}</strong> no radar
+                  <div style={{ display: 'flex', flexDirection: 'column', gap: '5px', marginTop: '10px', paddingTop: '8px', borderTop: '1px dashed rgba(0, 240, 255, 0.15)', fontSize: '10px', color: 'var(--text-muted)', lineHeight: 1.3 }}>
+                    <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                      <span>Objetos catalogados:</span>
+                      <strong style={{ color: 'var(--neon-cyan)', fontWeight: 700 }}>
+                        {(obterContadoresCategorias().celestrak_catalogados || 34729).toLocaleString('pt-BR')}
+                      </strong>
+                    </div>
+                    <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                      <span>Objetos não catalogados:</span>
+                      <strong style={{ color: '#ffb300', fontWeight: 600 }}>
+                        {obterContadoresCategorias().nao_catalogados_estimativa || "Mais de 140 milhões"}
+                      </strong>
+                    </div>
                   </div>
                 </div>
 
-                {/* BOTÃO DE RECARREGAMENTO DE AMOSTRAGEM ORBITAL */}
+                {/* SELETOR DE DENSIDADE E BOTÃO DE RECARREGAMENTO */}
                 <div className="resample-section">
+                  <div className="density-toggle-group">
+                    <button
+                      type="button"
+                      className={`density-toggle-btn ${densidadeCatalogo === 'tatica' ? 'active' : ''}`}
+                      onClick={() => handleAlternarDensidade('tatica')}
+                      title="Amostra Tática: 3.000 objetos calibrados na proporção oficial da ESA"
+                    >
+                      <span>TÁTICA (3.000)</span>
+                    </button>
+                    <button
+                      type="button"
+                      className={`density-toggle-btn ${densidadeCatalogo === 'completo' ? 'active' : ''}`}
+                      onClick={() => handleAlternarDensidade('completo')}
+                      title="Amostra Expandida: 10.000 objetos distribuídos na proporção oficial da ESA"
+                    >
+                      <span>EXPANDIDA (10.000)</span>
+                    </button>
+                  </div>
+
                   <button
                     type="button"
                     className={`resample-btn ${recarregandoAmostra ? 'loading' : ''}`}
                     onClick={handleRecarregarAmostra}
                     disabled={loading || recarregandoAmostra}
-                    title="Sortear nova amostragem proporcional de 1.000 objetos"
+                    title="Sortear nova amostragem proporcional de objetos"
                   >
                     <RotateCw size={13} className={`resample-icon ${recarregandoAmostra ? 'spin-anim' : ''}`} />
                     <span>{recarregandoAmostra ? 'SORTEANDO OBJETOS...' : 'RECARREGAR AMOSTRAGEM'}</span>
@@ -2305,22 +2941,34 @@ function App() {
                 {/* Divisor Cibernético */}
                 <div className="hud-cyber-divider" />
 
-                {/* DISTRIBUIÇÃO POR REGIME ORBITAL (LEO / MEO / GEO / HEO) */}
+                {/* DISTRIBUIÇÃO POR REGIME ORBITAL (LEO / MEO / GEO / HEO) - BOTÕES INTERATIVOS */}
                 <div className="legend-section regimes-section">
-                  <div className="legend-title">Distribuição por Camada Orbital</div>
+                  <div className="legend-title" style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                    <span>Distribuição por Camada</span>
+                    {regimeAtivo && (
+                      <span
+                        onClick={() => handleAlternarRegime(regimeAtivo)}
+                        style={{ fontSize: '8.5px', color: 'var(--neon-cyan)', cursor: 'pointer', textDecoration: 'underline' }}
+                        title="Limpar filtro de camada"
+                      >
+                        LIMPAR FILTRO
+                      </span>
+                    )}
+                  </div>
 
                   {/* LEO */}
-                  <div className="regime-bar-item">
+                  <div
+                    className={`regime-bar-item clickable ${regimeAtivo === 'LEO' ? 'active' : ''}`}
+                    onClick={() => handleAlternarRegime('LEO')}
+                    title="Isolar Órbita Baixa (LEO)"
+                  >
                     <div className="regime-bar-info">
                       <span className="regime-tag leo-tag">LEO</span>
                       <span className="regime-name">Órbita Baixa (&lt; 2.000 km)</span>
-                      <span
-                        className="regime-pct"
-                        title={distribuicaoRegimes.total > 0 ? `${distribuicaoRegimes.leo.toLocaleString('pt-BR')} objetos no console (${((distribuicaoRegimes.leo / distribuicaoRegimes.total) * 100).toFixed(1)}% do total visível)` : ''}
-                      >
+                      <span className="regime-pct">
                         {loading && objetos.length === 0
                           ? "---"
-                          : distribuicaoRegimes.leo.toLocaleString('pt-BR')}
+                          : `${distribuicaoRegimes.leo.toLocaleString('pt-BR')} / ${(estatisticas?.distribuicao_regimes?.leo || estatisticas?.regimes?.leo || 8832).toLocaleString('pt-BR')}`}
                       </span>
                     </div>
                     <div className="regime-progress-track">
@@ -2332,17 +2980,18 @@ function App() {
                   </div>
 
                   {/* MEO */}
-                  <div className="regime-bar-item">
+                  <div
+                    className={`regime-bar-item clickable ${regimeAtivo === 'MEO' ? 'active' : ''}`}
+                    onClick={() => handleAlternarRegime('MEO')}
+                    title="Isolar Órbita Média (MEO)"
+                  >
                     <div className="regime-bar-info">
                       <span className="regime-tag meo-tag">MEO</span>
                       <span className="regime-name">Órbita Média (2.000 - 35.786 km)</span>
-                      <span
-                        className="regime-pct"
-                        title={distribuicaoRegimes.total > 0 ? `${distribuicaoRegimes.meo.toLocaleString('pt-BR')} objetos no console (${((distribuicaoRegimes.meo / distribuicaoRegimes.total) * 100).toFixed(1)}% do total visível)` : ''}
-                      >
+                      <span className="regime-pct">
                         {loading && objetos.length === 0
                           ? "---"
-                          : distribuicaoRegimes.meo.toLocaleString('pt-BR')}
+                          : `${distribuicaoRegimes.meo.toLocaleString('pt-BR')} / ${(estatisticas?.distribuicao_regimes?.meo || estatisticas?.regimes?.meo || 290).toLocaleString('pt-BR')}`}
                       </span>
                     </div>
                     <div className="regime-progress-track">
@@ -2354,17 +3003,18 @@ function App() {
                   </div>
 
                   {/* GEO */}
-                  <div className="regime-bar-item">
+                  <div
+                    className={`regime-bar-item clickable ${regimeAtivo === 'GEO' ? 'active' : ''}`}
+                    onClick={() => handleAlternarRegime('GEO')}
+                    title="Isolar Órbita Geoestacionária (GEO)"
+                  >
                     <div className="regime-bar-info">
                       <span className="regime-tag geo-tag">GEO</span>
                       <span className="regime-name">Geoestacionária (~35.786 km)</span>
-                      <span
-                        className="regime-pct"
-                        title={distribuicaoRegimes.total > 0 ? `${distribuicaoRegimes.geo.toLocaleString('pt-BR')} objetos no console (${((distribuicaoRegimes.geo / distribuicaoRegimes.total) * 100).toFixed(1)}% do total visível)` : ''}
-                      >
+                      <span className="regime-pct">
                         {loading && objetos.length === 0
                           ? "---"
-                          : distribuicaoRegimes.geo.toLocaleString('pt-BR')}
+                          : `${distribuicaoRegimes.geo.toLocaleString('pt-BR')} / ${(estatisticas?.distribuicao_regimes?.geo || estatisticas?.regimes?.geo || 1282).toLocaleString('pt-BR')}`}
                       </span>
                     </div>
                     <div className="regime-progress-track">
@@ -2376,17 +3026,18 @@ function App() {
                   </div>
 
                   {/* HEO */}
-                  <div className="regime-bar-item">
+                  <div
+                    className={`regime-bar-item clickable ${regimeAtivo === 'HEO' ? 'active' : ''}`}
+                    onClick={() => handleAlternarRegime('HEO')}
+                    title="Isolar Órbita Altamente Elíptica (HEO)"
+                  >
                     <div className="regime-bar-info">
                       <span className="regime-tag heo-tag">HEO</span>
-                      <span className="regime-name">Altamente Elíptica (Órbita Alongada)</span>
-                      <span
-                        className="regime-pct"
-                        title={distribuicaoRegimes.total > 0 ? `${distribuicaoRegimes.heo.toLocaleString('pt-BR')} objetos no console (${((distribuicaoRegimes.heo / distribuicaoRegimes.total) * 100).toFixed(1)}% do total visível)` : ''}
-                      >
+                      <span className="regime-name">Altamente Elíptica</span>
+                      <span className="regime-pct">
                         {loading && objetos.length === 0
                           ? "---"
-                          : distribuicaoRegimes.heo.toLocaleString('pt-BR')}
+                          : `${distribuicaoRegimes.heo.toLocaleString('pt-BR')} / ${(estatisticas?.distribuicao_regimes?.heo || estatisticas?.regimes?.heo || 1132).toLocaleString('pt-BR')}`}
                       </span>
                     </div>
                     <div className="regime-progress-track">
@@ -2403,45 +3054,36 @@ function App() {
             {/* PAINEL DIREITO: FICHA FACTUAL E TELEMETRIA DIDÁTICA */}
             <aside className={`hud-panel right-panel ${!painelDireitoAberto ? 'collapsed' : ''} ${!satSelecionado ? 'empty-state' : ''}`}>
               <div className="panel-header">
-                <button
-                  type="button"
-                  className="hud-toggle-btn-inline"
-                  onClick={() => handleAlternarPainelDireito(false)}
-                  title="Recolher Painel"
-                >
-                  <ChevronRight size={16} />
-                </button>
-                <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-                  <h2 className="panel-title">Diagnóstico Orbital</h2>
-                  <Compass size={16} className="panel-header-icon" />
+                <div style={{ display: 'flex', alignItems: 'center', gap: '14px' }}>
+                  <button
+                    type="button"
+                    className="hud-toggle-btn-inline"
+                    onClick={() => handleAlternarPainelDireito(false)}
+                    title="Recolher Painel"
+                  >
+                    <ChevronRight size={16} />
+                  </button>
+                  <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                    <h2 className="panel-title">Diagnóstico Orbital</h2>
+                    <Compass size={16} className="panel-header-icon" />
+                  </div>
                 </div>
+                {satSelecionado && (
+                  <button
+                    type="button"
+                    className="hud-toggle-btn-inline"
+                    onClick={() => handleDesfocarCamera(true)}
+                    title="Desfocar e resetar câmera"
+                    style={{ marginLeft: 'auto' }}
+                  >
+                    <X size={15} />
+                  </button>
+                )}
               </div>
 
               <div className="panel-content">
                 {satSelecionado ? (
                   <div className="satellite-fiche">
-
-                    {/* Cabeçalho da Ficha com Digitação Tática */}
-                    <div className="fiche-header">
-                      <h3 className="sat-title">
-                        <CyberTypewriter
-                          key={`sat-nome-${satSelecionado.norad_id}`}
-                          text={satSelecionado.nome || 'OBJETO ORBITAL'}
-                          active={Boolean(satSelecionado)}
-                          delay={30}
-                          speed={25}
-                        />
-                      </h3>
-                      <div className="sat-norad-header">
-                        <CyberTypewriter
-                          key={`sat-norad-${satSelecionado.norad_id}`}
-                          text={`#${satSelecionado.norad_id}`}
-                          active={Boolean(satSelecionado)}
-                          delay={120}
-                          speed={25}
-                        />
-                      </div>
-                    </div>
 
                     {/* Alerta de Objeto Fora de Órbita / Reentrada Atmosférica */}
                     {satSelecionado.data_decaimento && (
@@ -2465,184 +3107,18 @@ function App() {
                       />
                     )}
 
-                    {/* Badge da Categoria */}
-                    <div className="mission-badge-container">
-                      <div className="mission-badge" style={{
-                        borderColor: CORES_CATEGORIAS[Number(satSelecionado.categoria_id)] || 'var(--neon-green)',
-                        color: CORES_CATEGORIAS[Number(satSelecionado.categoria_id)] || 'var(--neon-green)',
-                        backgroundColor: `${CORES_CATEGORIAS[Number(satSelecionado.categoria_id)] || '#00ff66'}15`
-                      }}>
-                        {satSelecionado.categoria?.nome || 'Objeto Orbital'}
-                      </div>
-                    </div>
-
-                    {/* Grid de Metadados Básicos: [País] - [COSPAR] / [Lançamento] - [Massa] / [Local de Lançamento (span 2)] */}
-                    <div className="fiche-grid">
-                      <div className="grid-cell">
-                        <span className="cell-label">País</span>
-                        <span className="cell-value" title={satSelecionado.pais || "Internacional"}>
-                          {satSelecionado.pais || "Internacional"}
-                        </span>
-                      </div>
-                      <div className="grid-cell">
-                        <span className="cell-label">COSPAR</span>
-                        <span className="cell-value" title={`Designador Internacional COSPAR ${satSelecionado.cospar_id || 'Não catalogado'}`}>
-                          {satSelecionado.cospar_id || "Não Catalogado"}
-                        </span>
-                      </div>
-                      <div className="grid-cell">
-                        <span className="cell-label">Lançamento</span>
-                        <span className="cell-value">
-                          {formatarDataBrasileira(satSelecionado.data_lancamento)}
-                        </span>
-                      </div>
-                      <div className="grid-cell">
-                        <span className="cell-label">Massa</span>
-                        <span className="cell-value">
-                          {satSelecionado.missao?.massa_kg
-                            ? `${Number(satSelecionado.missao.massa_kg).toLocaleString('pt-BR')} kg`
-                            : (Number(satSelecionado.categoria_id) === 3 ? "Fragmento Irregular" : (Number(satSelecionado.categoria_id) === 5 ? "Estágio Inerte" : "Não Informada"))}
-                        </span>
-                      </div>
-                      <div className="grid-cell full-width">
-                        <span className="cell-label">Local de Lançamento</span>
-                        <span className="cell-value" title={satSelecionado.local_lancamento || "Cosmódromo / Centro de Lançamento"}>
-                          {satSelecionado.local_lancamento || "Não informado"}
-                        </span>
-                      </div>
-                    </div>
-
-                    {/* ECOSSISTEMA & NAVES ACOPLADAS (Para ISS e Tiangong) */}
-                    {(satSelecionado.norad_id === '25544' || satSelecionado.norad_id === '48274') && (
-                      <div className="station-ecosystem-card">
-                        <div className="station-ecosystem-header">
-                          <div className="station-ecosystem-title">
-                            <Cpu size={13} style={{ color: 'var(--neon-cyan)' }} />
-                            <span>Ecossistema & Naves Acopladas</span>
-                          </div>
-                          <span className="station-ecosystem-count">
-                            {carregandoModulos ? '...' : `${modulosEstacao.length} acoplados`}
-                          </span>
-                        </div>
-
-                        {carregandoModulos ? (
-                          <div style={{ color: 'var(--text-muted)', fontSize: '11px', padding: '8px' }}>Carregando telemetria dos módulos...</div>
-                        ) : modulosEstacao.length > 0 ? (
-                          <div className="modules-list">
-                            {modulosEstacao.map(mod => (
-                              <div
-                                key={mod.norad_id}
-                                className="module-item"
-                                onClick={() => handleSelecionarSat(mod, false)}
-                                title={`Clique para inspecionar ${mod.nome}`}
-                              >
-                                <div className="module-item-top">
-                                  <span className="module-name">{mod.nome}</span>
-                                  <span className="module-flag">{mod.pais}</span>
-                                </div>
-                                <div className="module-desc">
-                                  {mod.missao?.descricao || `Módulo operacional acoplado (#${mod.norad_id})`}
-                                </div>
-                              </div>
-                            ))}
-                          </div>
-                        ) : (
-                          <div style={{ color: 'var(--text-muted)', fontSize: '10px' }}>Nenhum módulo auxiliar conectado no momento.</div>
-                        )}
-                      </div>
-                    )}
-
-                    {/* MÓDULO DIDÁTICO: DADOS ORBITAIS */}
-                    {parametrosOrbitaisSat && (
-                      <div className="telemetry-dashboard-card">
-                        <div className="telemetry-card-title">
-                          <Activity size={14} className="telemetry-icon" />
-                          <CyberTypewriter
-                            key={satSelecionado?.norad_id || 'dados-orbitais'}
-                            text="DADOS ORBITAIS"
-                            active={Boolean(parametrosOrbitaisSat)}
-                            delay={60}
-                            speed={35}
-                          />
-                        </div>
-
-                        <div className="telemetry-metrics-grid">
-                          {/* Altitude */}
-                          <div className={`telemetry-metric-box highlight-metric regime-${(parametrosOrbitaisSat.regimeCodigo || 'LEO').toLowerCase()}`}>
-                            <span className="metric-box-label">ALTITUDE</span>
-                            <span className="metric-box-val">
-                              {parametrosOrbitaisSat.altitudeInstantaneaKm.toLocaleString('pt-BR')} km
-                            </span>
-                            <div className="metric-box-sub" style={{ display: 'flex', justifyContent: 'flex-end', width: '100%' }}>
-                              <span className={`metric-box-tag tag-${(parametrosOrbitaisSat.regimeCodigo || 'LEO').toLowerCase()}`}>
-                                {parametrosOrbitaisSat.regimeCodigo}
-                              </span>
-                            </div>
-                          </div>
-
-                          {/* Velocidade Orbital */}
-                          <div className="telemetry-metric-box">
-                            <span className="metric-box-label">VELOCIDADE ORBITAL</span>
-                            <span className="metric-box-val">
-                              {parametrosOrbitaisSat.velocidadeKmH.toLocaleString('pt-BR')} km/h
-                            </span>
-                            <span className="metric-box-sub">({parametrosOrbitaisSat.velocidadeKmS} km/s)</span>
-                          </div>
-
-                          {/* Apogeu / Perigeu */}
-                          <div className="telemetry-metric-box">
-                            <span className="metric-box-label">APOGEU / PERIGEU</span>
-                            <span className="metric-box-val compact-val">
-                              {parametrosOrbitaisSat.apogeuKm.toLocaleString('pt-BR')} / {parametrosOrbitaisSat.perigeuKm.toLocaleString('pt-BR')} km
-                            </span>
-                            <span className="metric-box-sub">
-                              {parametrosOrbitaisSat.excentricidade < 0.01 ? "Órbita Circular" : "Órbita Elíptica"}
-                            </span>
-                          </div>
-
-                          {/* Período Orbital */}
-                          <div className="telemetry-metric-box">
-                            <span className="metric-box-label">VOLTA COMPLETA</span>
-                            <span className="metric-box-val">
-                              {parametrosOrbitaisSat.periodoMinutos} min
-                            </span>
-                            <span className="metric-box-sub">{parametrosOrbitaisSat.voltasPorDia} voltas / dia</span>
-                          </div>
-                        </div>
-
-                        {/* Classificação da Rota */}
-                        <div className="telemetry-detail-row">
-                          <span className="detail-row-title">
-                            CLASSIFICAÇÃO DA ROTA ORBITAL: {(parametrosOrbitaisSat.classeRotaCurta || parametrosOrbitaisSat.classeInclinacao.replace(/^Órbita (de )?/i, ''))} - {Number(parametrosOrbitaisSat.inclinacaoGraus.toFixed(1))}°
-                          </span>
-                          <p className="detail-row-desc">{parametrosOrbitaisSat.descricaoInclinacao}</p>
-                        </div>
-
-                        {/* Vida Útil & Sustentabilidade */}
-                        <div className="telemetry-detail-row environmental-row">
-                          <span className="detail-row-title">VIDA ÚTIL & SUSTENTABILIDADE</span>
-                          <p className="detail-row-desc">
-                            Permanência estimada: <strong>{parametrosOrbitaisSat.estimativaVida}</strong>. {parametrosOrbitaisSat.impactoAmbientalReentrada}
-                          </p>
-                          <span className="environmental-source">
-                            Fonte: Modelos de Decaimento por Arrasto Atmosférico (NASA / IADC / SGP4)
-                          </span>
-                        </div>
-                      </div>
-                    )}
-
-                    {/* CONTEXTO DA MISSÃO & DIAGNÓSTICO FACTUAL */}
-                    {(satSelecionado.missao?.descricao || (fichaFactual && fichaFactual.contextoMissao)) && (
-                      <div className="mission-context-card">
-                        <div className="mission-context-header">
-                          <Target size={14} className="mission-context-icon" />
-                          <span className="mission-context-title">Contexto da Missão & Diagnóstico</span>
-                        </div>
-                        <blockquote className="mission-context-quote">
-                          "{satSelecionado.missao?.descricao || fichaFactual?.contextoMissao}"
-                        </blockquote>
-                      </div>
-                    )}
+                    {/* DIAGNÓSTICO ORBITAL EM 3 ABAS ENXUTAS */}
+                    <SatelliteDetailTabs
+                      satSelecionado={satSelecionado}
+                      parametrosOrbitaisSat={parametrosOrbitaisSat}
+                      fichaFactual={fichaFactual}
+                      formatarDataBrasileira={formatarDataBrasileira}
+                      CORES_CATEGORIAS={CORES_CATEGORIAS}
+                      modulosEstacao={modulosEstacao}
+                      carregandoModulos={carregandoModulos}
+                      handleSelecionarSat={handleSelecionarSat}
+                      onFocarObjeto={() => centralizarCameraNoObjeto(satSelecionado)}
+                    />
 
                   </div>
                 ) : (
@@ -2682,6 +3158,8 @@ function App() {
               <Compass size={16} />
               <ChevronLeft size={14} className="trigger-arrow" />
             </button>
+          )}
+            </>
           )}
 
           {/* MODAL CONSOLE: GUIA RÁPIDO DO OPERADOR (TUTORIAL DE ENTRADA) */}
@@ -2806,128 +3284,6 @@ function App() {
             </div>
           )}
 
-          {/* MODAL CONSOLE: MONITOR DE SUSTENTABILIDADE ESPACIAL */}
-          {modalSustentabilidadeAberto && (
-            <div
-              className={`hud-modal-backdrop ${modalFechando ? 'modal-closing' : 'modal-opening'}`}
-              onClick={handleFecharModais}
-            >
-              <div className={`hud-modal-card sustainability-modal-card ${modalFechando ? 'card-closing' : 'card-opening'}`} onClick={(e) => e.stopPropagation()}>
-                <div className="modal-header">
-                  <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
-                    <ShieldAlert size={20} style={{ color: 'var(--neon-red)' }} />
-                    <h3>MONITOR DE SUSTENTABILIDADE ORBITAL & RISCO PLANETÁRIO</h3>
-                  </div>
-                  <button
-                    type="button"
-                    className="modal-close-btn"
-                    onClick={handleFecharModais}
-                    title="Fechar Monitor"
-                  >
-                    <X size={18} />
-                  </button>
-                </div>
-
-                <div className="modal-body-scrollable sustainability-modal-body">
-                  <p className="sustainability-intro-lead">
-                    Avaliação científica de impacto ambiental orbital baseada em dados da <strong>NASA ODPO</strong> e <strong>ESA</strong>. Monitore os fatores críticos de perturbação antropogênica no espaço circunsterrestre:
-                  </p>
-
-                  <div className="sustainability-pillars-grid">
-                    {/* CARD 1: RISCO DE COLISÃO */}
-                    <div className="sustainability-card card-kessler">
-                      <div className="s-card-title-group">
-                        <div className="s-icon-box s-icon-kessler">
-                          <ShieldAlert size={18} />
-                        </div>
-                        <h4 className="s-card-title">Risco de Colisão</h4>
-                      </div>
-                      <p className="s-card-text">
-                        A 27.000 km/h, um fragmento de apenas 1 cm tem a energia de uma granada, perfurando qualquer blindagem aeroespacial moderna.
-                      </p>
-                      <span className="s-stat-badge badge-kessler">Faixa Crítica: 750 a 950 km de altitude</span>
-                      <div className="s-card-subtext-box">
-                        <span className="s-subtext-dot dot-red"></span>
-                        <p className="s-card-subtext">
-                          A colisão histórica entre os satélites Iridium e Cosmos (2009) gerou mais de 2.000 fragmentos que até hoje forçam a Estação Espacial Internacional a desvios de rota.
-                        </p>
-                      </div>
-                    </div>
-
-                    {/* CARD 2: QUEDA NA ATMOSFERA */}
-                    <div className="sustainability-card card-reentry">
-                      <div className="s-card-title-group">
-                        <div className="s-icon-box s-icon-reentry">
-                          <Flame size={18} />
-                        </div>
-                        <h4 className="s-card-title">Queda na Atmosfera</h4>
-                      </div>
-                      <p className="s-card-text">
-                        Embora fuselagens vaporizem, tanques de titânio e blocos maciços de aço resistem a 2.000 °C e atingem a superfície.
-                      </p>
-                      <span className="s-stat-badge badge-reentry">Sobrevivência: 10% a 40% de peças pesadas</span>
-                      <div className="s-card-subtext-box">
-                        <span className="s-subtext-dot dot-orange"></span>
-                        <p className="s-card-subtext">
-                          Quedas controladas miram o Ponto Nemo no Pacífico Sul, mas satélites abandonados e desativados reentram de forma imprevisível sobre o planeta.
-                        </p>
-                      </div>
-                    </div>
-
-                    {/* CARD 3: INTERFERÊNCIA ELETROMAGNÉTICA */}
-                    <div className="sustainability-card card-magneto">
-                      <div className="s-card-title-group">
-                        <div className="s-icon-box s-icon-magneto">
-                          <Zap size={18} />
-                        </div>
-                        <h4 className="s-card-title">Interferência Eletromagnética</h4>
-                      </div>
-                      <p className="s-card-text">
-                        A queima contínua de frotas de satélites injeta toneladas de óxido de alumínio e nanopartículas condutoras na alta atmosfera.
-                      </p>
-                      <div className="s-badge-stack">
-                        <span className="badge-peer-reviewed">Dado Confirmado: Evidência de metais na estratosfera (PNAS)</span>
-                        <span className="badge-hypothesis">Hipótese em Estudo: Modelagem de blindagem condutora (arXiv)</span>
-                      </div>
-                      <div className="s-card-subtext-box">
-                        <span className="s-subtext-dot dot-cyan"></span>
-                        <p className="s-card-subtext">
-                          Cientistas investigam se essa camada artificial de poeira condutora pode interferir no funcionamento do escudo magnético natural da Terra.
-                        </p>
-                      </div>
-                    </div>
-
-                    {/* CARD 4: DANOS NA CAMADA DE OZÔNIO */}
-                    <div className="sustainability-card card-climate">
-                      <div className="s-card-title-group">
-                        <div className="s-icon-box s-icon-climate">
-                          <Wind size={18} />
-                        </div>
-                        <h4 className="s-card-title">Danos na Camada de Ozônio</h4>
-                      </div>
-                      <p className="s-card-text">
-                        A poeira de alumínio liberada na queima de satélites catalisa reações de cloro, podendo atrasar a regeneração do ozônio por décadas.
-                      </p>
-                      <span className="s-stat-badge badge-climate">Impacto Químico: Poeira de alumínio e fuligem fóssil</span>
-                      <div className="s-card-subtext-box">
-                        <span className="s-subtext-dot dot-purple"></span>
-                        <p className="s-card-subtext">
-                          A fuligem liberada pelos motores de foguetes permanece acumulada por anos no topo da atmosfera, intensificando o aquecimento do planeta.
-                        </p>
-                      </div>
-                    </div>
-                  </div>
-
-                  <div className="sustainability-footer-note">
-                    <span className="sustainability-note-text">
-                      * Dados compilados de modelos científicos da <strong>NASA Orbital Debris Program Office</strong>, <strong>ESA Space Debris Office</strong> e literatura peer-reviewed.
-                    </span>
-                  </div>
-                </div>
-              </div>
-            </div>
-          )}
-
           {/* MODAL CONSOLE: GLOSSÁRIO DIDÁTICO */}
           {modalGlossarioAberto && (
             <div
@@ -2971,6 +3327,64 @@ function App() {
             </div>
           )}
 
+          {/* MODAL DO SIMULADOR DE CENÁRIOS "E SE...?" (PASSO 3.2) */}
+          <ErrorBoundary nomeModulo="Simulador de Cenários 2050">
+            <ScenarioSimulatorModal
+              aberto={modalCenariosAberto}
+              onFechar={handleFecharModais}
+              onTocarSom={(tipo) => {
+                if (tipo === 'iniciar') tocarEfeitoSonoro(somIniciar, 0.65);
+                else if (tipo === 'slide') tocarEfeitoSonoro(somTrocaSlide, 0.55);
+              }}
+            />
+          </ErrorBoundary>
+
+          {/* FICHA UNIFICADA DE MISSÕES E DESCUBRA NO CENTRO INFERIOR (MODO LIVRE) */}
+          {!modoOrbitalAtivo && telaAtiva === 'simulador' && (
+            <OrbitalMissionHub
+              visivel={hubMissaoVisivel}
+              onRemover={() => setHubMissaoVisivel(false)}
+              satSelecionado={satSelecionado}
+              parametrosOrbitaisSat={parametrosOrbitaisSat}
+              onInvestigarObjeto={handleInvestigarObjeto}
+              onAplicarFiltroCategorias={handleAplicarFiltroCategorias}
+              onLocalizarGeo={handleLocalizarGeo}
+              onTocarSom={(tipo) => {
+                if (tipo === 'sucesso' || tipo === 'iniciar') tocarEfeitoSonoro(somIniciar, 0.7);
+                else if (tipo === 'falha') tocarEfeitoSonoro(somFadeOut, 0.65);
+                else if (tipo === 'slide') tocarEfeitoSonoro(somTrocaSlide, 0.5);
+              }}
+            />
+          )}
+
+          {!modoOrbitalAtivo && !hubMissaoVisivel && telaAtiva === 'simulador' && (
+            <button
+              type="button"
+              className="hub-reopen-trigger-btn"
+              onClick={() => setHubMissaoVisivel(true)}
+              title="Abrir Missões e Curiosidades"
+            >
+              <Target size={14} />
+              <span>Missões</span>
+            </button>
+          )}
+
+          {/* ELEMENTOS EXCLUSIVOS DO MODO ORBITAL (COLUNA HUD NA DIREITA) */}
+          {modoOrbitalAtivo && telaAtiva === 'simulador' && (
+            <div className="orbital-hud-column">
+              <OrbitalTimelineHolo
+                ano={anoTimeline}
+                onAlterarAno={handleAlterarAnoTimeline}
+              />
+              <OrbitalTacticalVisor
+                ano={anoTimeline}
+                eventoSelecionado={eventoSelecionado}
+                areaSelecionadaInfo={areaSelecionadaId ? calcularMetricasArea(areaSelecionadaId, anoTimeline) : null}
+                onSelecionarArea={handleSelecionarAreaOrbital}
+                onFechar={handleResetarCameraRadar}
+              />
+            </div>
+          )}
         </div>
       )}
 

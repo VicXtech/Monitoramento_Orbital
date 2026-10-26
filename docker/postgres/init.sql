@@ -20,6 +20,8 @@ CREATE TABLE IF NOT EXISTS objeto_orbital (
     codigo_status VARCHAR(10),
     categoria_id INTEGER NOT NULL,
     estacao_pai_norad VARCHAR(50),
+    regime VARCHAR(10),
+    dados_omm JSONB,
     CONSTRAINT fk_categoria FOREIGN KEY (categoria_id) REFERENCES categoria_objeto(id) ON DELETE RESTRICT
 );
 
@@ -53,6 +55,7 @@ CREATE INDEX IF NOT EXISTS idx_objeto_orbital_nome ON objeto_orbital(nome);
 CREATE INDEX IF NOT EXISTS idx_objeto_orbital_categoria_id ON objeto_orbital(categoria_id);
 CREATE INDEX IF NOT EXISTS idx_objeto_orbital_data_decaimento ON objeto_orbital(data_decaimento);
 CREATE INDEX IF NOT EXISTS idx_objeto_orbital_estacao_pai ON objeto_orbital(estacao_pai_norad);
+CREATE INDEX IF NOT EXISTS idx_objeto_orbital_regime ON objeto_orbital(regime);
 CREATE INDEX IF NOT EXISTS idx_informacao_missao_objeto_id ON informacao_missao(objeto_id);
 CREATE INDEX IF NOT EXISTS idx_tle_historico_objeto_epoch ON tle_historico(objeto_id, epoch DESC);
 
