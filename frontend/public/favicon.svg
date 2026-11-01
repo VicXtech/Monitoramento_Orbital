@@ -1,5 +1,5 @@
-<svg xmlns="http://www.w3.org/2000/svg" width="32" height="32" viewBox="0 0 24 24" fill="none" stroke="#00f0ff" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-  <circle cx="12" cy="12" r="10"></circle>
-  <path d="M12 2a14.5 14.5 0 0 0 0 20 14.5 14.5 0 0 0 0-20"></path>
-  <path d="M2 12h20"></path>
+<svg xmlns="http://www.w3.org/2000/svg" width="64" height="64" viewBox="0 0 64 64">
+  <rect width="64" height="64" rx="12" fill="#070A0F"/>
+  <rect x="2" y="2" width="60" height="60" rx="10" fill="none" stroke="#38BDF8" stroke-width="2" stroke-opacity="0.3"/>
+  <text x="50%" y="54%" text-anchor="middle" dominant-baseline="middle" font-family="'Bruno Ace SC', 'Space Grotesk', system-ui, -apple-system, sans-serif" font-size="34" font-weight="700" fill="#38BDF8" letter-spacing="1">ED</text>
 </svg>

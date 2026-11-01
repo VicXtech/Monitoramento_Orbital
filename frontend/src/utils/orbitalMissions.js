@@ -57,8 +57,47 @@ export const MISSOES_ORBITAIS = [
       return Number(satSelecionado.categoria_id) === 4;
     }
   },
+  {
+    id: 'n1_salto_tempo',
+    nivel: 1,
+    nivelRotulo: 'Nível 1',
+    titulo: 'Salto no Tempo',
+    descricao: 'Acelere a simulação para 60x ou 300x no controle de tempo.',
+    tempoSegundos: 35,
+    dica: 'Clique no botão 60x ou 300x no painel esquerdo.',
+    explicacaoConclusao: 'Tempo acelerado: os cálculos do SGP4 propagam as posições em velocidade elevada.',
+    verificar: ({ multiplicadorTempo }) => {
+      return multiplicadorTempo >= 60;
+    }
+  },
+  {
+    id: 'n1_capacidade_maxima',
+    nivel: 1,
+    nivelRotulo: 'Nível 1',
+    titulo: 'Capacidade Máxima',
+    descricao: 'Alterne a amostragem do catálogo para Expandida (10.000).',
+    tempoSegundos: 35,
+    dica: 'Clique em "EXPANDIDA (10.000)" no painel esquerdo.',
+    explicacaoConclusao: 'Densidade expandida ativada: 10.000 alvos simultâneos renderizados com alta performance.',
+    verificar: ({ densidadeCatalogo }) => {
+      return densidadeCatalogo === 'completo';
+    }
+  },
 
   // Nivel 2: Astrodinamica e Regimes Orbitais
+  {
+    id: 'n2_isolar_camada',
+    nivel: 2,
+    nivelRotulo: 'Nível 2',
+    titulo: 'Isolar Camada',
+    descricao: 'Isole uma camada orbital clicando em LEO, MEO, GEO ou HEO no painel esquerdo.',
+    tempoSegundos: 45,
+    dica: 'Clique em uma das barras de regime no painel esquerdo.',
+    explicacaoConclusao: 'Camada isolada: apenas os objetos correspondentes à faixa selecionada são exibidos.',
+    verificar: ({ regimeAtivo }) => {
+      return Boolean(regimeAtivo);
+    }
+  },
   {
     id: 'n2_kessler',
     nivel: 2,
@@ -88,22 +127,6 @@ export const MISSOES_ORBITAIS = [
       const regime = parametrosOrbitaisSat?.regimeCodigo || satSelecionado.regime;
       const catId = Number(satSelecionado.categoria_id);
       return regime === 'GEO' && catId === 1;
-    }
-  },
-  {
-    id: 'n2_cemiterio',
-    nivel: 2,
-    nivelRotulo: 'Nível 2',
-    titulo: 'Órbita Cemitério',
-    descricao: 'Encontre um satélite inativo descartado na Órbita Cemitério (acima de GEO).',
-    tempoSegundos: 50,
-    dica: 'Combine os filtros "Satélites Inativos" e a camada "GEO".',
-    explicacaoConclusao: 'Descarte confirmado: satélite movido para além de 36.000 km para desobstruir o anel GEO.',
-    verificar: ({ satSelecionado, parametrosOrbitaisSat }) => {
-      if (!satSelecionado) return false;
-      const regime = parametrosOrbitaisSat?.regimeCodigo || satSelecionado.regime;
-      const catId = Number(satSelecionado.categoria_id);
-      return regime === 'GEO' && catId === 2;
     }
   },
   {
@@ -137,67 +160,50 @@ export const MISSOES_ORBITAIS = [
     }
   },
 
-  // Nivel 3: Caca Historica e Soberania Nacional
+  // Nivel 3: Caca Historica, Recursos e Soberania Nacional
   {
-    id: 'n3_amazonia',
+    id: 'n3_soberania_brasil',
     nivel: 3,
     nivelRotulo: 'Nível 3',
-    titulo: 'Guardião da Amazônia',
-    descricao: 'Localize o satélite brasileiro Amazonia-1 ou CBERS-4A do INPE.',
+    titulo: 'Soberania Brasileira',
+    descricao: 'Localize qualquer satélite nacional (Amazonia-1, CBERS ou SCD).',
     tempoSegundos: 60,
-    dica: 'Use a barra de busca no topo e digite "AMAZONIA" ou "CBERS".',
-    explicacaoConclusao: 'Satélite de sensoriamento remoto nacional: monitoramento ambiental brasileiro.',
+    dica: 'Pesquise "AMAZONIA", "CBERS" ou "SCD" na busca.',
+    explicacaoConclusao: 'Satélite brasileiro identificado: monitoramento ambiental e pioneirismo nacional.',
     verificar: ({ satSelecionado }) => {
       if (!satSelecionado) return false;
       const nome = satSelecionado.nome || '';
-      return /AMAZONIA-1|CBERS-4A|CBERS 4A/i.test(nome);
+      return /AMAZONIA|CBERS|SCD/i.test(nome);
     }
   },
   {
-    id: 'n3_scd',
+    id: 'n3_fragmentacao',
     nivel: 3,
     nivelRotulo: 'Nível 3',
-    titulo: 'Longevidade Brasileira',
-    descricao: 'Encontre o SCD-1 (1993) ou SCD-2 (1998), satélites históricos do Brasil.',
+    titulo: 'Fragmentação Histórica',
+    descricao: 'Rastreie um detrito da colisão Iridium 33 ou do teste Fengyun-1C.',
     tempoSegundos: 60,
-    dica: 'Digite "SCD" na barra de busca no topo direito da tela.',
-    explicacaoConclusao: 'Marco aeroespacial brasileiro: décadas de operação contínua em órbita.',
-    verificar: ({ satSelecionado }) => {
-      if (!satSelecionado) return false;
-      const nome = satSelecionado.nome || '';
-      return /SCD-1|SCD-2|SCD 1|SCD 2/i.test(nome);
-    }
-  },
-  {
-    id: 'n3_colisao2009',
-    nivel: 3,
-    nivelRotulo: 'Nível 3',
-    titulo: 'Cicatrização de Impacto',
-    descricao: 'Inspecione um fragmento da colisão histórica entre Iridium 33 e Cosmos 2251.',
-    tempoSegundos: 60,
-    dica: 'Busque por "IRIDIUM 33 DEB" ou "COSMOS 2251 DEB" na busca superior.',
-    explicacaoConclusao: 'Detrito do impacto de 2009: fragmentação que gerou milhares de alvos rastreados.',
+    dica: 'Busque "IRIDIUM 33 DEB" ou "FENGYUN 1C" na pesquisa.',
+    explicacaoConclusao: 'Detrito de impacto histórico localizado: evidência de fragmentações críticas em órbita.',
     verificar: ({ satSelecionado }) => {
       if (!satSelecionado) return false;
       const nome = satSelecionado.nome || '';
       const catId = Number(satSelecionado.categoria_id);
-      return (/IRIDIUM 33/i.test(nome) || /COSMOS 2251/i.test(nome)) && catId === 3;
+      return (/IRIDIUM 33/i.test(nome) || /COSMOS 2251/i.test(nome) || /FENGYUN 1C/i.test(nome)) && catId === 3;
     }
   },
   {
-    id: 'n3_asat2007',
+    id: 'n3_modulos_estacao',
     nivel: 3,
     nivelRotulo: 'Nível 3',
-    titulo: 'Vestígio de Teste ASAT',
-    descricao: 'Rastreie um detrito gerado pelo teste antissatélite do Fengyun-1C.',
-    tempoSegundos: 60,
-    dica: 'Pesquise "FENGYUN 1C" na barra de busca ou filtre Detritos em LEO.',
-    explicacaoConclusao: 'Fragmento ASAT: um dos maiores eventos de geração de detritos da história.',
+    titulo: 'Módulos Acoplados',
+    descricao: 'Selecione a ISS ou Tiangong e inspecione uma das naves acopladas.',
+    tempoSegundos: 50,
+    dica: 'Filtre Estações e clique em uma nave na lista de acoplados.',
+    explicacaoConclusao: 'Nave acoplada inspecionada: ecossistema logístico da estação espacial confirmado.',
     verificar: ({ satSelecionado }) => {
       if (!satSelecionado) return false;
-      const nome = satSelecionado.nome || '';
-      const catId = Number(satSelecionado.categoria_id);
-      return /FENGYUN 1C/i.test(nome) && catId === 3;
+      return Boolean(satSelecionado.estacao_pai_norad);
     }
   },
   {
@@ -216,8 +222,47 @@ export const MISSOES_ORBITAIS = [
       return norad === '5' || /VANGUARD 1/i.test(nome);
     }
   },
+  {
+    id: 'n3_eventos_aneis',
+    nivel: 3,
+    nivelRotulo: 'Nível 3',
+    titulo: 'Eventos nos Anéis',
+    descricao: 'Acesse o Modo Orbital e clique em um marcador de evento nos anéis.',
+    tempoSegundos: 50,
+    dica: 'Clique em MODO ORBITAL no topo e selecione um evento nos anéis.',
+    explicacaoConclusao: 'Evento histórico nos anéis inspecionado: contexto aeroespacial verificado.',
+    verificar: ({ modoOrbitalAtivo, pinoOrbitalAtivo }) => {
+      return Boolean(modoOrbitalAtivo && pinoOrbitalAtivo);
+    }
+  },
 
-  // Nivel 4: Sustentabilidade e Reentrada Atmosferica
+  // Nivel 4: Sustentabilidade, Auditoria e Diagnostico
+  {
+    id: 'n4_auditoria',
+    nivel: 4,
+    nivelRotulo: 'Nível 4',
+    titulo: 'Auditoria de Conformidade',
+    descricao: 'Inspecione um objeto e abra a aba AUDITORIA no painel direito.',
+    tempoSegundos: 45,
+    dica: 'Selecione um satélite e clique na aba AUDITORIA.',
+    explicacaoConclusao: 'Auditoria SIO consultada: pontuação de sustentabilidade e tempo de decaimento verificados.',
+    verificar: ({ satSelecionado, abaDetalheAtiva }) => {
+      return Boolean(satSelecionado && abaDetalheAtiva === 'auditoria');
+    }
+  },
+  {
+    id: 'n4_registro',
+    nivel: 4,
+    nivelRotulo: 'Nível 4',
+    titulo: 'Registro e Performance',
+    descricao: 'Abra a aba REGISTRO no painel direito para auditar telemetria e motor.',
+    tempoSegundos: 45,
+    dica: 'Selecione um satélite e clique na aba REGISTRO.',
+    explicacaoConclusao: 'Ficha técnica e telemetria de performance do motor verificadas com sucesso.',
+    verificar: ({ satSelecionado, abaDetalheAtiva }) => {
+      return Boolean(satSelecionado && abaDetalheAtiva === 'registro');
+    }
+  },
   {
     id: 'n4_reentrada',
     nivel: 4,
@@ -231,22 +276,6 @@ export const MISSOES_ORBITAIS = [
       if (!satSelecionado) return false;
       const alt = Number(parametrosOrbitaisSat?.altitudeInstantaneaKm || satSelecionado.perigeu_km || 0);
       return alt > 0 && alt < 400;
-    }
-  },
-  {
-    id: 'n4_regra25',
-    nivel: 4,
-    nivelRotulo: 'Nível 4',
-    titulo: 'Auditoria dos 25 Anos',
-    descricao: 'Inspecione um detrito ou satélite inativo abandonado acima de 800 km.',
-    tempoSegundos: 50,
-    dica: 'Filtre "Detritos Espaciais" ou "Inativos" e selecione um objeto acima de 800 km.',
-    explicacaoConclusao: 'Não conformidade normativa: acima de 800 km o decaimento natural excede 25 anos.',
-    verificar: ({ satSelecionado, parametrosOrbitaisSat }) => {
-      if (!satSelecionado) return false;
-      const catId = Number(satSelecionado.categoria_id);
-      const alt = Number(parametrosOrbitaisSat?.altitudeInstantaneaKm || satSelecionado.perigeu_km || 0);
-      return (catId === 2 || catId === 3) && alt > 800;
     }
   }
 ];

@@ -2,18 +2,18 @@
 
 // Converte valor numerico em classificacao qualitativa e cor
 export function classificarNivelImpacto(valor) {
-  if (valor >= 75) return { label: 'CRÍTICO', cor: 'var(--neon-red, #ff0055)', classe: 'badge-critico' };
-  if (valor >= 50) return { label: 'ALTO', cor: 'var(--neon-orange, #ff6600)', classe: 'badge-alto' };
-  if (valor >= 30) return { label: 'MÉDIO', cor: 'var(--neon-amber, #ffaa00)', classe: 'badge-medio' };
-  return { label: 'BAIXO', cor: 'var(--neon-green, #00ff66)', classe: 'badge-baixo' };
+  if (valor >= 75) return { label: 'CRÍTICO', cor: 'var(--cat-debris, #E05252)', classe: 'badge-critico' };
+  if (valor >= 50) return { label: 'ALTO', cor: 'var(--cat-inactive, #E5A93C)', classe: 'badge-alto' };
+  if (valor >= 30) return { label: 'MÉDIO', cor: 'var(--cat-inactive, #E5A93C)', classe: 'badge-medio' };
+  return { label: 'BAIXO', cor: 'var(--cat-active, #34D399)', classe: 'badge-baixo' };
 }
 
 // Retorna cor e classe semantica alinhada ao nivel textual
 export function obterEstiloPorNivel(nivel) {
-  if (nivel === 'CRÍTICO') return { cor: 'var(--neon-red, #ff0055)', classe: 'badge-critico' };
-  if (nivel === 'ALTO') return { cor: 'var(--neon-orange, #ff6600)', classe: 'badge-alto' };
-  if (nivel === 'MÉDIO') return { cor: 'var(--neon-amber, #ffaa00)', classe: 'badge-medio' };
-  return { cor: 'var(--neon-green, #00ff66)', classe: 'badge-baixo' };
+  if (nivel === 'CRÍTICO') return { cor: 'var(--cat-debris, #E05252)', classe: 'badge-critico' };
+  if (nivel === 'ALTO') return { cor: 'var(--cat-inactive, #E5A93C)', classe: 'badge-alto' };
+  if (nivel === 'MÉDIO') return { cor: 'var(--cat-inactive, #E5A93C)', classe: 'badge-medio' };
+  return { cor: 'var(--cat-active, #34D399)', classe: 'badge-baixo' };
 }
 
 // Normaliza categoria do objeto para o modelo de auditoria
@@ -206,7 +206,7 @@ export function calculateOrbitalAudit(sat, params = null) {
         peso: '25%',
         level: labelControle,
         classe: temControle ? 'badge-baixo' : 'badge-critico',
-        cor: temControle ? 'var(--neon-green, #00ff66)' : 'var(--neon-red, #ff0055)',
+        cor: temControle ? 'var(--cat-active, #34D399)' : 'var(--cat-debris, #E05252)',
         points: controlScore,
         maxPoints: 25,
         explicacao: explicacaoControle

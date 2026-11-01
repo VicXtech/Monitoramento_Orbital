@@ -6,19 +6,32 @@ export default function OrbitalMissionHub({
   satSelecionado,
   parametrosOrbitaisSat,
   pausado = false,
+  multiplicadorTempo = 1,
+  densidadeCatalogo = 'tatica',
+  regimeAtivo = null,
+  abaDetalheAtiva = 'telemetria',
+  modoOrbitalAtivo = false,
+  pinoOrbitalAtivo = null,
+  painelEsquerdoAberto = true,
   onTocarSom
 }) {
   const [historicoIds, setHistoricoIds] = useState([]);
   const [missaoAtual, setMissaoAtual] = useState(() => sortearProximaMissao([]));
   const [tempoRestante, setTempoRestante] = useState(missaoAtual.tempoSegundos || 45);
-  const [estadoFase, setEstadoFase] = useState('ACTIVE'); // 'ACTIVE' | 'SUCCESS' | 'EXPIRED' | 'COOLDOWN'
-  const [emCooldown, setEmCooldown] = useState(false);
-  const [notificacaoSpawn, setNotificacaoSpawn] = useState(false);
+  const [estadoFase, setEstadoFase] = useState('ACTIVE');
+  const [emCooldown, setEmCooldown] = useState(true);
+
+  // Armazena callback de som em ref para evitar quebrar dependencias de timers
+  const onTocarSomRef = useRef(onTocarSom);
+  useEffect(() => {
+    onTocarSomRef.current = onTocarSom;
+  });
 
   const timerCronometroRef = useRef(null);
   const timerCooldownRef = useRef(null);
   const timerSucessoRef = useRef(null);
   const timerExpiradoRef = useRef(null);
+  const spawnAgendadoRef = useRef(false);
 
   // Inicia uma nova missao
   const iniciarMissao = useCallback((novaMissao) => {
@@ -31,11 +44,9 @@ export default function OrbitalMissionHub({
     setTempoRestante(novaMissao.tempoSegundos || 45);
     setEstadoFase('ACTIVE');
     setEmCooldown(false);
-    setNotificacaoSpawn(true);
-    setTimeout(() => setNotificacaoSpawn(false), 2500);
   }, []);
 
-  // Entra em estado de cooldown e agenda o proximo spawn silencioso aleatorio (45s a 90s)
+  // Entra em estado de cooldown e agenda o proximo spawn silencioso
   const entrarEmCooldown = useCallback(() => {
     if (timerCronometroRef.current) clearInterval(timerCronometroRef.current);
     if (timerSucessoRef.current) clearTimeout(timerSucessoRef.current);
@@ -48,16 +59,41 @@ export default function OrbitalMissionHub({
       setHistoricoIds((prev) => {
         const prox = sortearProximaMissao(prev);
         iniciarMissao(prox);
-        if (onTocarSom) onTocarSom('iniciar');
+        onTocarSomRef.current?.('iniciar');
         return [...prev, prox.id];
       });
     }, tempoCooldownMs);
-  }, [iniciarMissao, onTocarSom]);
+  }, [iniciarMissao]);
+
+  // Atraso inicial de 5 segundos para a primeira missao aparecer ao entrar no simulador
+  useEffect(() => {
+    if (!ativo) {
+      spawnAgendadoRef.current = false;
+      if (timerCooldownRef.current) clearTimeout(timerCooldownRef.current);
+      return;
+    }
+
+    if (spawnAgendadoRef.current) return;
+
+    timerCooldownRef.current = setTimeout(() => {
+      spawnAgendadoRef.current = true;
+      setHistoricoIds((prev) => {
+        const primeira = sortearProximaMissao(prev);
+        iniciarMissao(primeira);
+        onTocarSomRef.current?.('iniciar');
+        return [...prev, primeira.id];
+      });
+    }, 5000);
+
+    return () => {
+      if (timerCooldownRef.current) clearTimeout(timerCooldownRef.current);
+    };
+  }, [ativo, iniciarMissao]);
 
   // Troca manual de missao
   const handleTrocar = (e) => {
     if (e) e.stopPropagation();
-    if (onTocarSom) onTocarSom('slide');
+    onTocarSomRef.current?.('slide');
     const prox = sortearProximaMissao([...historicoIds, missaoAtual.id]);
     setHistoricoIds((prev) => [...prev, prox.id]);
     iniciarMissao(prox);
@@ -67,28 +103,27 @@ export default function OrbitalMissionHub({
   const handleRepetir = (e) => {
     if (e) e.stopPropagation();
     if (timerExpiradoRef.current) clearTimeout(timerExpiradoRef.current);
-    if (onTocarSom) onTocarSom('slide');
+    onTocarSomRef.current?.('slide');
     iniciarMissao(missaoAtual);
   };
 
-  // Botao de fechar recolhe o painel e entra em cooldown aleatorio
+  // Botao de fechar recolhe o painel e entra em cooldown
   const handleFechar = (e) => {
     if (e) e.stopPropagation();
     if (timerExpiradoRef.current) clearTimeout(timerExpiradoRef.current);
-    if (onTocarSom) onTocarSom('slide');
+    onTocarSomRef.current?.('slide');
     entrarEmCooldown();
   };
 
-  // Cronometro regressivo com suporte a pausa
+  // Cronometro regressivo continuo com suporte a pausa de modais
   useEffect(() => {
     if (!ativo || estadoFase !== 'ACTIVE' || emCooldown || pausado) return;
 
-    timerCronometroRef.current = setInterval(() => {
+    const intervalId = setInterval(() => {
       setTempoRestante((prev) => {
         if (prev <= 1) {
-          clearInterval(timerCronometroRef.current);
+          clearInterval(intervalId);
           setEstadoFase('EXPIRED');
-          if (onTocarSom) onTocarSom('falha');
 
           // Permanece 5 segundos exibindo a dica antes de entrar em cooldown
           timerExpiradoRef.current = setTimeout(() => {
@@ -101,24 +136,32 @@ export default function OrbitalMissionHub({
       });
     }, 1000);
 
-    return () => {
-      if (timerCronometroRef.current) clearInterval(timerCronometroRef.current);
-    };
-  }, [ativo, estadoFase, emCooldown, pausado, onTocarSom, entrarEmCooldown]);
+    timerCronometroRef.current = intervalId;
 
-  // Validacao continua da condicao astrodinamica
+    return () => {
+      clearInterval(intervalId);
+    };
+  }, [ativo, estadoFase, emCooldown, pausado, entrarEmCooldown]);
+
+  // Validacao continua da condicao da missao
   useEffect(() => {
     if (!ativo || estadoFase !== 'ACTIVE' || emCooldown) return;
 
     const vitoria = missaoAtual.verificar({
       satSelecionado,
-      parametrosOrbitaisSat
+      parametrosOrbitaisSat,
+      multiplicadorTempo,
+      densidadeCatalogo,
+      regimeAtivo,
+      abaDetalheAtiva,
+      modoOrbitalAtivo,
+      pinoOrbitalAtivo
     });
 
     if (vitoria) {
       if (timerCronometroRef.current) clearInterval(timerCronometroRef.current);
       setEstadoFase('SUCCESS');
-      if (onTocarSom) onTocarSom('sucesso');
+      onTocarSomRef.current?.('sucesso');
 
       setHistoricoIds((prev) => (prev.includes(missaoAtual.id) ? prev : [...prev, missaoAtual.id]));
 
@@ -127,7 +170,21 @@ export default function OrbitalMissionHub({
         entrarEmCooldown();
       }, 4000);
     }
-  }, [ativo, satSelecionado, parametrosOrbitaisSat, estadoFase, emCooldown, missaoAtual, onTocarSom, entrarEmCooldown]);
+  }, [
+    ativo,
+    satSelecionado,
+    parametrosOrbitaisSat,
+    multiplicadorTempo,
+    densidadeCatalogo,
+    regimeAtivo,
+    abaDetalheAtiva,
+    modoOrbitalAtivo,
+    pinoOrbitalAtivo,
+    estadoFase,
+    emCooldown,
+    missaoAtual,
+    entrarEmCooldown
+  ]);
 
   // Limpeza geral ao desmontar
   useEffect(() => {
@@ -144,11 +201,11 @@ export default function OrbitalMissionHub({
   const totalSegundos = missaoAtual.tempoSegundos || 45;
   const pctTempo = Math.max(0, Math.min(100, (tempoRestante / totalSegundos) * 100));
 
-  let corBarra = 'var(--neon-cyan, #00f0ff)';
+  let corBarra = 'var(--cat-station, #38BDF8)';
   if (pctTempo <= 15) {
-    corBarra = 'var(--neon-red, #ff0055)';
+    corBarra = 'var(--cat-debris, #E05252)';
   } else if (pctTempo <= 35) {
-    corBarra = 'var(--neon-amber, #ffaa00)';
+    corBarra = 'var(--cat-inactive, #E5A93C)';
   }
 
   const minutos = Math.floor(tempoRestante / 60).toString().padStart(2, '0');
@@ -157,19 +214,18 @@ export default function OrbitalMissionHub({
 
   return (
     <div
-      className={`orbital-mission-hub-panel status-${estadoFase.toLowerCase()} ${notificacaoSpawn ? 'spawn-pulse' : ''}`}
+      className={`orbital-mission-hub-panel status-${estadoFase.toLowerCase()} ${modoOrbitalAtivo ? 'in-orbital-mode' : (painelEsquerdoAberto ? 'docked-left-panel' : 'docked-screen-edge')}`}
       role="region"
       aria-label="Missão Tática"
       onClick={(e) => e.stopPropagation()}
     >
-      {/* Barra de progresso regressiva continua de 3px no topo do card */}
+      {/* Barra de progresso regressiva de 3px no topo do card */}
       <div className="mission-progress-track">
         <div
           className="mission-progress-bar"
           style={{
             width: `${pctTempo}%`,
-            backgroundColor: corBarra,
-            boxShadow: `0 0 8px ${corBarra}`
+            backgroundColor: corBarra
           }}
         />
       </div>

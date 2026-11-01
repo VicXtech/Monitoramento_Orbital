@@ -1,31 +1,61 @@
 :root {
-  /* Cores de Fundo */
-  --bg-dark: #040407;
-  --bg-panel: rgba(6, 6, 11, 0.75);
-  --bg-panel-solid: #08080f;
-  --border-color: rgba(0, 240, 255, 0.15);
-  --border-color-glow: rgba(0, 240, 255, 0.4);
+  /* Tipografia */
+  --font-brand: 'Bruno Ace SC', sans-serif;
+  --font-display: 'Space Grotesk', sans-serif;
+  --font-sans: 'Inter', system-ui, sans-serif;
+  --font-mono: 'JetBrains Mono', monospace;
 
-  /* Paleta Neon HUD */
-  --neon-cyan: #00f0ff;
-  --neon-green: #00ff66;
-  --neon-pink: #ff007f;
-  --neon-red: #ff3333;
-  --neon-yellow: #ffcc00;
-  --neon-purple: #b026ff;
-  --neon-gray: #6b7280;
+  /* Superficies e fundos */
+  --bg-space: #070A0F;
+  --bg-panel: rgba(11, 15, 23, 0.84);
+  --bg-panel-elevated: rgba(16, 22, 33, 0.92);
+  --bg-card-neutral: rgba(255, 255, 255, 0.03);
+  --bg-card-hover: rgba(255, 255, 255, 0.06);
 
-  /* Fontes e Texto */
-  --text-light: #f3f4f6;
-  --text-muted: #cbd5e1;
-  --sans-font: 'Inter', sans-serif;
-  --mono-font: 'Space Mono', monospace;
+  /* Bordas e linhas estruturais */
+  --border-subtle: rgba(255, 255, 255, 0.08);
+  --border-structural: rgba(255, 255, 255, 0.15);
+  --border-active: rgba(241, 245, 249, 0.45);
 
-  /* Efeitos e Glows */
-  --glow-cyan: 0 0 12px rgba(0, 240, 255, 0.35);
-  --glow-green: 0 0 12px rgba(0, 255, 102, 0.35);
-  --glow-red: 0 0 12px rgba(255, 51, 51, 0.35);
-  --glow-purple: 0 0 12px rgba(176, 38, 255, 0.35);
+  /* Tipografia e cores de texto */
+  --text-primary: #F1F5F9;
+  --text-secondary: #94A3B8;
+  --text-muted: #64748B;
+  --text-inverse: #070A0F;
+
+  /* Cores semanticas por categoria */
+  --cat-active: #34D399;
+  --cat-inactive: #E5A93C;
+  --cat-rocket: #9D72FF;
+  --cat-debris: #E05252;
+  --cat-station: #38BDF8;
+
+  /* Cores de camadas orbitais */
+  --layer-leo: #38BDF8;
+  --layer-meo: #5B8DEF;
+  --layer-geo: #7C69EF;
+  --layer-heo: #A864E8;
+
+  /* Aliases de compatibilidade */
+  --bg-dark: var(--bg-space);
+  --bg-panel-solid: #0B0F17;
+  --border-color: var(--border-subtle);
+  --border-color-glow: var(--border-structural);
+  --neon-cyan: var(--cat-station);
+  --neon-green: var(--cat-active);
+  --neon-pink: var(--cat-debris);
+  --neon-red: var(--cat-debris);
+  --neon-yellow: var(--cat-inactive);
+  --neon-amber: var(--cat-inactive);
+  --neon-purple: var(--cat-rocket);
+  --neon-gray: var(--text-muted);
+  --text-light: var(--text-primary);
+  --sans-font: var(--font-sans);
+  --mono-font: var(--font-mono);
+  --glow-cyan: none;
+  --glow-green: none;
+  --glow-red: none;
+  --glow-purple: none;
   --glass-blur: blur(12px);
 }
 
@@ -39,9 +69,9 @@
 body, html {
   width: 100vw;
   height: 100vh;
-  background-color: var(--bg-dark);
-  font-family: var(--sans-font);
-  color: var(--text-light);
+  background-color: var(--bg-space);
+  font-family: var(--font-sans);
+  color: var(--text-primary);
   overflow: hidden;
   -webkit-font-smoothing: antialiased;
   -moz-osx-font-smoothing: grayscale;
@@ -55,40 +85,39 @@ body, html {
   flex-direction: column;
 }
 
-/* Scrollbar Customizado Tático */
+/* Barra de rolagem */
 ::-webkit-scrollbar {
   width: 4px;
   height: 4px;
 }
 
 ::-webkit-scrollbar-track {
-  background: rgba(4, 4, 7, 0.5);
+  background: rgba(7, 10, 15, 0.5);
 }
 
 ::-webkit-scrollbar-thumb {
-  background: rgba(0, 240, 255, 0.3);
+  background: rgba(255, 255, 255, 0.18);
   border-radius: 2px;
 }
 
 ::-webkit-scrollbar-thumb:hover {
-  background: var(--neon-cyan);
-  box-shadow: var(--glow-cyan);
+  background: rgba(255, 255, 255, 0.35);
 }
 
-/* Transição suave do Cesium */
+/* Container do visualizador 3D */
 .cesium-viewer {
-  font-family: var(--sans-font);
+  font-family: var(--font-sans);
 }
 
-/* Ocultar a barra de créditos do Cesium para fidelidade estética do HUD */
+/* Oculta barra inferior do Cesium */
 .cesium-viewer-bottom {
   display: none !important;
 }
 
-/* Estilos de Botão Tático HUD */
+/* Botao base */
 button {
   cursor: pointer;
-  font-family: var(--mono-font);
+  font-family: var(--font-sans);
   transition: all 0.2s ease-in-out;
 }
 

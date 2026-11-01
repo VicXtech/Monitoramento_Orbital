@@ -77,13 +77,60 @@ function gerarCirculoEquatorial(raioMetros, segmentos = 96) {
   return pontos;
 }
 
-// Coordenadas calculadas para posicionamento dos badges no plano equatorial
+// Coordenadas e metadados para posicionamento dos aneis no plano equatorial
 export const RAIO_CAMADAS = {
-  leo: { in: 1.25 * RAIO_TERRA_METROS, out: 1.52 * RAIO_TERRA_METROS, cor: '#00f0ff', sigla: 'LEO' },
-  meo: { in: 1.70 * RAIO_TERRA_METROS, out: 2.05 * RAIO_TERRA_METROS, cor: '#0066ff', sigla: 'MEO' },
-  geo: { in: 2.25 * RAIO_TERRA_METROS, out: 2.55 * RAIO_TERRA_METROS, cor: '#a855f7', sigla: 'GEO' },
-  heo: { in: 2.75 * RAIO_TERRA_METROS, out: 3.08 * RAIO_TERRA_METROS, cor: '#e879f9', sigla: 'HEO' }
+  leo: {
+    in: 1.22 * RAIO_TERRA_METROS,
+    out: 1.44 * RAIO_TERRA_METROS,
+    cor: '#38BDF8',
+    sigla: 'LEO'
+  },
+  meo: {
+    in: 1.62 * RAIO_TERRA_METROS,
+    out: 1.88 * RAIO_TERRA_METROS,
+    cor: '#5B8DEF',
+    sigla: 'MEO'
+  },
+  geo: {
+    in: 2.08 * RAIO_TERRA_METROS,
+    out: 2.32 * RAIO_TERRA_METROS,
+    cor: '#7C69EF',
+    sigla: 'GEO'
+  },
+  heo: {
+    in: 2.52 * RAIO_TERRA_METROS,
+    out: 2.80 * RAIO_TERRA_METROS,
+    cor: '#A864E8',
+    sigla: 'HEO'
+  }
 };
+
+let texturaAnelPinoCache = null;
+
+// Gera textura circular sutil para o anel externo dos pinos historicos
+function obterTexturaAnelPino() {
+  if (texturaAnelPinoCache) return texturaAnelPinoCache;
+  if (typeof document === 'undefined') return null;
+
+  const tamanho = 28;
+  const canvas = document.createElement('canvas');
+  canvas.width = tamanho;
+  canvas.height = tamanho;
+  const ctx = canvas.getContext('2d');
+  if (!ctx) return null;
+
+  const centro = tamanho / 2;
+  ctx.beginPath();
+  ctx.arc(centro, centro, 11, 0, Math.PI * 2);
+  ctx.fillStyle = 'rgba(224, 82, 82, 0.14)';
+  ctx.fill();
+  ctx.lineWidth = 1.4;
+  ctx.strokeStyle = 'rgba(224, 82, 82, 0.65)';
+  ctx.stroke();
+
+  texturaAnelPinoCache = canvas.toDataURL();
+  return texturaAnelPinoCache;
+}
 
 // Retorna posicoes cartesianas dos 4 badges
 export function obterPosicoesBadgesOrbitais() {
@@ -101,59 +148,35 @@ export function obterPosicoesBadgesOrbitais() {
   return posicoes;
 }
 
-// Cria as 4 faixas concentricas equatoriais e bordas neon
-export function criarGeometriasAreas3D(viewer) {
+// Cria as 4 faixas concentricas equatoriais, bordas finas e rotulos 3D
+export function criarGeometriasAreas3D(viewer, camadaAtivaInicial = 'leo') {
   if (!viewer || !window.Cesium) return null;
 
   const colecao = {
     entidades: [],
-    primitivos: []
+    primitivos: [],
+    primitivoDiscos: null
   };
 
-  // Instâncias dos 4 anéis concêntricos planos no mesmo formato
-  const instLeo = new window.Cesium.GeometryInstance({
-    geometry: criarGeometriaAnelPlano(RAIO_CAMADAS.leo.in, RAIO_CAMADAS.leo.out, 96),
-    attributes: {
-      color: window.Cesium.ColorGeometryInstanceAttribute.fromColor(
-        window.Cesium.Color.fromCssColorString('#00f0ff').withAlpha(0.22)
-      )
-    },
-    id: 'area_leo'
+  const instancias = Object.entries(RAIO_CAMADAS).map(([id, cfg]) => {
+    const isAtiva = camadaAtivaInicial === id;
+    const alphaFill = isAtiva ? 0.16 : 0.04;
+    const segs = id === 'leo' ? 96 : 128;
+
+    return new window.Cesium.GeometryInstance({
+      geometry: criarGeometriaAnelPlano(cfg.in, cfg.out, segs),
+      attributes: {
+        color: window.Cesium.ColorGeometryInstanceAttribute.fromColor(
+          window.Cesium.Color.fromCssColorString(cfg.cor).withAlpha(alphaFill)
+        )
+      },
+      id: `area_${id}`
+    });
   });
 
-  const instMeo = new window.Cesium.GeometryInstance({
-    geometry: criarGeometriaAnelPlano(RAIO_CAMADAS.meo.in, RAIO_CAMADAS.meo.out, 128),
-    attributes: {
-      color: window.Cesium.ColorGeometryInstanceAttribute.fromColor(
-        window.Cesium.Color.fromCssColorString('#0066ff').withAlpha(0.18)
-      )
-    },
-    id: 'area_meo'
-  });
-
-  const instGeo = new window.Cesium.GeometryInstance({
-    geometry: criarGeometriaAnelPlano(RAIO_CAMADAS.geo.in, RAIO_CAMADAS.geo.out, 128),
-    attributes: {
-      color: window.Cesium.ColorGeometryInstanceAttribute.fromColor(
-        window.Cesium.Color.fromCssColorString('#a855f7').withAlpha(0.20)
-      )
-    },
-    id: 'area_geo'
-  });
-
-  const instHeo = new window.Cesium.GeometryInstance({
-    geometry: criarGeometriaAnelPlano(RAIO_CAMADAS.heo.in, RAIO_CAMADAS.heo.out, 128),
-    attributes: {
-      color: window.Cesium.ColorGeometryInstanceAttribute.fromColor(
-        window.Cesium.Color.fromCssColorString('#e879f9').withAlpha(0.22)
-      )
-    },
-    id: 'area_heo'
-  });
-
-  // Primitivo translúcido contínuo das quatro camadas
+  // Primitivo translucido continuo das quatro camadas
   const primitivoDiscos = new window.Cesium.Primitive({
-    geometryInstances: [instLeo, instMeo, instGeo, instHeo],
+    geometryInstances: instancias,
     appearance: new window.Cesium.PerInstanceColorAppearance({
       flat: true,
       translucent: true,
@@ -163,80 +186,87 @@ export function criarGeometriasAreas3D(viewer) {
   });
   viewer.scene.primitives.add(primitivoDiscos);
   colecao.primitivos.push(primitivoDiscos);
+  colecao.primitivoDiscos = primitivoDiscos;
 
-  // Bordas perimétricas neon para realce visual de cada faixa
-  const bordas = [
-    { raio: RAIO_CAMADAS.leo.in, cor: '#00f0ff', alpha: 0.65, areaId: 'leo' },
-    { raio: RAIO_CAMADAS.leo.out, cor: '#00f0ff', alpha: 0.85, areaId: 'leo' },
-    { raio: RAIO_CAMADAS.meo.in, cor: '#0066ff', alpha: 0.60, areaId: 'meo' },
-    { raio: RAIO_CAMADAS.meo.out, cor: '#0066ff', alpha: 0.80, areaId: 'meo' },
-    { raio: RAIO_CAMADAS.geo.in, cor: '#a855f7', alpha: 0.65, areaId: 'geo' },
-    { raio: RAIO_CAMADAS.geo.out, cor: '#a855f7', alpha: 0.85, areaId: 'geo' },
-    { raio: RAIO_CAMADAS.heo.in, cor: '#e879f9', alpha: 0.65, areaId: 'heo' },
-    { raio: RAIO_CAMADAS.heo.out, cor: '#e879f9', alpha: 0.85, areaId: 'heo' }
-  ];
+  // Bordas perimetricas internas e externas de cada faixa
+  Object.entries(RAIO_CAMADAS).forEach(([id, cfg]) => {
+    const isAtiva = camadaAtivaInicial === id;
+    const larguraBorda = isAtiva ? 2.0 : 1.0;
+    const alphaBorda = isAtiva ? 0.9 : 0.25;
 
-  bordas.forEach((b) => {
-    const entBorda = viewer.entities.add({
-      polyline: {
-        positions: gerarCirculoEquatorial(b.raio, 96),
-        width: 1.8,
-        material: window.Cesium.Color.fromCssColorString(b.cor).withAlpha(b.alpha)
-      },
-      properties: new window.Cesium.PropertyBag({
-        tipo: 'borda_orbital',
-        areaId: b.areaId
-      })
+    [cfg.in, cfg.out].forEach((raio) => {
+      const entBorda = viewer.entities.add({
+        polyline: {
+          positions: gerarCirculoEquatorial(raio, 128),
+          width: larguraBorda,
+          material: window.Cesium.Color.fromCssColorString(cfg.cor).withAlpha(alphaBorda)
+        },
+        properties: new window.Cesium.PropertyBag({
+          tipo: 'borda_orbital',
+          areaId: id,
+          corHex: cfg.cor
+        })
+      });
+      colecao.entidades.push(entBorda);
     });
-    colecao.entidades.push(entBorda);
   });
 
   return colecao;
 }
 
-// Cria os marcadores de pinos vermelhos dos eventos historicos no globo
+// Cria os marcadores dos eventos históricos posicionados diretamente nos seus respectivos anéis orbitais
 export function criarMarcadoresEventos3D(viewer) {
   if (!viewer || !window.Cesium) return [];
 
   const entidadesCriadas = [];
+  const texturaAnel = obterTexturaAnelPino();
+
+  // Distribuição angular estratégica nos anéis para evitar sobreposição
+  const angulosPinos = {
+    'iridium-cosmos-2009': 45,
+    'fengyun-2007': 115,
+    'inpe-brasil-1993': 185,
+    'cerise-1996': 260,
+    'vanguard-1958': 75,
+    'salsa-cluster-2024': 140
+  };
 
   PINOS_HISTORICOS.forEach((pino) => {
-    const posSuperficie = window.Cesium.Cartesian3.fromDegrees(
-      pino.posicao.lon,
-      pino.posicao.lat,
-      10000
-    );
-    const posTopoHaste = window.Cesium.Cartesian3.fromDegrees(
-      pino.posicao.lon,
-      pino.posicao.lat,
-      350000
+    const cfgCamada = RAIO_CAMADAS[pino.camadaId?.toLowerCase()] || RAIO_CAMADAS.leo;
+    const raioMedio = (cfgCamada.in + cfgCamada.out) / 2;
+
+    const anguloGraus = angulosPinos[pino.id] !== undefined
+      ? angulosPinos[pino.id]
+      : (pino.posicao?.lon || 0);
+    const rad = window.Cesium.Math.toRadians(anguloGraus);
+
+    // Posição cartesiana plana diretamente no anel equatorial correspondente
+    const posAnel = new window.Cesium.Cartesian3(
+      raioMedio * Math.cos(rad),
+      raioMedio * Math.sin(rad),
+      0
     );
 
-    // Haste vertical do pino conectada a superficie
-    const hasteEnt = viewer.entities.add({
-      polyline: {
-        positions: [posSuperficie, posTopoHaste],
-        width: 2.0,
-        material: window.Cesium.Color.fromCssColorString('#ff0055').withAlpha(0.85)
-      },
-      properties: new window.Cesium.PropertyBag({
-        tipo: 'haste_pino',
-        pinoId: pino.id
-      })
-    });
-    entidadesCriadas.push(hasteEnt);
-
-    // Cabeca esferica do pino vermelho
+    // Marcador orbital com ponto e anel externo sutil
     const pinoEnt = viewer.entities.add({
       name: pino.nome,
-      position: posTopoHaste,
+      position: posAnel,
       point: {
-        pixelSize: 11,
-        color: window.Cesium.Color.fromCssColorString('#ff0044'),
+        pixelSize: 8,
+        color: window.Cesium.Color.fromCssColorString('#E05252'),
         outlineColor: window.Cesium.Color.WHITE,
-        outlineWidth: 2.0,
-        disableDepthTestDistance: 1000000
+        outlineWidth: 1.5,
+        disableDepthTestDistance: Number.POSITIVE_INFINITY
       },
+      billboard: texturaAnel
+        ? {
+            image: texturaAnel,
+            width: 22,
+            height: 22,
+            scale: 1.0,
+            disableDepthTestDistance: Number.POSITIVE_INFINITY
+          }
+        : undefined,
       properties: new window.Cesium.PropertyBag({
         tipo: 'pino_historico',
         pinoId: pino.id,
@@ -250,21 +280,42 @@ export function criarMarcadoresEventos3D(viewer) {
   return entidadesCriadas;
 }
 
-// Posiciona a camera para enquadramento com planeta a esquerda
-export function posicionarCameraModoOrbital(viewer) {
+const ESCALA_CAMERA_POR_CAMADA = {
+  leo: 0.88,
+  meo: 0.94,
+  geo: 1.0,
+  heo: 1.07
+};
+
+// Posiciona a camera para enquadramento com planeta totalmente iluminado a esquerda
+export function posicionarCameraModoOrbital(viewer, camadaId = 'leo', duracao = 1.4) {
   if (!viewer || !window.Cesium) return;
+
+  // Desativa sombra noturna para manter o planeta 100% iluminado e ativa atmosfera azulada
+  viewer.scene.globe.enableLighting = false;
+  viewer.scene.globe.showAtmosphere = true;
+  viewer.scene.globe.showGroundAtmosphere = true;
+  if (viewer.scene.skyAtmosphere) {
+    viewer.scene.skyAtmosphere.show = true;
+  }
 
   viewer.camera.lookAtTransform(window.Cesium.Matrix4.IDENTITY);
   viewer.trackedEntity = undefined;
 
-  // Enquadra a Terra no quadrante inferior-esquerdo
+  const escala = (camadaId && ESCALA_CAMERA_POR_CAMADA[camadaId]) || 1.0;
+
+  // Enquadra a Terra no quadrante esquerdo com leve ajuste de zoom conforme a camada
   viewer.camera.flyTo({
-    destination: new window.Cesium.Cartesian3(42000000, 18000000, 44000000),
+    destination: new window.Cesium.Cartesian3(
+      42000000 * escala,
+      18000000 * escala,
+      44000000 * escala
+    ),
     orientation: {
       direction: new window.Cesium.Cartesian3(-0.694658, 0.0, -0.719340),
       up: new window.Cesium.Cartesian3(-0.719340, 0.0, 0.694658)
     },
-    duration: 1.5
+    duration: duracao
   });
 
   const ctrl = viewer.scene.screenSpaceCameraController;
@@ -275,36 +326,76 @@ export function posicionarCameraModoOrbital(viewer) {
   ctrl.enableLook = false;
 }
 
-// Realca visualmente uma camada orbital selecionada
+// Realca visualmente o anel e as bordas da camada orbital selecionada
 export function destacarCamadaOrbital(colecao, camadaIdAtiva) {
-  if (!colecao) return;
+  if (!colecao || !window.Cesium) return;
+  const idNormalizado = camadaIdAtiva ? String(camadaIdAtiva).toLowerCase() : null;
   const entidades = colecao.entidades || [];
 
   entidades.forEach((ent) => {
     if (!ent.properties || !ent.properties.areaId) return;
     const areaId = ent.properties.areaId.getValue();
-    const isAtiva = !camadaIdAtiva || areaId === camadaIdAtiva;
+    const tipo = ent.properties.tipo?.getValue();
+    const isAtiva = Boolean(idNormalizado && areaId === idNormalizado);
 
-    if (ent.polyline) {
-      ent.polyline.width = isAtiva ? 3.0 : 1.2;
+    if (tipo === 'borda_orbital' && ent.polyline) {
+      const corHex = ent.properties.corHex?.getValue() || RAIO_CAMADAS[areaId]?.cor || '#38BDF8';
+      ent.polyline.width = isAtiva ? 2.0 : 1.0;
+      ent.polyline.material = window.Cesium.Color.fromCssColorString(corHex).withAlpha(isAtiva ? 0.9 : 0.25);
     }
   });
+
+  const aplicarCoresDiscos = () => {
+    const prim = colecao.primitivoDiscos;
+    if (!prim) return false;
+    let atualizado = false;
+
+    Object.entries(RAIO_CAMADAS).forEach(([id, cfg]) => {
+      try {
+        const attrs = prim.getGeometryInstanceAttributes(`area_${id}`);
+        if (attrs) {
+          const isAtiva = Boolean(idNormalizado && id === idNormalizado);
+          const alphaFill = isAtiva ? 0.16 : 0.04;
+          attrs.color = window.Cesium.ColorGeometryInstanceAttribute.toValue(
+            window.Cesium.Color.fromCssColorString(cfg.cor).withAlpha(alphaFill)
+          );
+          atualizado = true;
+        }
+      } catch {
+        // Aguarda inicializacao do primitivo no proximo frame
+      }
+    });
+
+    return atualizado;
+  };
+
+  if (!aplicarCoresDiscos() && typeof requestAnimationFrame !== 'undefined') {
+    requestAnimationFrame(() => {
+      aplicarCoresDiscos();
+    });
+  }
 }
 
 // Realca pino historico sob hover ou selecao
 export function destacarPinoHistorico(entidade, isHover) {
-  if (!entidade || !entidade.point) return;
+  if (!entidade || !entidade.point || !window.Cesium) return;
 
   if (isHover) {
-    entidade.point.pixelSize = 14;
+    entidade.point.pixelSize = 10;
     entidade.point.color = window.Cesium.Color.WHITE;
-    entidade.point.outlineColor = window.Cesium.Color.fromCssColorString('#ff0044');
-    entidade.point.outlineWidth = 3.5;
+    entidade.point.outlineColor = window.Cesium.Color.fromCssColorString('#E05252');
+    entidade.point.outlineWidth = 2.5;
+    if (entidade.billboard) {
+      entidade.billboard.scale = 1.3;
+    }
   } else {
-    entidade.point.pixelSize = 11;
-    entidade.point.color = window.Cesium.Color.fromCssColorString('#ff0044');
+    entidade.point.pixelSize = 7.5;
+    entidade.point.color = window.Cesium.Color.fromCssColorString('#E05252');
     entidade.point.outlineColor = window.Cesium.Color.WHITE;
-    entidade.point.outlineWidth = 2.0;
+    entidade.point.outlineWidth = 1.5;
+    if (entidade.billboard) {
+      entidade.billboard.scale = 1.0;
+    }
   }
 }
 

@@ -9,7 +9,7 @@ export const DEFINICOES_AREAS_ORBITAIS = [
     nome: 'Órbita Baixa (LEO)',
     faixaAltitudeKm: [160, 2000],
     faixaFormatada: '160 km – 2.000 km',
-    corPadrao: '#00f0ff',
+    corPadrao: '#38BDF8',
     fracaoObjetos: 0.84,
     cameraDestino: { lat: 25, lon: -40, alt: 7500000 },
     subdivisoes: [
@@ -33,7 +33,7 @@ export const DEFINICOES_AREAS_ORBITAIS = [
     nome: 'Órbita Média (MEO)',
     faixaAltitudeKm: [2000, 35500],
     faixaFormatada: '2.000 km – 35.500 km',
-    corPadrao: '#38bdf8',
+    corPadrao: '#5B8DEF',
     fracaoObjetos: 0.02,
     cameraDestino: { lat: 20, lon: -40, alt: 48000000 },
     subdivisoes: [
@@ -57,7 +57,7 @@ export const DEFINICOES_AREAS_ORBITAIS = [
     nome: 'Órbita Geoestacionária (GEO)',
     faixaAltitudeKm: [35500, 36100],
     faixaFormatada: '35.786 km fixos',
-    corPadrao: '#818cf8',
+    corPadrao: '#7C69EF',
     fracaoObjetos: 0.09,
     cameraDestino: { lat: 0, lon: -45, alt: 85000000 },
     subdivisoes: [
@@ -81,7 +81,7 @@ export const DEFINICOES_AREAS_ORBITAIS = [
     nome: 'Altamente Elíptica (HEO)',
     faixaAltitudeKm: [500, 40000],
     faixaFormatada: 'Rotas Ovais',
-    corPadrao: '#c084fc',
+    corPadrao: '#A864E8',
     fracaoObjetos: 0.05,
     cameraDestino: { lat: 45, lon: 20, alt: 60000000 },
     subdivisoes: [

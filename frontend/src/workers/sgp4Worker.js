@@ -3,6 +3,7 @@ import * as satellite from 'satellite.js';
 // Lista de satélites ativos no worker
 let listaSatelites = [];
 let intervaloId = null;
+let ultimoTimestampMs = Date.now();
 
 // Converte satélite para registro satrec do satellite.js
 function criarSatrec(sat) {
@@ -21,6 +22,7 @@ function criarSatrec(sat) {
 
 // Propaga toda a lista e envia as coordenadas geodésicas em Float32Array
 function propagarTodos(dataAtual = new Date()) {
+  const t0 = performance.now();
   const total = listaSatelites.length;
   if (total === 0) return;
 
@@ -86,12 +88,16 @@ function propagarTodos(dataAtual = new Date()) {
     }
   }
 
+  const tempoCalculoMs = performance.now() - t0;
+
   // Transfere o buffer para a thread principal com custo zero de cópia
   self.postMessage(
     {
       tipo: 'POSICOES',
       posicoes: buffer,
-      timestamp: dataAtual.getTime()
+      timestamp: dataAtual.getTime(),
+      tempoCalculoMs: parseFloat(tempoCalculoMs.toFixed(1)),
+      totalSatelites: total
     },
     [buffer.buffer]
   );
@@ -99,7 +105,11 @@ function propagarTodos(dataAtual = new Date()) {
 
 // Manipulador de mensagens da Main Thread
 self.onmessage = function (e) {
-  const { tipo, satelites, intervaloMs } = e.data;
+  const { tipo, satelites, intervaloMs, timestampMs } = e.data;
+
+  if (typeof timestampMs === 'number' && !isNaN(timestampMs)) {
+    ultimoTimestampMs = timestampMs;
+  }
 
   if (tipo === 'INICIALIZAR') {
     if (Array.isArray(satelites)) {
@@ -111,7 +121,7 @@ self.onmessage = function (e) {
         satrec: criarSatrec(sat)
       }));
       // Envia propagação inicial imediata
-      propagarTodos();
+      propagarTodos(new Date(ultimoTimestampMs));
     }
     return;
   }
@@ -120,7 +130,8 @@ self.onmessage = function (e) {
     if (intervaloId) clearInterval(intervaloId);
     const ms = intervaloMs || 1000;
     intervaloId = setInterval(() => {
-      propagarTodos();
+      ultimoTimestampMs += ms;
+      propagarTodos(new Date(ultimoTimestampMs));
     }, ms);
     return;
   }
@@ -134,6 +145,6 @@ self.onmessage = function (e) {
   }
 
   if (tipo === 'PROPAGAR_AGORA') {
-    propagarTodos();
+    propagarTodos(new Date(ultimoTimestampMs));
   }
 };

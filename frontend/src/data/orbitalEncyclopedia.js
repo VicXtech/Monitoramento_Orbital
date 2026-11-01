@@ -323,6 +323,16 @@ export const GLOSSARIO_ORBITAL = [
         definicao: "Ângulo medido em graus entre o plano da órbita e o equador terrestre. Determina a abrangência do satélite: 0° acompanha o equador, 90° cruza os polos e valores maiores indicam rota invertida."
       },
       {
+        termo: "Excentricidade",
+        titulo: "Formato da Órbita",
+        definicao: "Número de 0 a 1 que indica o formato da rota. Valor próximo de 0 significa uma órbita redonda (circular); valor mais alto indica uma órbita oval (alongada)."
+      },
+      {
+        termo: "NORAD ID e COSPAR",
+        titulo: "Códigos de Identificação",
+        definicao: "Números de registro de cada objeto no espaço. O NORAD ID é o número sequencial no radar, e o COSPAR indica o ano e o lançamento de origem."
+      },
+      {
         termo: "TLE (Two-Line Element)",
         titulo: "Formato de Dados Orbitais",
         definicao: "Padrão internacional codificado em duas linhas de texto com parâmetros físicos essenciais. Fornece os dados matemáticos necessários para calcular e desenhar a posição de qualquer satélite."
@@ -330,7 +340,7 @@ export const GLOSSARIO_ORBITAL = [
       {
         termo: "SGP4 (Modelo de Propagação)",
         titulo: "Algoritmo de Cálculo Orbital",
-        definicao: "Modelo matemático analítico que calcula a trajetória real de objetos no espaço. Compensa a gravidade irregular da Terra, a atração da Lua e do Sol e o atrito com as camadas de ar."
+        definicao: "Fórmula usada para calcular onde cada satélite está em tempo real, levando em conta a gravidade da Terra, da Lua, do Sol e o atrito do ar."
       },
       {
         termo: "Termo BSTAR",
@@ -350,17 +360,27 @@ export const GLOSSARIO_ORBITAL = [
       {
         termo: "Decaimento Orbital",
         titulo: "Descida e Reentrada Natural",
-        definicao: "Processo gradual em que o atrito contínuo com as partículas de ar reduz a energia do satélite. O objeto perde altitude ao longo dos meses até mergulhar na atmosfera densa e sofrer desintegração térmica."
+        definicao: "Perda gradual de altitude causada pelo atrito com o ar rarefeito. Com o tempo, o objeto desce até entrar na atmosfera mais densa e queimar pelo calor."
       },
       {
         termo: "Poluição por Alumina",
         titulo: "Resíduos Metálicos Atmosféricos",
-        definicao: "Poeira química resultante da queima de carcaças de alumínio durante a reentrada de frotas de satélites. As partículas condutoras afetam a camada de ozônio e podem interferir no escudo magnético terrestre."
+        definicao: "Poeira metálica liberada quando satélites de alumínio queimam na reentrada. Essas partículas ficam na alta atmosfera e podem prejudicar a camada de ozônio."
       },
       {
         termo: "Ponto Nemo",
         titulo: "Cemitério de Naves Espaciais",
         definicao: "Polo oceânico isolado no Pacífico Sul, o local mais distante de qualquer área habitada na Terra. Funciona como zona segura para orientar a queda controlada de satélites desativados e grandes estações espaciais."
+      },
+      {
+        termo: "Órbita Cemitério",
+        titulo: "Zona de Descarte Espacial",
+        definicao: "Faixa acima de 36.000 km para onde satélites distantes são enviados no fim da vida útil, liberando espaço nas órbitas ativas sem risco de colisão."
+      },
+      {
+        termo: "SIO (Score de Impacto Orbital)",
+        titulo: "Índice de Risco do Objeto",
+        definicao: "Nota de 0 a 100 usada na plataforma para medir o risco ambiental de um objeto, considerando sua altitude, o tráfego ao redor e se ele possui motor para desviar."
       }
     ]
   }

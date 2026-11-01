@@ -128,8 +128,8 @@ export function calcularParametrosOrbitais(satOuLinha1, linha2OuData = null, dat
     const voltasPorDia = parseFloat(movimentoMedio.toFixed(1));
 
     // 5. Propagação da Posição e Velocidade Instantâneas via SGP4
-    const gmst = satellite.gstime(dataReferencia);
-    const posAndVel = satellite.propagate(satrec, dataReferencia);
+    const gmst = satellite.gstime(dataRef);
+    const posAndVel = satellite.propagate(satrec, dataRef);
 
     let altitudeInstantaneaKm = Math.round((perigeuKm + apogeuKm) / 2);
     // Estimativa teórica da velocidade orbital circular baseada no semi-eixo maior: v = sqrt(mu / r)

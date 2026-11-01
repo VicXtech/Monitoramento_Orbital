@@ -1,9 +1,6 @@
 import { useState, useEffect, useMemo } from 'react';
 import * as satellite from 'satellite.js';
 import {
-  Activity,
-  FileText,
-  ShieldAlert,
   Crosshair,
   Cpu,
   Flame,
@@ -53,6 +50,46 @@ function formatarDataRegistro(dataStr, cosparId, formatarDataBrasileira) {
   return formatarDataBrasileira ? formatarDataBrasileira(dataStr) : dataStr;
 }
 
+// Titulo de secao com animacao de digitacao
+function TypewriterSectionTitle({ text, delay = 0, speed = 25 }) {
+  const [displayed, setDisplayed] = useState('');
+  const [isDone, setIsDone] = useState(false);
+
+  useEffect(() => {
+    let timer = null;
+    let index = 0;
+    setDisplayed('');
+    setIsDone(false);
+
+    const startTimeout = setTimeout(() => {
+      timer = setInterval(() => {
+        index += 1;
+        if (index >= text.length) {
+          setDisplayed(text);
+          setIsDone(true);
+          clearInterval(timer);
+        } else {
+          setDisplayed(text.slice(0, index));
+        }
+      }, speed);
+    }, delay);
+
+    return () => {
+      clearTimeout(startTimeout);
+      if (timer) clearInterval(timer);
+    };
+  }, [text, delay, speed]);
+
+  return (
+    <div className="telemetry-section-title">
+      <span className="cyber-typewriter-text">
+        {displayed}
+        {!isDone && <span className="cyber-cursor">▌</span>}
+      </span>
+    </div>
+  );
+}
+
 // Identifica agrupamento ou lote de lancamento
 function obterAgrupamentoOrbital(sat) {
   const nome = (sat?.nome || '').toUpperCase();
@@ -89,12 +126,23 @@ export default function SatelliteDetailTabs({
   modulosEstacao = [],
   carregandoModulos = false,
   handleSelecionarSat,
-  onFocarObjeto
+  onFocarObjeto,
+  metricasPerformance,
+  obterDataSimulada,
+  multiplicadorTempo = 1,
+  onMudarAba
 }) {
   const [abaAtiva, setAbaAtiva] = useState('telemetria');
   const [telemetriaAoVivo, setTelemetriaAoVivo] = useState(null);
 
-  // Propagacao instantanea da posicao a cada 1 segundo
+  const handleTrocarAba = (novaAba) => {
+    setAbaAtiva(novaAba);
+    if (onMudarAba) {
+      onMudarAba(novaAba);
+    }
+  };
+
+  // Propagacao instantanea da posicao sincronizada com o relogio da simulacao
   useEffect(() => {
     if (!satSelecionado) return;
     const satrec = obterSatrec(satSelecionado);
@@ -102,7 +150,7 @@ export default function SatelliteDetailTabs({
 
     const atualizar = () => {
       try {
-        const agora = new Date();
+        const agora = obterDataSimulada ? obterDataSimulada() : new Date();
         const gmst = satellite.gstime(agora);
         const posAndVel = satellite.propagate(satrec, agora);
         if (posAndVel && posAndVel.position && posAndVel.velocity) {
@@ -130,9 +178,11 @@ export default function SatelliteDetailTabs({
     };
 
     atualizar();
-    const timer = setInterval(atualizar, 1000);
+    if (multiplicadorTempo === 0) return;
+    const intervalo = multiplicadorTempo > 1 ? 150 : 1000;
+    const timer = setInterval(atualizar, intervalo);
     return () => clearInterval(timer);
-  }, [satSelecionado]);
+  }, [satSelecionado, obterDataSimulada, multiplicadorTempo]);
 
   // Auditoria normativa SIO calculada
   const auditoriaSio = useMemo(
@@ -143,7 +193,7 @@ export default function SatelliteDetailTabs({
   if (!satSelecionado) return null;
 
   const categoriaId = Number(satSelecionado.categoria_id) || 1;
-  const corCategoria = CORES_CATEGORIAS[categoriaId] || 'var(--neon-green)';
+  const corCategoria = CORES_CATEGORIAS[categoriaId] || '#34D399';
   const rcsInfo = formatRcsSize(satSelecionado.rcs_size || satSelecionado.dados_omm?.RCS_SIZE, satSelecionado);
   const baseLancamento = formatLaunchSite(satSelecionado.local_lancamento || satSelecionado.site);
   const dataLancamentoFormatada = formatarDataRegistro(satSelecionado.data_lancamento, satSelecionado.cospar_id, formatarDataBrasileira);
@@ -155,10 +205,16 @@ export default function SatelliteDetailTabs({
   const formatoRota = formatarFormatoRota(parametrosOrbitaisSat?.excentricidade);
 
   return (
-    <div className="satellite-fiche-modular">
+    <div className="satellite-fiche-modular" style={{ '--sat-accent': corCategoria }}>
 
-      {/* CABECALHO FIXO DESAFOGADO */}
-      <div className="telemetry-header-bar">
+      {/* Cabecalho fixo */}
+      <div
+        className="telemetry-header-bar"
+        style={{
+          borderTop: `2px solid ${corCategoria}`,
+          paddingTop: '8px'
+        }}
+      >
         {/* Linha 1: Nome a esquerda e NORAD a direita */}
         <div className="telemetry-id-row">
           <span className="telemetry-sat-name" title={satSelecionado.nome || 'OBJETO ORBITAL'}>
@@ -167,13 +223,13 @@ export default function SatelliteDetailTabs({
           <span className="telemetry-sat-norad">#{satSelecionado.norad_id}</span>
         </div>
 
-        {/* Linha 2: Tipo de objeto em largura total */}
+        {/* Linha 2: Status da categoria */}
         <div
           className="mission-badge"
           style={{
-            borderColor: corCategoria,
+            borderColor: `${corCategoria}4D`,
             color: corCategoria,
-            backgroundColor: `${corCategoria}15`,
+            backgroundColor: `${corCategoria}1A`,
             width: '100%',
             display: 'flex',
             justifyContent: 'center',
@@ -205,9 +261,8 @@ export default function SatelliteDetailTabs({
           role="tab"
           aria-selected={abaAtiva === 'telemetria'}
           className={`fiche-tab-btn ${abaAtiva === 'telemetria' ? 'active' : ''}`}
-          onClick={() => setAbaAtiva('telemetria')}
+          onClick={() => handleTrocarAba('telemetria')}
         >
-          <Activity size={13} className="tab-icon" />
           <span>TELEMETRIA</span>
         </button>
 
@@ -216,9 +271,8 @@ export default function SatelliteDetailTabs({
           role="tab"
           aria-selected={abaAtiva === 'registro'}
           className={`fiche-tab-btn ${abaAtiva === 'registro' ? 'active' : ''}`}
-          onClick={() => setAbaAtiva('registro')}
+          onClick={() => handleTrocarAba('registro')}
         >
-          <FileText size={13} className="tab-icon" />
           <span>REGISTRO</span>
         </button>
 
@@ -227,9 +281,8 @@ export default function SatelliteDetailTabs({
           role="tab"
           aria-selected={abaAtiva === 'auditoria'}
           className={`fiche-tab-btn ${abaAtiva === 'auditoria' ? 'active tab-auditoria' : ''}`}
-          onClick={() => setAbaAtiva('auditoria')}
+          onClick={() => handleTrocarAba('auditoria')}
         >
-          <ShieldAlert size={13} className="tab-icon" />
           <span>AUDITORIA</span>
         </button>
       </div>
@@ -243,7 +296,11 @@ export default function SatelliteDetailTabs({
             {parametrosOrbitaisSat ? (
               <>
                 {/* BLOCO 1: POSICAO E VELOCIDADE AGORA */}
-                <div className="telemetry-section-title">Posição e Velocidade Agora</div>
+                <TypewriterSectionTitle
+                  text="Posição e Velocidade Agora"
+                  delay={40}
+                  key={`${satSelecionado?.norad_id}-pos-vel`}
+                />
                 <div className="telemetry-metrics-grid">
                   <div className="telemetry-metric-box highlight-box">
                     <span className="metric-box-label">ALTITUDE</span>
@@ -276,7 +333,11 @@ export default function SatelliteDetailTabs({
                 </div>
 
                 {/* BLOCO 2: FORMATO E ROTA DA ORBITA */}
-                <div className="telemetry-section-title">Formato e Rota da Órbita</div>
+                <TypewriterSectionTitle
+                  text="Formato e Rota da Órbita"
+                  delay={160}
+                  key={`${satSelecionado?.norad_id}-formato-rota`}
+                />
                 <div className="telemetry-metrics-grid">
                   <div className="telemetry-metric-box">
                     <span className="metric-box-label">ALTITUDE MÁX. / MÍN.</span>
@@ -377,23 +438,31 @@ export default function SatelliteDetailTabs({
               </div>
             </div>
 
-            {/* DOSSIE OFICIAL OU AGRUPAMENTO ORBITAL */}
+            {/* SOBRE OU AGRUPAMENTO ORBITAL */}
             {temDossieOficial ? (
-              <div className="mission-context-card">
-                <div className="mission-context-header">
-                  <span className="mission-context-title">Dossiê Oficial</span>
+              <>
+                <TypewriterSectionTitle
+                  text="Sobre"
+                  delay={40}
+                  key={`${satSelecionado?.norad_id}-sobre`}
+                />
+                <div className="mission-context-card">
+                  <blockquote className="mission-context-quote">
+                    {fichaFactual?.contextoMissao || satSelecionado.missao?.descricao}
+                  </blockquote>
                 </div>
-                <blockquote className="mission-context-quote">
-                  "{fichaFactual?.contextoMissao || satSelecionado.missao?.descricao}"
-                </blockquote>
-              </div>
+              </>
             ) : (
-              <div className="orbital-batch-card">
-                <div className="orbital-batch-header">
-                  <span className="orbital-batch-title">Agrupamento Orbital</span>
+              <>
+                <TypewriterSectionTitle
+                  text="Agrupamento Orbital"
+                  delay={40}
+                  key={`${satSelecionado?.norad_id}-agrupamento`}
+                />
+                <div className="orbital-batch-card">
+                  <p className="orbital-batch-desc">{agrupamentoTexto}</p>
                 </div>
-                <p className="orbital-batch-desc">{agrupamentoTexto}</p>
-              </div>
+              </>
             )}
 
             {/* MODULOS ACOPLADOS (SE ESTACAO ESPACIAL) */}
@@ -432,6 +501,43 @@ export default function SatelliteDetailTabs({
                 )}
               </div>
             )}
+
+            {/* PERFORMANCE DO MOTOR EM TEMPO REAL */}
+            {metricasPerformance && (
+              <>
+                <TypewriterSectionTitle
+                  text="Performance"
+                  delay={160}
+                  key={`${satSelecionado?.norad_id}-performance`}
+                />
+                <div className="engine-performance-card">
+                  <div className="engine-performance-grid">
+                    <div className="performance-metric-box">
+                      <span className="perf-label">Taxa de Quadros</span>
+                      <span className="perf-val">{metricasPerformance.fps} FPS</span>
+                    </div>
+                    <div className="performance-metric-box">
+                      <span className="perf-label">Cálculo SGP4</span>
+                      <span className="perf-val">
+                        {metricasPerformance.tempoCalculoMs > 0 ? `${metricasPerformance.tempoCalculoMs} ms` : '< 1 ms'}
+                      </span>
+                    </div>
+                    <div className="performance-metric-box">
+                      <span className="perf-label">Resposta da API</span>
+                      <span className="perf-val">
+                        {metricasPerformance.latenciaApiMs > 0 ? `${metricasPerformance.latenciaApiMs} ms` : '--'}
+                      </span>
+                    </div>
+                    <div className="performance-metric-box">
+                      <span className="perf-label">Memória JS</span>
+                      <span className="perf-val">
+                        {metricasPerformance.memoriaMb ? `${metricasPerformance.memoriaMb} MB` : 'N/D'}
+                      </span>
+                    </div>
+                  </div>
+                </div>
+              </>
+            )}
           </div>
         )}
 
@@ -469,11 +575,12 @@ export default function SatelliteDetailTabs({
             </div>
 
             {/* CRITERIOS DE AVALIACAO COM RESPIRO E EXPLICACAO CURTA */}
+            <TypewriterSectionTitle
+              text="Critérios de Avaliação"
+              delay={40}
+              key={`${satSelecionado?.norad_id}-criterios`}
+            />
             <div className="audit-factors-list">
-              <div className="factors-header">
-                <span>CRITÉRIOS DE AVALIAÇÃO</span>
-              </div>
-
               {auditoriaSio.breakdown.map((fator) => (
                 <div key={fator.id} className="audit-factor-item">
                   <div className="audit-factor-top">
@@ -496,16 +603,19 @@ export default function SatelliteDetailTabs({
               ))}
             </div>
 
-            {/* ENQUADRAMENTO NORMATIVO */}
+            {/* DESTINO */}
+            <TypewriterSectionTitle
+              text="Destino"
+              delay={160}
+              key={`${satSelecionado?.norad_id}-destino`}
+            />
             <div className="normative-framework-card">
-              <div className="normative-card-title">Enquadramento Normativo</div>
-
               <div className="normative-row">
                 <span className="normative-label">Tempo de queda natural:</span>
                 <span className="normative-badge-value">{auditoriaSio.decayEstimate}</span>
               </div>
 
-              <div className="normative-destinations-title">Destino de Fim de Vida</div>
+              <div className="normative-destinations-title">Fim de Vida</div>
               <div className="normative-destinations-grid">
                 <div className={`destination-box ${auditoriaSio.endOfLifeTarget === 'REENTRY' ? 'active-reentry' : ''}`}>
                   <Flame size={16} className="dest-icon" />
