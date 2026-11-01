@@ -7,8 +7,8 @@
 
   /* Superficies e fundos */
   --bg-space: #070A0F;
-  --bg-panel: rgba(11, 15, 23, 0.84);
-  --bg-panel-elevated: rgba(16, 22, 33, 0.92);
+  --bg-panel: rgba(11, 15, 23, 0.90);
+  --bg-panel-elevated: rgba(13, 19, 30, 0.92);
   --bg-card-neutral: rgba(255, 255, 255, 0.03);
   --bg-card-hover: rgba(255, 255, 255, 0.06);
 
