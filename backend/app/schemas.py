@@ -100,13 +100,13 @@ class DistribuicaoRegimes(BaseModel):
 
 
 class TotaisOficiaisCatalogo(BaseModel):
-    total: int = 11536
-    total_em_orbita: Optional[int] = 11535
-    total_console: int = 11512
-    ativos: int = 5275
-    inativos: int = 1117
-    foguetes: int = 2283
-    detritos: int = 2835
+    total: int = 31842
+    total_em_orbita: Optional[int] = 31841
+    total_console: int = 31818
+    ativos: int = 15651
+    inativos: int = 3530
+    foguetes: int = 3468
+    detritos: int = 9167
     estacoes: int = 2
     celestrak_catalogados: int = 34729
     celestrak_rastreados: int = 31818

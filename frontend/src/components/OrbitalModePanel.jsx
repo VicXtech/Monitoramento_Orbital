@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import { useState } from 'react';
 import { X } from 'lucide-react';
 import {
   CAMADAS_ORBITAIS,
@@ -11,6 +11,7 @@ import {
 import OrbitalVelocityRacetrack from './orbital-widgets/OrbitalVelocityRacetrack';
 import OrbitalCoverageRadar from './orbital-widgets/OrbitalCoverageRadar';
 import OrbitalRealWorldSignal from './orbital-widgets/OrbitalRealWorldSignal';
+import TypewriterHeading from './TypewriterHeading';
 
 const ORDEM_CAMADAS = ['leo', 'meo', 'geo', 'heo'];
 
@@ -92,11 +93,14 @@ export default function OrbitalModePanel({
     if (onSelecionarPino) onSelecionarPino(id);
   };
 
-  const limpezaItem = camadaAtual?.termometroAmbiental?.[0];
-  const kesslerItem = camadaAtual?.termometroAmbiental?.[1];
-  const fimVida = camadaAtual?.corteAtmosfera;
+  // Fecha o painel do modo orbital
+  const handleFecharPainel = () => {
+    if (onTocarSom) onTocarSom('fechar');
+    if (onFechar) onFechar();
+  };
+
   const pinosCamada = camadaAtual ? listarPinosPorCamada(camadaAtual.id) : [];
-  const pinosExibidos = pinosCamada.length > 0 ? pinosCamada : PINOS_HISTORICOS;
+  const pinosExibidos = pinosCamada;
 
   return (
     <aside
@@ -139,7 +143,7 @@ export default function OrbitalModePanel({
           <button
             type="button"
             className="orbital-area-close-btn"
-            onClick={onFechar}
+            onClick={handleFecharPainel}
             title="Fechar"
             aria-label="Fechar"
           >
@@ -160,7 +164,7 @@ export default function OrbitalModePanel({
                     color: CAMADAS_ORBITAIS[pinoAtual.camadaId]?.cor || '#38BDF8'
                   }}
                 >
-                  {pinoAtual.posicao.altKm} km ({CAMADAS_ORBITAIS[pinoAtual.camadaId]?.sigla})
+                  {pinoAtual.posicao.altKm} km · {CAMADAS_ORBITAIS[pinoAtual.camadaId]?.sigla}
                 </span>
               </div>
 
@@ -177,13 +181,25 @@ export default function OrbitalModePanel({
               </div>
 
               <div className="orbital-event-actions">
-                <button
-                  type="button"
-                  className="orbital-event-layer-action-btn"
-                  onClick={() => handleSelecionarCamada(pinoAtual.camadaId)}
-                >
-                  <span>Inspecionar Órbita {CAMADAS_ORBITAIS[pinoAtual.camadaId]?.sigla}</span>
-                </button>
+                {(() => {
+                  const camadaPino = CAMADAS_ORBITAIS[pinoAtual.camadaId?.toLowerCase()];
+                  const corPino = camadaPino?.cor || '#38BDF8';
+                  return (
+                    <button
+                      type="button"
+                      className="orbital-event-layer-action-btn"
+                      style={{
+                        borderColor: corPino,
+                        color: corPino,
+                        '--btn-sweep-border': corPino,
+                        '--btn-sweep-bg': `${corPino}26`
+                      }}
+                      onClick={() => handleSelecionarCamada(pinoAtual.camadaId)}
+                    >
+                      <span>Inspecionar Órbita {camadaPino?.sigla || pinoAtual.camadaId?.toUpperCase()}</span>
+                    </button>
+                  );
+                })()}
                 <button
                   type="button"
                   className="orbital-event-reset-action-btn"
@@ -202,7 +218,7 @@ export default function OrbitalModePanel({
               <div className="orbital-top-kpi-grid">
                 <div className="orbital-kpi-card">
                   <span className="kpi-card-label">ALTITUDE DA CAMADA</span>
-                  <span className="kpi-card-value" style={{ color: camadaAtual.cor }}>
+                  <span className="kpi-card-value">
                     {camadaAtual.altitudeCurta || camadaAtual.altitude}
                   </span>
                   {camadaAtual.altitudeSub && (
@@ -222,7 +238,7 @@ export default function OrbitalModePanel({
 
                 <div className="orbital-kpi-card">
                   <span className="kpi-card-label">VELOCIDADE</span>
-                  <span className="kpi-card-value" style={{ color: camadaAtual.cor }}>
+                  <span className="kpi-card-value">
                     {camadaAtual.velocidadeFicha || camadaAtual.velocidade}
                   </span>
                   {camadaAtual.velocidadeSub && (
@@ -286,7 +302,9 @@ export default function OrbitalModePanel({
 
                   {/* Sub-regioes Operacionais */}
                   <div className="orbital-subdivisions-section">
-                    <span className="subdivisions-heading">Sub-regiões Operacionais</span>
+                    <span className="subdivisions-heading" style={{ color: camadaAtual.cor }}>
+                      <TypewriterHeading text="Sub-regiões Operacionais" triggerKey={`${camadaAtual.id}-${abaAtiva}`} delay={0} />
+                    </span>
                     <ul className="subdivisions-list">
                       {camadaAtual.subregioes?.map((sub, idx) => (
                         <li
@@ -312,112 +330,65 @@ export default function OrbitalModePanel({
                 <div className="orbital-tab-content active" role="tabpanel">
                   {/* Matriz de Diagnostico Ambiental em Grid 2x2 */}
                   <div className="orbital-env-matrix-section">
-                    <span className="sustainability-heading">Matriz de Diagnóstico Ambiental</span>
+                    <span className="sustainability-heading" style={{ color: camadaAtual.cor }}>
+                      <TypewriterHeading text="Matriz de Diagnóstico Ambiental" triggerKey={`${camadaAtual.id}-${abaAtiva}`} delay={0} />
+                    </span>
                     <div className="orbital-env-matrix-grid">
-                      {/* Card 1: Densidade de Trafego */}
-                      {camadaAtual.camaraDensidade && (
-                        <div className="orbital-env-matrix-card">
-                          <div className="thermometer-item-header">
-                            <span className="thermometer-label">Densidade de Tráfego</span>
-                            <span className={`density-badge ${camadaAtual.camaraDensidade.nivel}`}>
-                              {camadaAtual.camaraDensidade.nivel.toUpperCase()}
+                      {camadaAtual.matrizDiagnostico?.map((item) => {
+                        const cor = item.nivel === 'critico' ? '#E05252' : item.nivel === 'baixo' ? '#34D399' : '#E5A93C';
+                        return (
+                          <div key={item.id} className="orbital-env-matrix-card">
+                            <div className="thermometer-item-header">
+                              <span className="thermometer-label">{item.titulo}</span>
+                              <span className={`thermometer-badge ${item.nivel}`}>
+                                {item.badge}
+                              </span>
+                            </div>
+                            <span
+                              className="env-matrix-headline"
+                              style={{ color: cor }}
+                            >
+                              {item.destaque}
                             </span>
+                            <div className="thermometer-track">
+                              <div
+                                className={`thermometer-fill ${item.nivel}`}
+                                style={{ width: `${item.pct}%` }}
+                              />
+                            </div>
+                            <span className="thermometer-detail">{item.detalhe}</span>
                           </div>
-                          <span
-                            className="env-matrix-mono-val"
-                            style={{
-                              color: camadaAtual.camaraDensidade.nivel === 'critico' ? '#E05252' : '#F1F5F9'
-                            }}
-                          >
-                            {camadaAtual.camaraDensidade.rotulo}
-                          </span>
-                          <span className="thermometer-detail">
-                            {camadaAtual.camaraDensidade.alerta}
-                          </span>
-                        </div>
-                      )}
-
-                      {/* Card 2: Limpeza Natural / Arrasto */}
-                      {limpezaItem && (
-                        <div className="orbital-env-matrix-card">
-                          <div className="thermometer-item-header">
-                            <span className="thermometer-label">{limpezaItem.rotulo}</span>
-                            <span className={`thermometer-badge ${limpezaItem.nivel}`}>
-                              {limpezaItem.valor}
-                            </span>
-                          </div>
-                          <div className="thermometer-track">
-                            <div
-                              className={`thermometer-fill ${limpezaItem.nivel}`}
-                              style={{ width: `${limpezaItem.pct}%` }}
-                            />
-                          </div>
-                          {limpezaItem.detalhe && (
-                            <span className="thermometer-detail">{limpezaItem.detalhe}</span>
-                          )}
-                        </div>
-                      )}
-
-                      {/* Card 3: Risco Sindrome de Kessler */}
-                      {kesslerItem && (
-                        <div className="orbital-env-matrix-card">
-                          <div className="thermometer-item-header">
-                            <span className="thermometer-label">{kesslerItem.rotulo}</span>
-                            <span className={`thermometer-badge ${kesslerItem.nivel}`}>
-                              {kesslerItem.valor}
-                            </span>
-                          </div>
-                          <div className="thermometer-track">
-                            <div
-                              className={`thermometer-fill ${kesslerItem.nivel}`}
-                              style={{ width: `${kesslerItem.pct}%` }}
-                            />
-                          </div>
-                          {kesslerItem.detalhe && (
-                            <span className="thermometer-detail">{kesslerItem.detalhe}</span>
-                          )}
-                        </div>
-                      )}
-
-                      {/* Card 4: Destino na Reentrada */}
-                      {fimVida && (
-                        <div className="orbital-env-matrix-card">
-                          <div className="thermometer-item-header">
-                            <span className="thermometer-label">Destino na Reentrada</span>
-                            <span className={`reentry-type-pill ${fimVida.tipo}`}>
-                              {fimVida.badgeCurta || (fimVida.tipo === 'quimica' ? 'ATMOSFERA' : fimVida.tipo === 'sem_reentrada' ? 'CEMITÉRIO' : 'OCEANO')}
-                            </span>
-                          </div>
-                          <span
-                            className="env-matrix-headline"
-                            style={{
-                              color: fimVida.tipo === 'quimica' ? '#E05252' : '#E5A93C'
-                            }}
-                          >
-                            {fimVida.rotulo}
-                          </span>
-                          <span className="thermometer-detail">{fimVida.desc}</span>
-                        </div>
-                      )}
+                        );
+                      })}
                     </div>
                   </div>
 
                   {/* Impacto no Espaco vs Terra (2 colunas lado a lado) */}
                   {camadaAtual.matrizImpacto && (
                     <div className="orbital-impact-matrix-section">
-                      <span className="sustainability-heading">Impacto no Espaço vs Terra</span>
+                      <span className="sustainability-heading" style={{ color: camadaAtual.cor }}>
+                        <TypewriterHeading text="Impacto no Espaço vs Terra" triggerKey={`${camadaAtual.id}-${abaAtiva}`} delay={80} />
+                      </span>
                       <div className="orbital-impact-matrix-grid">
                         <div className="orbital-impact-card space">
-                          <span className="impact-card-badge space">NO ESPAÇO</span>
-                          <strong className="impact-card-title">{camadaAtual.matrizImpacto.espaco.subtitulo}</strong>
+                          <div className="impact-card-header">
+                            <span className="impact-card-title">{camadaAtual.matrizImpacto.espaco.titulo || 'NO ESPAÇO'}</span>
+                          </div>
+                          <span className="impact-card-subtitle space">
+                            {camadaAtual.matrizImpacto.espaco.subtitulo}
+                          </span>
                           <p className="impact-card-text">{camadaAtual.matrizImpacto.espaco.desc}</p>
                           <div className="impact-card-consequence space">
                             <span>⚠ Consequência: {camadaAtual.matrizImpacto.espaco.consequencia || 'Inutilização de rotas orbitais'}</span>
                           </div>
                         </div>
                         <div className="orbital-impact-card earth">
-                          <span className="impact-card-badge earth">NO PLANETA TERRA</span>
-                          <strong className="impact-card-title">{camadaAtual.matrizImpacto.terra.subtitulo}</strong>
+                          <div className="impact-card-header">
+                            <span className="impact-card-title">{camadaAtual.matrizImpacto.terra.titulo || 'NO PLANETA TERRA'}</span>
+                          </div>
+                          <span className="impact-card-subtitle earth">
+                            {camadaAtual.matrizImpacto.terra.subtitulo}
+                          </span>
                           <p className="impact-card-text">{camadaAtual.matrizImpacto.terra.desc}</p>
                           <div className="impact-card-consequence earth">
                             <span>⚠ Consequência: {camadaAtual.matrizImpacto.terra.consequencia || 'Dano químico e perda de serviços vitais'}</span>
@@ -430,13 +401,18 @@ export default function OrbitalModePanel({
                   {/* Acoes e Normas de Mitigacao */}
                   {camadaAtual.acoesNormas && (
                     <div className="orbital-actions-normas-section">
-                      <span className="sustainability-heading">Ações &amp; Normas de Mitigação</span>
+                      <span className="sustainability-heading" style={{ color: camadaAtual.cor }}>
+                        <TypewriterHeading text="Ações & Normas de Mitigação" triggerKey={`${camadaAtual.id}-${abaAtiva}`} delay={160} />
+                      </span>
                       <div className="orbital-actions-list">
                         {camadaAtual.acoesNormas.map((norma, idx) => (
                           <div key={idx} className="orbital-action-card">
                             <div className="action-card-header">
-                              <span className="agency-badge">{norma.badge}</span>
-                              <strong className="action-title">{norma.titulo}</strong>
+                              <span className="action-title-line">
+                                <span className="action-title-name">{norma.titulo}</span>
+                                <span className="action-title-divider"> / </span>
+                                <span className="action-title-agency">{norma.badge}</span>
+                              </span>
                             </div>
                             <p className="action-desc">{norma.desc}</p>
                           </div>
@@ -455,22 +431,30 @@ export default function OrbitalModePanel({
 
                   {/* Pinos Historicos */}
                   <div className="orbital-layer-linked-events">
-                    <span className="linked-events-title">Pinos Históricos Nesta Camada</span>
+                    <span className="linked-events-title" style={{ color: camadaAtual.cor }}>
+                      <TypewriterHeading text="Pinos Históricos Nesta Camada" triggerKey={`${camadaAtual.id}-${abaAtiva}`} delay={0} />
+                    </span>
                     <div className="linked-events-grid">
-                      {pinosExibidos.map((pino) => (
-                        <button
-                          key={pino.id}
-                          type="button"
-                          className="linked-event-btn"
-                          onClick={() => handleSelecionarPino(pino.id)}
-                        >
-                          <div className="linked-event-info">
-                            <span className="linked-event-year">[{pino.ano}]</span>
-                            <span className="linked-event-name">{pino.nome}</span>
-                          </div>
-                          <span className="linked-event-action-hint">Inspecionar no Globo</span>
-                        </button>
-                      ))}
+                      {pinosExibidos.length === 0 ? (
+                        <div className="linked-events-empty">
+                          Nenhum pino histórico registrado para esta camada.
+                        </div>
+                      ) : (
+                        pinosExibidos.map((pino) => (
+                          <button
+                            key={pino.id}
+                            type="button"
+                            className="linked-event-btn"
+                            onClick={() => handleSelecionarPino(pino.id)}
+                          >
+                            <div className="linked-event-info">
+                              <span className="linked-event-year">[{pino.ano}]</span>
+                              <span className="linked-event-name">{pino.nome}</span>
+                            </div>
+                            <span className="linked-event-action-hint">Inspecionar</span>
+                          </button>
+                        ))
+                      )}
                     </div>
                   </div>
                 </div>

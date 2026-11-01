@@ -6,7 +6,7 @@ export const MISSOES_ORBITAIS = [
     nivel: 1,
     nivelRotulo: 'Nível 1',
     titulo: 'Rastrear Detrito',
-    descricao: 'Inspecione qualquer detrito espacial (ponto vermelho no radar).',
+    descricao: 'Inspecione qualquer detrito espacial marcado em vermelho no radar.',
     tempoSegundos: 30,
     dica: 'Ative o filtro "Detritos Espaciais" ou clique em um ponto vermelho no radar.',
     explicacaoConclusao: 'Detrito identificado: fragmento inerte viajando em alta velocidade sem controle.',
@@ -20,9 +20,9 @@ export const MISSOES_ORBITAIS = [
     nivel: 1,
     nivelRotulo: 'Nível 1',
     titulo: 'Massa Inerte em Órbita',
-    descricao: 'Localize um corpo de foguete descartado (estágio superior).',
+    descricao: 'Localize um corpo de foguete descartado como estágio superior.',
     tempoSegundos: 35,
-    dica: 'Ative o filtro "Corpos de Foguetes" (pontos roxos no radar).',
+    dica: 'Ative o filtro "Corpos de Foguetes" com pontos roxos no radar.',
     explicacaoConclusao: 'Estágio de foguete localizado: massa inerte propensa a fragmentação.',
     verificar: ({ satSelecionado }) => {
       if (!satSelecionado) return false;
@@ -36,7 +36,7 @@ export const MISSOES_ORBITAIS = [
     titulo: 'Satélite Fantasma',
     descricao: 'Encontre um satélite inativo que perdeu comunicação com a Terra.',
     tempoSegundos: 35,
-    dica: 'Use o filtro "Satélites Inativos" (pontos amarelos ou laranjas).',
+    dica: 'Use o filtro "Satélites Inativos" com pontos amarelos ou laranjas.',
     explicacaoConclusao: 'Satélite inativo confirmado: sem capacidade de manobra evasiva.',
     verificar: ({ satSelecionado }) => {
       if (!satSelecionado) return false;
@@ -75,9 +75,9 @@ export const MISSOES_ORBITAIS = [
     nivel: 1,
     nivelRotulo: 'Nível 1',
     titulo: 'Capacidade Máxima',
-    descricao: 'Alterne a amostragem do catálogo para Expandida (10.000).',
+    descricao: 'Alterne a amostragem do catálogo para Expandida com 10.000 objetos.',
     tempoSegundos: 35,
-    dica: 'Clique em "EXPANDIDA (10.000)" no painel esquerdo.',
+    dica: 'Clique em "EXPANDIDA 10.000" no painel esquerdo.',
     explicacaoConclusao: 'Densidade expandida ativada: 10.000 alvos simultâneos renderizados com alta performance.',
     verificar: ({ densidadeCatalogo }) => {
       return densidadeCatalogo === 'completo';
@@ -103,7 +103,7 @@ export const MISSOES_ORBITAIS = [
     nivel: 2,
     nivelRotulo: 'Nível 2',
     titulo: 'Zona Crítica de Kessler',
-    descricao: 'Inspecione um objeto na faixa crítica de Kessler (750 km a 950 km).',
+    descricao: 'Inspecione um objeto na faixa crítica de Kessler entre 750 km e 950 km.',
     tempoSegundos: 60,
     dica: 'Filtre a camada "LEO" e procure objetos logo acima da atmosfera.',
     explicacaoConclusao: 'Altitude crítica verificada: maior densidade de cruzamentos orbitais.',
@@ -118,7 +118,7 @@ export const MISSOES_ORBITAIS = [
     nivel: 2,
     nivelRotulo: 'Nível 2',
     titulo: 'Anel Geoestacionário',
-    descricao: 'Localize um satélite ativo operando na faixa geoestacionária (~35.786 km).',
+    descricao: 'Localize um satélite ativo operando na faixa geoestacionária a ~35.786 km.',
     tempoSegundos: 45,
     dica: 'Ative o filtro de camada "GEO" e o filtro "Satélites Ativos".',
     explicacaoConclusao: 'Satélite geoestacionário: período orbital sincronizado com o dia sideral da Terra.',
@@ -134,7 +134,7 @@ export const MISSOES_ORBITAIS = [
     nivel: 2,
     nivelRotulo: 'Nível 2',
     titulo: 'Cruzador Elíptico',
-    descricao: 'Inspecione um corpo de foguete ou satélite em Órbita Altamente Elíptica (HEO).',
+    descricao: 'Inspecione um corpo de foguete ou satélite em Órbita Altamente Elíptica HEO.',
     tempoSegundos: 45,
     dica: 'Clique na camada "HEO" no painel esquerdo para isolar órbitas alongadas.',
     explicacaoConclusao: 'Órbita elíptica detectada: grande variação entre apogeu e perigeu.',
@@ -149,7 +149,7 @@ export const MISSOES_ORBITAIS = [
     nivel: 2,
     nivelRotulo: 'Nível 2',
     titulo: 'Corredor de Navegação',
-    descricao: 'Localize um satélite na Órbita Média (2.000 km a 35.786 km).',
+    descricao: 'Localize um satélite na Órbita Média entre 2.000 km e 35.786 km.',
     tempoSegundos: 45,
     dica: 'Selecione a camada orbital "MEO" no painel esquerdo.',
     explicacaoConclusao: 'Corredor MEO confirmado: altitude intermediária típica de frotas de navegação.',
@@ -166,7 +166,7 @@ export const MISSOES_ORBITAIS = [
     nivel: 3,
     nivelRotulo: 'Nível 3',
     titulo: 'Soberania Brasileira',
-    descricao: 'Localize qualquer satélite nacional (Amazonia-1, CBERS ou SCD).',
+    descricao: 'Localize qualquer satélite nacional como Amazonia-1, CBERS ou SCD.',
     tempoSegundos: 60,
     dica: 'Pesquise "AMAZONIA", "CBERS" ou "SCD" na busca.',
     explicacaoConclusao: 'Satélite brasileiro identificado: monitoramento ambiental e pioneirismo nacional.',
@@ -211,7 +211,7 @@ export const MISSOES_ORBITAIS = [
     nivel: 3,
     nivelRotulo: 'Nível 3',
     titulo: 'O Mais Antigo no Espaço',
-    descricao: 'Localize o Vanguard 1 (1958), o artefato humano mais antigo ainda em órbita.',
+    descricao: 'Localize o Vanguard 1 de 1958, o artefato humano mais antigo ainda em órbita.',
     tempoSegundos: 75,
     dica: 'Digite "VANGUARD" ou o ID "5" na caixa de pesquisa.',
     explicacaoConclusao: 'Vanguard 1 identificado: relíquia orbital em rota estável há mais de 6 décadas.',
@@ -246,8 +246,13 @@ export const MISSOES_ORBITAIS = [
     tempoSegundos: 45,
     dica: 'Selecione um satélite e clique na aba AUDITORIA.',
     explicacaoConclusao: 'Auditoria SIO consultada: pontuação de sustentabilidade e tempo de decaimento verificados.',
-    verificar: ({ satSelecionado, abaDetalheAtiva }) => {
-      return Boolean(satSelecionado && abaDetalheAtiva === 'auditoria');
+    verificar: ({ satSelecionado, abaDetalheAtiva, satNoradNoInicio, abaNoInicio }) => {
+      if (!satSelecionado || abaDetalheAtiva !== 'auditoria') return false;
+      // Impede auto-completar instantâneo se a missão iniciou já com este mesmo satélite e aba abertos
+      if (abaNoInicio === 'auditoria' && satNoradNoInicio === satSelecionado.norad_id) {
+        return false;
+      }
+      return true;
     }
   },
   {
@@ -259,8 +264,12 @@ export const MISSOES_ORBITAIS = [
     tempoSegundos: 45,
     dica: 'Selecione um satélite e clique na aba REGISTRO.',
     explicacaoConclusao: 'Ficha técnica e telemetria de performance do motor verificadas com sucesso.',
-    verificar: ({ satSelecionado, abaDetalheAtiva }) => {
-      return Boolean(satSelecionado && abaDetalheAtiva === 'registro');
+    verificar: ({ satSelecionado, abaDetalheAtiva, satNoradNoInicio, abaNoInicio }) => {
+      if (!satSelecionado || abaDetalheAtiva !== 'registro') return false;
+      if (abaNoInicio === 'registro' && satNoradNoInicio === satSelecionado.norad_id) {
+        return false;
+      }
+      return true;
     }
   },
   {
@@ -268,7 +277,7 @@ export const MISSOES_ORBITAIS = [
     nivel: 4,
     nivelRotulo: 'Nível 4',
     titulo: 'Alerta de Reentrada',
-    descricao: 'Inspecione qualquer objeto em órbita muito baixa (< 400 km) com alto arrasto.',
+    descricao: 'Inspecione qualquer objeto em órbita muito baixa abaixo de 400 km com alto arrasto.',
     tempoSegundos: 45,
     dica: 'Aproxime o zoom da Terra ou filtre Estações / LEO.',
     explicacaoConclusao: 'Alta desaceleração atmosférica: perda progressiva de altitude rumo à queima natural.',

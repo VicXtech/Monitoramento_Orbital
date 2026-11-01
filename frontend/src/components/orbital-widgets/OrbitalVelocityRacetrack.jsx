@@ -1,14 +1,18 @@
 import React from 'react';
 import { motion } from 'motion/react';
+import TypewriterHeading from '../TypewriterHeading';
 
 export default function OrbitalVelocityRacetrack({ camadaAtual }) {
   if (!camadaAtual?.velocimetro) return null;
 
   const { multiplicador, duracaoSegundos } = camadaAtual.velocimetro;
+  const cor = camadaAtual.cor || '#00f0ff';
 
   return (
     <div className="orbital-widget-box velocity-racetrack">
-      <span className="orbital-widget-heading">Velocidade Comparada</span>
+      <span className="orbital-widget-heading" style={{ color: cor, textAlign: 'center', display: 'block', width: '100%' }}>
+        <TypewriterHeading text="VELOCIDADE COMPARADA" triggerKey={camadaAtual?.id} delay={40} />
+      </span>
 
       <div className="racetrack-lanes">
         {/* Faixa 1: Aviao Comercial */}

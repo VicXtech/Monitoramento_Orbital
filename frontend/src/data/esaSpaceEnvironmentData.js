@@ -20,7 +20,7 @@ export const SERIE_HISTORICA_ESA = [
   {
     ano: 1965,
     rotulo: '1965',
-    evento: 'Início das telecomunicações comerciais (Intelsat I)',
+    evento: 'Início das telecomunicações comerciais com Intelsat I',
     cargasAtivas: 120,
     cargasInativas: 80,
     corposFoguete: 210,
@@ -80,7 +80,7 @@ export const SERIE_HISTORICA_ESA = [
   {
     ano: 2000,
     rotulo: '2000',
-    evento: 'Início da ocupação contínua da Estação Espacial Internacional (ISS)',
+    evento: 'Início da ocupação contínua da Estação Espacial Internacional ISS',
     cargasAtivas: 780,
     cargasInativas: 1480,
     corposFoguete: 1680,
@@ -92,7 +92,7 @@ export const SERIE_HISTORICA_ESA = [
   {
     ano: 2002,
     rotulo: '2002',
-    evento: 'Publicação das diretrizes de mitigação do IADC (regra dos 25 anos)',
+    evento: 'Publicação das diretrizes de mitigação do IADC com a regra dos 25 anos',
     cargasAtivas: 850,
     cargasInativas: 1620,
     corposFoguete: 1750,
@@ -164,7 +164,7 @@ export const SERIE_HISTORICA_ESA = [
   {
     ano: 2024,
     rotulo: '2024',
-    evento: 'Reentrada assistida do satélite europeu Salsa (missão Cluster)',
+    evento: 'Reentrada assistida do satélite europeu Salsa da missão Cluster',
     cargasAtivas: 9200,
     cargasInativas: 3100,
     corposFoguete: 2310,
@@ -205,7 +205,7 @@ export const DISTRIBUICAO_CAMADAS_ESA = {
     nome: 'Órbita Média',
     faixaKm: '2.000 km a 35.500 km',
     proporcaoTotalPct: 2.0,
-    funcaoPrincipal: 'Constelações de navegação global por satélite (GPS, Galileo, GLONASS)',
+    funcaoPrincipal: 'Constelações de navegação global por satélite como GPS, Galileo e GLONASS',
     fenomenoAmbiental: 'Ambiente de baixa densidade espacial cruzado por cinturões de radiação',
     fonte: 'ESA Space Environment Report'
   },
@@ -216,7 +216,7 @@ export const DISTRIBUICAO_CAMADAS_ESA = {
     faixaKm: '35.786 km fixos',
     proporcaoTotalPct: 9.0,
     funcaoPrincipal: 'Telecomunicações e meteorologia com período de 24 horas',
-    fenomenoAmbiental: 'Anel equatorial protegido com zona de descarte em órbita cemitério (+300 km)',
+    fenomenoAmbiental: 'Anel equatorial protegido com zona de descarte em órbita cemitério +300 km',
     fonte: 'ESA Space Environment Report'
   },
   heo: {
@@ -225,7 +225,7 @@ export const DISTRIBUICAO_CAMADAS_ESA = {
     nome: 'Órbita Altamente Elíptica',
     faixaKm: 'Perigeu rasante a apogeu elevado',
     proporcaoTotalPct: 5.0,
-    funcaoPrincipal: 'Cobertura de altas latitudes e órbitas de transferência (GTO)',
+    funcaoPrincipal: 'Cobertura de altas latitudes e órbitas de transferência GTO',
     fenomenoAmbiental: 'Trajetórias alongadas que cruzam múltiplas camadas orbitais',
     fonte: 'ESA Space Environment Report'
   }
@@ -238,7 +238,7 @@ export const EVENTOS_HISTORICOS_ESA = [
     ano: 1996,
     data: '1996-07-24',
     nome: 'Colisão Cerise',
-    objetos: 'Cerise (França) × Estágio Ariane (França)',
+    objetos: 'Cerise - França × Estágio Ariane - França',
     altitudeKm: 675,
     posicao: { lat: 45.0, lon: 15.0, altMetros: 675000 },
     causa: 'Primeira colisão documentada entre satélite operacional e detrito catalogado',
@@ -251,7 +251,7 @@ export const EVENTOS_HISTORICOS_ESA = [
     ano: 2007,
     data: '2007-01-11',
     nome: 'Teste ASAT Fengyun-1C',
-    objetos: 'Fengyun-1C (China) × Projétil Cinético',
+    objetos: 'Fengyun-1C - China × Projétil Cinético',
     altitudeKm: 865,
     posicao: { lat: 35.0, lon: 102.0, altMetros: 865000 },
     causa: 'Destruição deliberada por teste cinético antissatélite',
@@ -264,7 +264,7 @@ export const EVENTOS_HISTORICOS_ESA = [
     ano: 2009,
     data: '2009-02-10',
     nome: 'Colisão Iridium 33 × Cosmos 2251',
-    objetos: 'Iridium 33 (EUA, ativo) × Cosmos 2251 (Rússia, inativo)',
+    objetos: 'Iridium 33 - EUA, ativo × Cosmos 2251 - Rússia, inativo',
     altitudeKm: 789,
     posicao: { lat: 72.5, lon: 97.0, altMetros: 789000 },
     causa: 'Colisão acidental a 11,7 km/s entre satélite operacional e carcaça inativa',
@@ -277,7 +277,7 @@ export const EVENTOS_HISTORICOS_ESA = [
     ano: 2021,
     data: '2021-11-15',
     nome: 'Teste ASAT Cosmos 1408',
-    objetos: 'Cosmos 1408 (Rússia, inativo) × Míssil DA-ASAT',
+    objetos: 'Cosmos 1408 - Rússia, inativo × Míssil DA-ASAT',
     altitudeKm: 480,
     posicao: { lat: 55.0, lon: 45.0, altMetros: 480000 },
     causa: 'Destruição militar de satélite desativado por teste cinético',
@@ -290,7 +290,7 @@ export const EVENTOS_HISTORICOS_ESA = [
     ano: 2024,
     data: '2024-09-08',
     nome: 'Reentrada Guiada do Satélite Salsa',
-    objetos: 'Salsa (Cluster 2 - ESA)',
+    objetos: 'Salsa - Cluster 2 - ESA',
     altitudeKm: 120,
     posicao: { lat: -45.0, lon: -125.0, altMetros: 120000 },
     causa: 'Fim de missão com reentrada direcionada no Pacífico Sul',

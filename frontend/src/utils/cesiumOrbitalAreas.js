@@ -1,4 +1,4 @@
-import { PINOS_HISTORICOS, CAMADAS_ORBITAIS } from '../data/orbitalModeData';
+import { PINOS_HISTORICOS } from '../data/orbitalModeData';
 
 export const RAIO_TERRA_METROS = 6371000;
 
@@ -228,7 +228,12 @@ export function criarMarcadoresEventos3D(viewer) {
     'inpe-brasil-1993': 185,
     'cerise-1996': 260,
     'vanguard-1958': 75,
-    'salsa-cluster-2024': 140
+    'navstar-gps-1978': 195,
+    'galileo-resgate-2014': 315,
+    'mev1-intelsat-2020': 30,
+    'galaxy15-2010': 210,
+    'salsa-cluster-2024': 140,
+    'molniya-1965': 280
   };
 
   PINOS_HISTORICOS.forEach((pino) => {

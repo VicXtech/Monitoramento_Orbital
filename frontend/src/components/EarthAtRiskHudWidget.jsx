@@ -167,7 +167,7 @@ export default function EarthAtRiskHudWidget({
           {/* GEO */}
           <div className="risk-layer-bar-item">
             <div className="risk-layer-info">
-              <span className="risk-layer-name">GEO (~35.786 km)</span>
+              <span className="risk-layer-name">GEO · ~35.786 km</span>
               <span className="risk-layer-pct warning">{pontuacaoGeo}%</span>
             </div>
             <div className="risk-layer-track">
@@ -195,7 +195,7 @@ export default function EarthAtRiskHudWidget({
               onClick={() => onFocarCamada && onFocarCamada('leo_critico')}
             >
               <Crosshair size={13} />
-              <span>LEO (800 km)</span>
+              <span>LEO · 800 km</span>
             </button>
             <button
               type="button"
@@ -203,7 +203,7 @@ export default function EarthAtRiskHudWidget({
               onClick={() => onFocarCamada && onFocarCamada('geo')}
             >
               <Crosshair size={13} />
-              <span>GEO (36.000 km)</span>
+              <span>GEO · 36.000 km</span>
             </button>
             <button
               type="button"
@@ -232,7 +232,7 @@ export default function EarthAtRiskHudWidget({
           </div>
           <div className="risk-legend-row">
             <span className="risk-legend-dot dot-faded" />
-            <span className="risk-legend-text">Ativos (Atenuados)</span>
+            <span className="risk-legend-text">Ativos Atenuados</span>
           </div>
         </div>
 

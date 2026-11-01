@@ -51,7 +51,7 @@ export const CAMADAS_ORBITAIS = [
   },
   {
     id: 'meo',
-    nome: 'Órbita Média (MEO)',
+    nome: 'Órbita Média MEO',
     sigla: 'MEO',
     faixaAltitudeKm: [2000, 35000],
     altitudeMediaKm: 20200,
@@ -63,7 +63,7 @@ export const CAMADAS_ORBITAIS = [
   },
   {
     id: 'geo',
-    nome: 'Geoestacionária (GEO)',
+    nome: 'Geoestacionária GEO',
     sigla: 'GEO',
     faixaAltitudeKm: [35000, 36500],
     altitudeMediaKm: 35786,

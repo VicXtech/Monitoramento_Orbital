@@ -3,14 +3,12 @@ import {
   Globe,
   Search,
   Database,
-  Info,
   X,
   Cpu,
   Zap,
   ChevronRight,
   ChevronLeft,
   Compass,
-  Atom,
   ShieldAlert,
   AlertTriangle,
   Flame,
@@ -21,14 +19,11 @@ import {
   Crosshair,
   Target,
   Orbit,
-  Clock,
   Volume2,
   VolumeOff,
   Home,
-  Radar,
   ShieldCheck,
-  Layers,
-  Radio
+  Layers
 } from 'lucide-react';
 import * as satellite from 'satellite.js';
 import './App.css';
@@ -48,6 +43,46 @@ import {
   destacarCamadaOrbital,
   destacarPinoHistorico
 } from './utils/cesiumOrbitalAreas';
+
+// Definição dos módulos da seção de recursos
+const MODULOS_RECURSOS = [
+  {
+    id: 'rastreamento',
+    num: '01',
+    label: 'Rastreamento 3D',
+    title: 'RASTREAMENTO 3D',
+    badge: 'CONSOLE',
+    icon: Orbit,
+    desc: 'Visualização interativa da Terra em três dimensões com propagação orbital via modelo físico SGP4. Permite filtrar objetos por tipo operacional como ativos, inativos, detritos, corpos de foguete e estações espaciais, localizar qualquer alvo por código NORAD ou nome oficial, e controlar a aceleração do tempo entre 1x e 100x para acompanhar trajetórias e órbitas em tempo real.'
+  },
+  {
+    id: 'dossie',
+    num: '02',
+    label: 'Dossiê e Auditoria',
+    title: 'DOSSIÊ E AUDITORIA',
+    badge: '3 ABAS',
+    icon: Activity,
+    desc: 'Painel analítico detalhado do satélite selecionado dividido em três áreas estruturadas: telemetria em tempo real com altitude, velocidade, inclinação, apogeu e perigeu; ficha técnica de engenharia com país de origem, veículo e data de lançamento; e auditoria com estimativa de decaimento atmosférico, vida útil e risco ambiental.'
+  },
+  {
+    id: 'orbital',
+    num: '03',
+    label: 'Modo Orbital',
+    title: 'MODO ORBITAL',
+    badge: 'SIMULADORES',
+    icon: Layers,
+    desc: 'Ambiente imersivo para exploração das quatro principais camadas ao redor da Terra: LEO, MEO, GEO e HEO. Inclui simuladores integrados para comparar velocidades orbitais e períodos de revolução, analisar zonas de cobertura geográfica sobre a superfície e calcular a latência de transmissão de sinal entre a órbita e a Terra.'
+  },
+  {
+    id: 'missoes',
+    num: '04',
+    label: 'Missões',
+    title: 'MISSÕES',
+    badge: 'DIDÁTICO',
+    icon: Target,
+    desc: 'Trilhas educativas interativas com desafios práticos conduzidos diretamente no globo 3D. Guia o usuário na identificação de detritos de colisões históricas, localização de constelações de comunicação e inspeção de estações orbitais, integrando conceitos fundamentais de mecânica celeste e tráfego espacial.'
+  }
+];
 import { obterPinoHistorico, CAMADAS_ORBITAIS } from './data/orbitalModeData';
 
 // Efeitos sonoros oficiais do sistema
@@ -123,7 +158,9 @@ if (typeof window !== 'undefined' && typeof Audio !== 'undefined') {
     new Audio(somPainelLateral).load();
     new Audio(somTopPainel).load();
     new Audio(somRecarregarAmostragem).load();
-  } catch {}
+  } catch {
+    // Ignora restrições de autoplay do navegador
+  }
 }
 
 // Configuração do host da API (aponta para o backend local ou de produção)
@@ -317,7 +354,7 @@ const SOBRE_PLATAFORMA_SECOES = [
   {
     id: 'fontes',
     title: 'FONTES',
-    text: 'Os dados são extraídos diretamente dos maiores catálogos astronômicos e redes de monitoramento global, como o CelesTrak (parâmetros orbitais diários) e o Space-Track (rastreamento contínuo por sensores e radares internacionais), garantindo transparência científica com informações públicas.'
+    text: 'Os dados são extraídos diretamente dos maiores catálogos astronômicos e redes de monitoramento global, como o CelesTrak com parâmetros orbitais diários e o Space-Track com rastreamento contínuo por sensores e radares internacionais, garantindo transparência científica com informações públicas.'
   }
 ];
 
@@ -356,7 +393,6 @@ function App() {
   const objetoFocadoRef = useRef(null);
   const workerRef = useRef(null);
   const satelitesIndicesRef = useRef([]);
-  const entitiesRef = useRef(new Map());
   const entidadeFocadaRef = useRef(null);
   const orbitaEntidadeRef = useRef(null);
   const satHoverIdRef = useRef(null);
@@ -386,7 +422,7 @@ function App() {
   // Controle de tempo simulado e Time-Warp
   const [multiplicadorTempo, setMultiplicadorTempo] = useState(1);
   const [tempoAoVivo, setTempoAoVivo] = useState(true);
-  const [relogioSimuladoMs, setRelogioSimuladoMs] = useState(() => Date.now());
+  const relogioUtcSpanRef = useRef(null);
   const simulatedTimeMsRef = useRef(Date.now());
   const multiplicadorTempoRef = useRef(1);
   const tempoAoVivoRef = useRef(true);
@@ -564,7 +600,13 @@ function App() {
   const [visorHeight, setVisorHeight] = useState(null);
   const [emTransicao, setEmTransicao] = useState(false);
   const transicaoTimerRef = useRef(null);
-  const [abaSustentabilidade, setAbaSustentabilidade] = useState('atual'); // 'atual' | 'futuro'
+  useLayoutEffect(() => {
+    if (relogioUtcSpanRef.current) {
+      relogioUtcSpanRef.current.textContent = formatarRelogioSimuladoUtc(simulatedTimeMsRef.current);
+    }
+  }, []);
+
+  const [moduloRecursoAtivo, setModuloRecursoAtivo] = useState(0);
 
   useEffect(() => {
     if (secaoAtiva > 0) {
@@ -889,7 +931,6 @@ function App() {
   const handleResetarModoOrbital = () => {
     setCamadaOrbitalAtiva(null);
     setPinoOrbitalAtivo(null);
-    tocarEfeitoSonoro(somFadeOut, 0.5);
     destacarCamadaOrbital(entidadesAreas3DRef.current, null);
     if (entidadesEventos3DRef.current) {
       entidadesEventos3DRef.current.forEach((ent) => {
@@ -904,12 +945,6 @@ function App() {
     else if (tipo === 'falha') tocarEfeitoSonoro(somFadeOut, 0.65);
     else if (tipo === 'slide') tocarEfeitoSonoro(somTrocaSlide, 0.5);
   }, []);
-
-  const handleAbrirCenarios = () => {
-    tocarEfeitoSonoro(somTopPainel, 0.65);
-    setModalFechando(false);
-    setModalCenariosAberto(true);
-  };
 
   const handleFecharModais = () => {
     setModalFechando(true);
@@ -1158,7 +1193,9 @@ function App() {
     const agoraMs = Date.now();
     ultimoFrameSimulacaoRef.current = performance.now();
     simulatedTimeMsRef.current = agoraMs;
-    setRelogioSimuladoMs(agoraMs);
+    if (relogioUtcSpanRef.current) {
+      relogioUtcSpanRef.current.textContent = formatarRelogioSimuladoUtc(agoraMs);
+    }
     multiplicadorTempoRef.current = 1;
     setMultiplicadorTempo(1);
     tempoAoVivoRef.current = true;
@@ -1364,6 +1401,7 @@ function App() {
     globoEmRotacaoOciosaRef.current = false;
     satSelecionadoRef.current = sat;
     setSatSelecionado(sat);
+    setAbaDetalheAtiva('telemetria');
     setPainelDireitoAberto(true);
 
     if (window.innerWidth < 950) {
@@ -1427,6 +1465,7 @@ function App() {
     satSelecionadoRef.current = null;
     setSatSelecionado(null);
     setParametrosOrbitaisSat(null);
+    setAbaDetalheAtiva('telemetria');
     limparTrilhaOrbital(v);
 
     // Em telas compactas, fecha o painel de telemetria e restaura o painel de dados
@@ -1577,6 +1616,7 @@ function App() {
     viewerInstance.scene.globe.showAtmosphere = true;
     viewerInstance.scene.globe.atmosphereLightIntensity = 1.3;
     viewerInstance.scene.globe.depthTestAgainstTerrain = true;
+    viewerInstance.resolutionScale = Math.min(window.devicePixelRatio || 1.0, 1.5);
 
     // Configurações da câmera: trava a rotação e o foco no centro do planeta
     const ctrl = viewerInstance.scene.screenSpaceCameraController;
@@ -1936,7 +1976,7 @@ function App() {
           bodyDiv.appendChild(criarLinha('CATEGORIA: ', satData.categoria?.nome || 'Satélite', corCat));
 
           if (paramsHover) {
-            bodyDiv.appendChild(criarLinha('ALTITUDE: ', `${paramsHover.altitudeInstantaneaKm.toLocaleString('pt-BR')} km (${paramsHover.regimeCodigo})`, '#38BDF8'));
+            bodyDiv.appendChild(criarLinha('ALTITUDE: ', `${paramsHover.altitudeInstantaneaKm.toLocaleString('pt-BR')} km · ${paramsHover.regimeCodigo}`, '#38BDF8'));
             bodyDiv.appendChild(criarLinha('VELOCIDADE: ', `${paramsHover.velocidadeKmH.toLocaleString('pt-BR')} km/h`));
             bodyDiv.appendChild(criarLinha('PERÍODO: ', `${paramsHover.periodoMinutos} min / volta`));
           }
@@ -2010,7 +2050,9 @@ function App() {
       const intervaloUiMs = multAtual > 1 ? 80 : 250;
       if (agoraRender - ultimoUpdateRelogioUiRef.current >= intervaloUiMs) {
         ultimoUpdateRelogioUiRef.current = agoraRender;
-        setRelogioSimuladoMs(simulatedTimeMsRef.current);
+        if (relogioUtcSpanRef.current) {
+          relogioUtcSpanRef.current.textContent = formatarRelogioSimuladoUtc(simulatedTimeMsRef.current);
+        }
       }
 
       if (
@@ -2118,11 +2160,13 @@ function App() {
           memoriaJs = Math.round(performance.memory.usedJSHeapSize / (1024 * 1024));
         }
 
-        setMetricasPerformance(prev => ({
-          ...prev,
-          fps: Math.min(144, Math.max(1, fpsAtual)),
-          memoriaMb: memoriaJs
-        }));
+        if (satSelecionadoRef.current) {
+          setMetricasPerformance(prev => ({
+            ...prev,
+            fps: Math.min(144, Math.max(1, fpsAtual)),
+            memoriaMb: memoriaJs
+          }));
+        }
       }
     });
 
@@ -2136,6 +2180,17 @@ function App() {
       viewerRef.current = null;
       setViewer(null);
     };
+  }, []);
+
+  // Pausa render loop do Cesium quando a aba do navegador estiver em segundo plano para economia de CPU/bateria
+  useEffect(() => {
+    const handleVisibilidade = () => {
+      if (viewerRef.current && !viewerRef.current.isDestroyed()) {
+        viewerRef.current.useDefaultRenderLoop = !document.hidden;
+      }
+    };
+    document.addEventListener('visibilitychange', handleVisibilidade);
+    return () => document.removeEventListener('visibilitychange', handleVisibilidade);
   }, []);
 
   // Redimensionamento responsivo do Cesium
@@ -2248,7 +2303,7 @@ function App() {
         point._satCategoriaId = catId;
         point._noradId = String(sat.norad_id);
         pointsRef.current.set(String(sat.norad_id), { point, sat, satrec });
-      } catch (err) {
+      } catch {
         // Ignora objeto com TLE instável
       }
     });
@@ -2373,22 +2428,36 @@ function App() {
     };
   };
 
-  const calcularObjetosNoRadar = () => {
-    return objetos.length || 1002;
-  };
+  // Dados do Censo de Detritos por País com cálculo dinâmico a partir do catálogo atual
+  const dadosCensoPaises = useMemo(() => {
+    const totais = obterContadoresCategorias();
+    const totalCat = totais.celestrak_catalogados || 34729;
+    const fator = totalCat / 34729;
 
-  // Totais catalogados de cada regime orbital na base de dados
-  const obterTotaisRegimes = () => {
-    if (estatisticas && estatisticas.distribuicao_regimes) {
-      return estatisticas.distribuicao_regimes;
+    // Valores reais consolidados Space-Track
+    const basePaises = [
+      { pais: 'Estados Unidos', detritos: 5210, inativos: 1180, ativos: 11450 },
+      { pais: 'Rússia / URSS', detritos: 5140, inativos: 1580, ativos: 380 },
+      { pais: 'China', detritos: 4480, inativos: 460, ativos: 1520 },
+      { pais: 'Reino Unido / Europa', detritos: 610, inativos: 390, ativos: 1120 },
+      { pais: 'Brasil', detritos: 0, inativos: 9, ativos: 14 },
+      { pais: 'Outros Países', detritos: 720, inativos: 340, ativos: 1167 }
+    ];
+
+    if (Math.abs(fator - 1) < 0.001) {
+      return basePaises;
     }
-    return {
-      leo: 26180,
-      meo: 637,
-      geo: 1830,
-      heo: 3171
-    };
-  };
+
+    return basePaises.map(item => {
+      if (item.pais === 'Brasil') return item;
+      return {
+        pais: item.pais,
+        detritos: Math.round(item.detritos * fator),
+        inativos: Math.round(item.inativos * fator),
+        ativos: Math.round(item.ativos * fator)
+      };
+    });
+  }, [estatisticas]);
 
   // Contadores dinâmicos de objetos atualmente visíveis/plotados no console para cada categoria
   const contadoresVisiveisCategorias = useMemo(() => {
@@ -2523,7 +2592,7 @@ function App() {
                 className={`cinema-planet-btn cinema-sound-btn ${musicaMutada ? 'muted' : 'active'}`}
                 onClick={handleAlternarMusicaPrincipal}
                 aria-label={musicaMutada ? "Desmutar trilha sonora" : "Mutar trilha sonora"}
-                title={musicaMutada ? "Desmutar trilha sonora (Ativar áudio)" : "Mutar trilha sonora (Silenciar)"}
+                title={musicaMutada ? "Desmutar trilha sonora - Ativar áudio" : "Mutar trilha sonora - Silenciar"}
               >
                 {musicaMutada ? (
                   <VolumeOff size={20} className="cinema-planet-icon cinema-sound-icon muted" />
@@ -2659,90 +2728,116 @@ function App() {
 
                     {secaoVisorExibida === 2 && (
                       <div className="tactical-features-container">
-                        {/* GRADE HORIZONTAL: 4 CARDS MODERNOS ALINHADOS COM O CONSOLE */}
-                        <div className="tactical-features-grid four-cards">
-                          {/* CARD 1: RASTREAMENTO 3D */}
-                          <div className="tactical-feature-card">
-                            <div className="feature-card-header">
-                              <div className="feature-header-left">
-                                <Orbit size={18} className="feature-icon" />
-                                <h3 className="tactical-feature-title">
-                                  <CyberTypewriter
-                                    text="RASTREAMENTO 3D"
-                                    active={secaoVisorExibida === 2}
-                                    delay={60}
-                                    speed={40}
-                                  />
-                                </h3>
-                              </div>
-                              <span className="feature-badge">CONSOLE</span>
-                            </div>
-                            <p className="tactical-feature-desc">
-                              Filtro por categoria, busca por NORAD e aceleração temporal até 100x.
-                            </p>
+                        {/* ESTRUTURA MASTER-DETAIL: 35% LISTA ESQUERDA | 65% VITRINE DIREITA */}
+                        <div className="tactical-resources-master-detail">
+                          {/* COLUNA ESQUERDA: LISTA DE MÓDULOS */}
+                          <div className="tactical-resources-list">
+                            {MODULOS_RECURSOS.map((modulo, idx) => {
+                              const IconeModulo = modulo.icon;
+                              const isAtivo = moduloRecursoAtivo === idx;
+                              return (
+                                <button
+                                  key={modulo.id}
+                                  type="button"
+                                  className={`tactical-resource-nav-item ${isAtivo ? 'active' : ''}`}
+                                  onClick={() => setModuloRecursoAtivo(idx)}
+                                  onMouseEnter={() => setModuloRecursoAtivo(idx)}
+                                >
+                                  <div className="resource-nav-item-left">
+                                    <span className="resource-nav-item-num">{modulo.num}.</span>
+                                    <IconeModulo size={15} className="resource-nav-item-icon" />
+                                    <span className="resource-nav-item-label">{modulo.label}</span>
+                                  </div>
+                                  <ChevronRight size={14} className="resource-nav-item-arrow" />
+                                </button>
+                              );
+                            })}
                           </div>
 
-                          {/* CARD 2: DOSSIÊ E AUDITORIA */}
-                          <div className="tactical-feature-card">
-                            <div className="feature-card-header">
-                              <div className="feature-header-left">
-                                <Activity size={18} className="feature-icon" />
-                                <h3 className="tactical-feature-title">
+                          {/* COLUNA DIREITA: VITRINE DINÂMICA DO MÓDULO */}
+                          <div className="tactical-resources-showcase" key={moduloRecursoAtivo}>
+                            <div className="showcase-header">
+                              <div className="showcase-header-left">
+                                <h3 className="showcase-title">
                                   <CyberTypewriter
-                                    text="DOSSIÊ E AUDITORIA"
+                                    text={MODULOS_RECURSOS[moduloRecursoAtivo].title}
                                     active={secaoVisorExibida === 2}
-                                    delay={180}
-                                    speed={40}
+                                    delay={40}
+                                    speed={30}
                                   />
                                 </h3>
                               </div>
-                              <span className="feature-badge">3 ABAS</span>
+                              <span className="feature-badge">
+                                {MODULOS_RECURSOS[moduloRecursoAtivo].badge}
+                              </span>
                             </div>
-                            <p className="tactical-feature-desc">
-                              Telemetria ao vivo, ficha de lançamento e nota de impacto ambiental.
-                            </p>
-                          </div>
 
-                          {/* CARD 3: MODO ORBITAL */}
-                          <div className="tactical-feature-card">
-                            <div className="feature-card-header">
-                              <div className="feature-header-left">
-                                <Layers size={18} className="feature-icon" />
-                                <h3 className="tactical-feature-title">
-                                  <CyberTypewriter
-                                    text="MODO ORBITAL"
-                                    active={secaoVisorExibida === 2}
-                                    delay={300}
-                                    speed={40}
-                                  />
-                                </h3>
+                            <div className="showcase-body">
+                              <div className="showcase-desc-col">
+                                <p className="showcase-desc">
+                                  {MODULOS_RECURSOS[moduloRecursoAtivo].desc}
+                                </p>
                               </div>
-                              <span className="feature-badge">SIMULADORES</span>
-                            </div>
-                            <p className="tactical-feature-desc">
-                              Inspeção das camadas LEO a HEO com simuladores de velocidade, cobertura e sinal.
-                            </p>
-                          </div>
-
-                          {/* CARD 4: MISSÕES E GUIA */}
-                          <div className="tactical-feature-card">
-                            <div className="feature-card-header">
-                              <div className="feature-header-left">
-                                <Target size={18} className="feature-icon" />
-                                <h3 className="tactical-feature-title">
-                                  <CyberTypewriter
-                                    text="MISSÕES E GUIA"
-                                    active={secaoVisorExibida === 2}
-                                    delay={420}
-                                    speed={40}
-                                  />
-                                </h3>
+                              <div className="showcase-visual-col">
+                                {moduloRecursoAtivo === 0 && (
+                                  <svg viewBox="0 0 160 120" className="showcase-mini-svg" aria-label="Diagrama Rastreamento 3D">
+                                    <circle cx="80" cy="60" r="32" fill="rgba(56, 189, 248, 0.08)" stroke="rgba(56, 189, 248, 0.45)" strokeWidth="1.2" />
+                                    <ellipse cx="80" cy="60" rx="32" ry="11" fill="none" stroke="rgba(56, 189, 248, 0.25)" strokeDasharray="3 3" />
+                                    <ellipse cx="80" cy="60" rx="11" ry="32" fill="none" stroke="rgba(56, 189, 248, 0.25)" strokeDasharray="3 3" />
+                                    <ellipse cx="80" cy="60" rx="58" ry="22" fill="none" stroke="#38BDF8" strokeWidth="1.4" transform="rotate(-24 80 60)" />
+                                    <circle cx="128" cy="42" r="3" fill="#38BDF8" />
+                                    <circle cx="128" cy="42" r="6" fill="none" stroke="rgba(56, 189, 248, 0.55)" strokeWidth="1" />
+                                    <line x1="80" y1="16" x2="80" y2="22" stroke="rgba(248, 250, 252, 0.35)" strokeWidth="1" />
+                                    <line x1="80" y1="98" x2="80" y2="104" stroke="rgba(248, 250, 252, 0.35)" strokeWidth="1" />
+                                    <line x1="36" y1="60" x2="42" y2="60" stroke="rgba(248, 250, 252, 0.35)" strokeWidth="1" />
+                                    <line x1="118" y1="60" x2="124" y2="60" stroke="rgba(248, 250, 252, 0.35)" strokeWidth="1" />
+                                  </svg>
+                                )}
+                                {moduloRecursoAtivo === 1 && (
+                                  <svg viewBox="0 0 160 120" className="showcase-mini-svg" aria-label="Diagrama Dossiê e Auditoria">
+                                    <rect x="20" y="16" width="120" height="88" rx="2" fill="rgba(255, 255, 255, 0.02)" stroke="rgba(56, 189, 248, 0.4)" strokeWidth="1" />
+                                    <line x1="20" y1="36" x2="140" y2="36" stroke="rgba(56, 189, 248, 0.3)" strokeWidth="1" />
+                                    <text x="28" y="29" fill="#38BDF8" fontSize="8" fontFamily="var(--font-mono)">TELEMETRIA AO VIVO</text>
+                                    <circle cx="126" cy="26" r="3.5" fill="none" stroke="#34D399" strokeWidth="1" />
+                                    <circle cx="126" cy="26" r="1.5" fill="#34D399" />
+                                    <rect x="28" y="48" width="58" height="4" rx="1" fill="#38BDF8" />
+                                    <rect x="90" y="48" width="42" height="4" rx="1" fill="rgba(255, 255, 255, 0.08)" />
+                                    <rect x="28" y="62" width="76" height="4" rx="1" fill="#34D399" />
+                                    <rect x="108" y="62" width="24" height="4" rx="1" fill="rgba(255, 255, 255, 0.08)" />
+                                    <rect x="28" y="76" width="46" height="4" rx="1" fill="#E5A93C" />
+                                    <rect x="78" y="76" width="54" height="4" rx="1" fill="rgba(255, 255, 255, 0.08)" />
+                                    <line x1="28" y1="92" x2="72" y2="92" stroke="rgba(255, 255, 255, 0.2)" strokeWidth="1.5" />
+                                  </svg>
+                                )}
+                                {moduloRecursoAtivo === 2 && (
+                                  <svg viewBox="0 0 160 120" className="showcase-mini-svg" aria-label="Diagrama Modo Orbital">
+                                    <circle cx="80" cy="60" r="14" fill="rgba(255, 255, 255, 0.08)" stroke="rgba(255, 255, 255, 0.5)" strokeWidth="1" />
+                                    <ellipse cx="80" cy="60" rx="26" ry="14" fill="none" stroke="#38BDF8" strokeWidth="1.2" />
+                                    <ellipse cx="80" cy="60" rx="42" ry="23" fill="none" stroke="#5B8DEF" strokeWidth="1.2" />
+                                    <ellipse cx="80" cy="60" rx="58" ry="32" fill="none" stroke="#7C69EF" strokeWidth="1.2" />
+                                    <ellipse cx="80" cy="60" rx="72" ry="40" fill="none" stroke="#A864E8" strokeWidth="1.2" strokeDasharray="3 3" />
+                                    <text x="80" y="43" textAnchor="middle" fill="#38BDF8" fontSize="7" fontFamily="var(--font-mono)">LEO</text>
+                                    <text x="80" y="33" textAnchor="middle" fill="#5B8DEF" fontSize="7" fontFamily="var(--font-mono)">MEO</text>
+                                    <text x="80" y="24" textAnchor="middle" fill="#7C69EF" fontSize="7" fontFamily="var(--font-mono)">GEO</text>
+                                    <text x="80" y="15" textAnchor="middle" fill="#A864E8" fontSize="7" fontFamily="var(--font-mono)">HEO</text>
+                                  </svg>
+                                )}
+                                {moduloRecursoAtivo === 3 && (
+                                  <svg viewBox="0 0 160 120" className="showcase-mini-svg" aria-label="Diagrama Missões">
+                                    <circle cx="80" cy="60" r="42" fill="none" stroke="rgba(56, 189, 248, 0.25)" strokeWidth="1" />
+                                    <circle cx="80" cy="60" r="26" fill="none" stroke="rgba(56, 189, 248, 0.45)" strokeWidth="1.2" />
+                                    <circle cx="80" cy="60" r="8" fill="rgba(56, 189, 248, 0.15)" stroke="#38BDF8" strokeWidth="1.2" />
+                                    <line x1="80" y1="12" x2="80" y2="108" stroke="rgba(56, 189, 248, 0.3)" strokeWidth="1" strokeDasharray="2 3" />
+                                    <line x1="32" y1="60" x2="128" y2="60" stroke="rgba(56, 189, 248, 0.3)" strokeWidth="1" strokeDasharray="2 3" />
+                                    <path d="M 54 78 Q 72 45 106 48" fill="none" stroke="#38BDF8" strokeWidth="1.4" strokeDasharray="3 2" />
+                                    <circle cx="54" cy="78" r="3" fill="#38BDF8" />
+                                    <circle cx="80" cy="60" r="3" fill="#34D399" />
+                                    <circle cx="106" cy="48" r="3" fill="#E5A93C" />
+                                    <text x="112" y="44" fill="#E5A93C" fontSize="7" fontFamily="var(--font-mono)">ALVO</text>
+                                  </svg>
+                                )}
                               </div>
-                              <span className="feature-badge">DIDÁTICO</span>
                             </div>
-                            <p className="tactical-feature-desc">
-                              Desafios práticos de exploração no globo e glossário de física espacial.
-                            </p>
                           </div>
                         </div>
 
@@ -2807,234 +2902,232 @@ function App() {
 
                     {secaoVisorExibida === 3 && (
                       <div className="tactical-sustainability-section">
-                        {/* SELETOR DE 2 ABAS */}
-                        <div className="sustainability-tabs-nav" role="tablist">
-                          <button
-                            type="button"
-                            role="tab"
-                            aria-selected={abaSustentabilidade === 'atual'}
-                            className={`sustainability-tab-btn ${abaSustentabilidade === 'atual' ? 'active' : ''}`}
-                            onClick={() => {
-                              tocarEfeitoSonoro(somTrocaSlide, 0.45);
-                              setAbaSustentabilidade('atual');
-                            }}
-                          >
-                            <span>DIAGNÓSTICO ATUAL</span>
-                          </button>
-                          <button
-                            type="button"
-                            role="tab"
-                            aria-selected={abaSustentabilidade === 'futuro'}
-                            className={`sustainability-tab-btn ${abaSustentabilidade === 'futuro' ? 'active' : ''}`}
-                            onClick={() => {
-                              tocarEfeitoSonoro(somTrocaSlide, 0.45);
-                              setAbaSustentabilidade('futuro');
-                            }}
-                          >
-                            <span>O QUE ISSO SIGNIFICA PARA O FUTURO</span>
-                          </button>
+                        {/* ZONA 1: GRID 2x2 DE CAUSA E EFEITO (FUSÃO DAS DUAS ABAS) */}
+                        <div className="sustainability-impact-grid">
+                          {/* CARD 1: COLISÕES EM CASCATA */}
+                          <div className="sustainability-impact-card impact-card-kessler">
+                            <div className="impact-card-head">
+                              <div className="impact-head-left">
+                                <ShieldAlert size={16} className="impact-icon icon-kessler" />
+                                <h4 className="impact-card-title">
+                                  <CyberTypewriter text="COLISÕES EM CASCATA" active={secaoVisorExibida === 3} delay={0} speed={25} />
+                                </h4>
+                              </div>
+                            </div>
+                            <div className="impact-card-row">
+                              <span className="impact-row-tag">CAUSA ORBITAL</span>
+                              <p className="impact-row-text">
+                                Fragmentos a 27.000 km/h geram efeito cascata da Síndrome de Kessler na órbita baixa.
+                              </p>
+                            </div>
+                            <div className="impact-row-divider" />
+                            <div className="impact-card-row">
+                              <span className="impact-row-tag">IMPACTO NO FUTURO</span>
+                              <p className="impact-row-text">
+                                Inutilização de rotas que paralisa o sincronismo GPS em redes elétricas, bancos e aviação, cessando o alerta precoce de desastres climáticos.
+                              </p>
+                            </div>
+                          </div>
+
+                          {/* CARD 2: POLUIÇÃO NA ESTRATOSFERA */}
+                          <div className="sustainability-impact-card impact-card-chemical">
+                            <div className="impact-card-head">
+                              <div className="impact-head-left">
+                                <Wind size={16} className="impact-icon icon-chemical" />
+                                <h4 className="impact-card-title">
+                                  <CyberTypewriter text="POLUIÇÃO NA ESTRATOSFERA" active={secaoVisorExibida === 3} delay={60} speed={25} />
+                                </h4>
+                              </div>
+                            </div>
+                            <div className="impact-card-row">
+                              <span className="impact-row-tag">CAUSA ORBITAL</span>
+                              <p className="impact-row-text">
+                                Queima diária de megaconstelações despeja nanopartículas de óxido de alumínio e lítio na estratosfera.
+                              </p>
+                            </div>
+                            <div className="impact-row-divider" />
+                            <div className="impact-card-row">
+                              <span className="impact-row-tag">IMPACTO NO FUTURO</span>
+                              <p className="impact-row-text">
+                                Catalisador químico que destrói o ozônio estratosférico, altera o albedo terrestre e aumenta a radiação UV sobre a saúde humana e lavouras.
+                              </p>
+                            </div>
+                          </div>
+
+                          {/* CARD 3: QUEDA DE DESTROÇOS */}
+                          <div className="sustainability-impact-card impact-card-reentry">
+                            <div className="impact-card-head">
+                              <div className="impact-head-left">
+                                <Flame size={16} className="impact-icon icon-reentry" />
+                                <h4 className="impact-card-title">
+                                  <CyberTypewriter text="QUEDA DE DESTROÇOS" active={secaoVisorExibida === 3} delay={120} speed={25} />
+                                </h4>
+                              </div>
+                            </div>
+                            <div className="impact-card-row">
+                              <span className="impact-row-tag">CAUSA ORBITAL</span>
+                              <p className="impact-row-text">
+                                Tanques de titânio, baterias e ligas de aço de grande porte resistem ao calor da reentrada.
+                              </p>
+                            </div>
+                            <div className="impact-row-divider" />
+                            <div className="impact-card-row">
+                              <span className="impact-row-tag">IMPACTO NO FUTURO</span>
+                              <p className="impact-row-text">
+                                Milhares de reentradas anuais cruzam rotas de aviação comercial e caem de forma imprevisível sobre zonas povoadas e oceanos.
+                              </p>
+                            </div>
+                          </div>
+
+                          {/* CARD 4: METAIS NA ATMOSFERA */}
+                          <div className="sustainability-impact-card impact-card-magnetic">
+                            <div className="impact-card-head">
+                              <div className="impact-head-left">
+                                <Zap size={16} className="impact-icon icon-magnetic" />
+                                <h4 className="impact-card-title">
+                                  <CyberTypewriter text="METAIS NA ATMOSFERA" active={secaoVisorExibida === 3} delay={180} speed={25} />
+                                </h4>
+                              </div>
+                            </div>
+                            <div className="impact-card-row">
+                              <span className="impact-row-tag">CAUSA ORBITAL</span>
+                              <p className="impact-row-text">
+                                Vaporização contínua de satélites cria uma camada metálica artificial na mesosfera.
+                              </p>
+                            </div>
+                            <div className="impact-row-divider" />
+                            <div className="impact-card-row">
+                              <span className="impact-row-tag">IMPACTO NO FUTURO</span>
+                              <p className="impact-row-text">
+                                Potencial distorção da ionosfera e enfraquecimento das defesas magnéticas naturais da Terra contra tempestades solares.
+                              </p>
+                            </div>
+                          </div>
                         </div>
 
-                        {/* CONTEUDO DA ABA 1: DIAGNÓSTICO ATUAL (4 cards enxutos) */}
-                        {abaSustentabilidade === 'atual' && (
-                          <div className="sustainability-pillars-grid">
-                            <div className="sustainability-card card-kessler">
-                              <div className="s-card-title-group">
-                                <div className="s-icon-box s-icon-kessler">
-                                  <ShieldAlert size={18} />
-                                </div>
-                                <div className="s-title-badge-wrap">
-                                  <h4 className="s-card-title">Risco de Colisão</h4>
-                                  <span className="s-stat-badge badge-kessler">750 A 950 KM</span>
-                                </div>
+                        {/* ZONA 2: DIVISÃO ASSIMÉTRICA (65% CENSO GLOBAL | 35% NORMAS DE MITIGAÇÃO) */}
+                        <div className="sustainability-bottom-grid">
+                          {/* COLUNA ESQUERDA (65%): CENSO DE DETRITOS POR ORIGEM */}
+                          <div className="tactical-table-box">
+                            <div className="tactical-table-header">
+                              <div className="tactical-table-title-group">
+                                <AlertTriangle size={14} className="tactical-table-icon" />
+                                <span>
+                                  <CyberTypewriter text="CENSO DE DETRITOS POR ORIGEM" active={secaoVisorExibida === 3} delay={240} speed={25} />
+                                </span>
                               </div>
-                              <p className="s-card-text">
-                                Fragmentos a 27.000 km/h geram colisões em cascata na órbita baixa.
-                              </p>
+                              <span className="tactical-table-source">CATÁLOGO SPACE-TRACK / NASA ODPO</span>
                             </div>
 
-                            <div className="sustainability-card card-reentry">
-                              <div className="s-card-title-group">
-                                <div className="s-icon-box s-icon-reentry">
-                                  <Flame size={18} />
-                                </div>
-                                <div className="s-title-badge-wrap">
-                                  <h4 className="s-card-title">Queda na Atmosfera</h4>
-                                  <span className="s-stat-badge badge-reentry">10% A 40% SOBREVIVE</span>
-                                </div>
-                              </div>
-                              <p className="s-card-text">
-                                Peças de titânio e aço resistem ao calor e atingem a superfície.
-                              </p>
-                            </div>
+                            {/* TABELA FACTUAL COM 100% DE LARGURA */}
+                            <table className="tactical-table">
+                              <thead>
+                                <tr>
+                                  <th className="th-nation">ORIGEM</th>
+                                  <th className="th-debris"><span className="th-dot dot-debris"></span>DETRITOS</th>
+                                  <th className="th-inactive"><span className="th-dot dot-inactive"></span>INATIVOS</th>
+                                  <th className="th-active"><span className="th-dot dot-active"></span>ATIVOS</th>
+                                </tr>
+                              </thead>
+                              <tbody>
+                                {dadosCensoPaises.map((item, idx) => (
+                                  <tr key={idx}>
+                                    <td className="nation-cell">
+                                      <span>{item.pais}</span>
+                                    </td>
+                                    <td className={`cell-num-debris ${item.detritos === 0 ? 'cell-num-zero' : ''}`}>
+                                      {item.detritos.toLocaleString('pt-BR')}
+                                    </td>
+                                    <td className="cell-num-inactive">
+                                      {item.inativos.toLocaleString('pt-BR')}
+                                    </td>
+                                    <td className={`cell-num-active ${item.ativos > 5000 ? 'cell-num-highlight' : ''}`}>
+                                      {item.ativos.toLocaleString('pt-BR')}
+                                    </td>
+                                  </tr>
+                                ))}
+                              </tbody>
+                            </table>
 
-                            <div className="sustainability-card card-magneto">
-                              <div className="s-card-title-group">
-                                <div className="s-icon-box s-icon-magneto">
-                                  <Atom size={18} />
-                                </div>
-                                <div className="s-title-badge-wrap">
-                                  <h4 className="s-card-title">Poluição Química</h4>
-                                  <span className="s-stat-badge badge-peer-reviewed">ESTUDO PNAS</span>
-                                </div>
+                            {/* FAIXA HORIZONTAL INFERIOR: FRAGMENTOS NÃO CATALOGADOS */}
+                            <div className="census-uncataloged-strip">
+                              {/* BLOCO 1 (ESQUERDA): DESTAQUE NUMÉRICO */}
+                              <div className="uncataloged-strip-col col-stat">
+                                <span className="uncataloged-strip-label">NÃO CATALOGADOS (&lt; 10 CM)</span>
+                                <span className="uncataloged-strip-value">+140 MILHÕES</span>
+                                <span className="uncataloged-strip-sub">Invisíveis aos radares pelo Modelo ESA</span>
                               </div>
-                              <p className="s-card-text">
-                                Queima de satélites despeja óxidos de alumínio e lítio na estratosfera.
-                              </p>
-                            </div>
 
-                            <div className="sustainability-card card-mitigation">
-                              <div className="s-card-title-group">
-                                <div className="s-icon-box s-icon-mitigation">
-                                  <ShieldCheck size={18} />
-                                </div>
-                                <div className="s-title-badge-wrap">
-                                  <h4 className="s-card-title">Normas de Mitigação</h4>
-                                  <span className="s-stat-badge badge-mitigation">FCC / ESA</span>
-                                </div>
+                              {/* BLOCO 2 (CENTRO): CAIXA SUTIL 1 A 10 CM */}
+                              <div className="uncataloged-strip-col col-box">
+                                <span className="uncataloged-box-title">1 a 10 cm ~1.000.000</span>
+                                <p className="uncataloged-box-text">Letalidade total em impacto; impossível manobrar.</p>
                               </div>
-                              <p className="s-card-text">
-                                Desorbitação em até 5 anos e remoção ativa de detritos críticos.
-                              </p>
-                            </div>
-                          </div>
-                        )}
 
-                        {/* CONTEUDO DA ABA 2: O QUE ISSO SIGNIFICA PARA O FUTURO */}
-                        {abaSustentabilidade === 'futuro' && (
-                          <div className="sustainability-future-grid">
-                            <div className="sustainability-future-card earth-impact-ozone">
-                              <div className="future-card-head">
-                                <div className="future-head-left">
-                                  <Wind size={18} className="future-icon icon-ozone" />
-                                  <h4 className="future-card-title">Camada de Ozônio & Clima</h4>
-                                </div>
-                                <span className="future-badge badge-ozone">RADIAÇÃO & ALBEDO</span>
-                              </div>
-                              <span className="future-cause-lbl">Causa: Queima diária de megaconstelações em reentrada</span>
-                              <div className="future-impact-box">
-                                <span className="future-impact-tag">Impacto na Terra</span>
-                                <p className="future-impact-desc">
-                                  O óxido de alumínio atua como catalisador químico que acelera a destruição do ozônio estratosférico e altera o albedo terrestre (a capacidade do ar de refletir calor), criando um novo vetor de mudança climática nas altas camadas e aumentando a incidência de radiação UV nociva à saúde humana e lavouras.
-                                </p>
+                              {/* BLOCO 3 (DIREITA): CAIXA SUTIL 1 MM A 1 CM */}
+                              <div className="uncataloged-strip-col col-box">
+                                <span className="uncataloged-box-title">1 mm a 1 cm ~130.000.000</span>
+                                <p className="uncataloged-box-text">Perfuração contínua de painéis solares e ópticas.</p>
                               </div>
                             </div>
 
-                            <div className="sustainability-future-card earth-impact-services">
-                              <div className="future-card-head">
-                                <div className="future-head-left">
-                                  <Radio size={18} className="future-icon icon-services" />
-                                  <h4 className="future-card-title">Serviços Essenciais & Economia</h4>
-                                </div>
-                                <span className="future-badge badge-services">INFRAESTRUTURA CRÍTICA</span>
-                              </div>
-                              <span className="future-cause-lbl">Causa: Efeito cascata e colisões orbitais (Síndrome de Kessler)</span>
-                              <div className="future-impact-box">
-                                <span className="future-impact-tag">Impacto na Terra</span>
-                                <p className="future-impact-desc">
-                                  A inutilização de rotas orbitais cessa o alerta precoce de furacões e enchentes, paralisa a sincronização atômica do GPS — da qual dependem redes elétricas, transações bancárias internacionais e internet móvel — e interrompe a segurança da navegação aérea e marítima global.
-                                </p>
-                              </div>
-                            </div>
-
-                            <div className="sustainability-future-card earth-impact-reentry">
-                              <div className="future-card-head">
-                                <div className="future-head-left">
-                                  <Flame size={18} className="future-icon icon-reentry" />
-                                  <h4 className="future-card-title">Reentradas no Solo & Aviação</h4>
-                                </div>
-                                <span className="future-badge badge-reentry">DETRITOS BALÍSTICOS</span>
-                              </div>
-                              <span className="future-cause-lbl">Causa: Sobrevivência de componentes maciços ao atrito térmico</span>
-                              <div className="future-impact-box">
-                                <span className="future-impact-tag">Impacto na Terra</span>
-                                <p className="future-impact-desc">
-                                  Com milhares de reentradas por ano, dezenas de toneladas de tanques de titânio, baterias tóxicas e ligas de aço sobrevivem ao atrito térmico, cruzando altitudes de voos comerciais e caindo de forma imprevisível sobre solo povoado e zonas pesqueiras marinhas.
-                                </p>
-                              </div>
-                            </div>
-
-                            <div className="sustainability-future-card earth-impact-magnetic">
-                              <div className="future-card-head">
-                                <div className="future-head-left">
-                                  <Zap size={18} className="future-icon icon-magnetic" />
-                                  <h4 className="future-card-title">Escudo Magnético Natural</h4>
-                                </div>
-                                <span className="future-badge badge-magnetic">POEIRA CONDUTORA (PNAS)</span>
-                              </div>
-                              <span className="future-cause-lbl">Causa: Injeção de nanopartículas metálicas na mesosfera</span>
-                              <div className="future-impact-box">
-                                <span className="future-impact-tag">Impacto na Terra</span>
-                                <p className="future-impact-desc">
-                                  A vaporização diária de satélites cria uma blindagem condutora permanente de nanopartículas metálicas na mesosfera. Pesquisas alertam que essa camada artificial pode distorcer a ionosfera e enfraquecer as defesas naturais da Terra contra tempestades solares destrutivas.
-                                </p>
-                              </div>
-                            </div>
-                          </div>
-                        )}
-
-                        {/* TABELA DE CENSO */}
-                        <div className="tactical-table-box">
-                          <div className="tactical-table-header">
-                            <div className="tactical-table-title-group">
-                              <AlertTriangle size={14} className="tactical-table-icon" />
-                              <span>CENSO DE DETRITOS POR ORIGEM</span>
-                            </div>
-                            <span className="tactical-table-source">CATÁLOGO SPACE-TRACK / NASA ODPO (SNAPSHOT: Q1/2026)</span>
+                            {/* NOTA CONCEITUAL CENTRALIZADA SOBRE A ESCALA DOS DETRITOS */}
+                            <p className="census-uncataloged-note">
+                              Os catálogos públicos rastreiam apenas objetos maiores que 10 cm. O verdadeiro risco reside na nuvem invisível de estilhaços de pintura, escória de combustível sólido e micro-colisões a 28.000 km/h
+                            </p>
                           </div>
 
-                          <table className="tactical-table">
-                            <thead>
-                              <tr>
-                                <th className="th-nation">ORIGEM</th>
-                                <th className="th-debris">DETRITOS</th>
-                                <th className="th-inactive">INATIVOS</th>
-                                <th className="th-active">ATIVOS</th>
-                                <th className="th-risk">NÍVEL DE RISCO</th>
-                              </tr>
-                            </thead>
-                            <tbody>
-                              <tr>
-                                <td className="nation-cell"><span>Rússia</span></td>
-                                <td className="cell-num-debris">4.961</td>
-                                <td className="cell-num-inactive">1.328</td>
-                                <td className="cell-num-active">386</td>
-                                <td><span className="risk-badge risk-extreme"><span className="risk-dot"></span>RISCO EXTREMO (KESSLER)</span></td>
-                              </tr>
-                              <tr>
-                                <td className="nation-cell"><span>Estados Unidos</span></td>
-                                <td className="cell-num-debris">4.686</td>
-                                <td className="cell-num-inactive">853</td>
-                                <td className="cell-num-active cell-num-highlight">12.874</td>
-                                <td><span className="risk-badge risk-critical"><span className="risk-dot"></span>RISCO CRÍTICO (DENSIDADE)</span></td>
-                              </tr>
-                              <tr>
-                                <td className="nation-cell"><span>China</span></td>
-                                <td className="cell-num-debris">4.525</td>
-                                <td className="cell-num-inactive">77</td>
-                                <td className="cell-num-active">1.500</td>
-                                <td><span className="risk-badge risk-moderate"><span className="risk-dot"></span>RISCO ELEVADO</span></td>
-                              </tr>
-                              <tr>
-                                <td className="nation-cell"><span>Reino Unido / Europa</span></td>
-                                <td className="cell-num-debris">539</td>
-                                <td className="cell-num-inactive">189</td>
-                                <td className="cell-num-active">1.033</td>
-                                <td><span className="risk-badge risk-controlled"><span className="risk-dot"></span>RISCO CONTROLADO</span></td>
-                              </tr>
-                              <tr>
-                                <td className="nation-cell"><span>Brasil / Outros</span></td>
-                                <td className="cell-num-debris cell-num-zero">0</td>
-                                <td className="cell-num-inactive">9</td>
-                                <td className="cell-num-active">14</td>
-                                <td><span className="risk-badge risk-low"><span className="risk-dot"></span>SUSTENTÁVEL</span></td>
-                              </tr>
-                            </tbody>
-                          </table>
-                          <div className="tactical-table-footer">
-                            <Info size={14} className="tactical-table-footer-icon" />
-                            <div className="tactical-table-footer-text">
-                              <span className="tactical-table-footer-highlight">CENSO GLOBAL:</span> Totalidade de objetos catalogados em órbita terrestre.
+                          {/* COLUNA DIREITA (35%): MEDIDAS DE MITIGAÇÃO */}
+                          <div className="sustainability-mitigation-card">
+                            <div className="mitigation-card-header">
+                              <div className="mitigation-header-left">
+                                <ShieldCheck size={16} className="mitigation-header-icon" />
+                                <h4 className="mitigation-card-title">
+                                  <CyberTypewriter text="MEDIDAS DE MITIGAÇÃO" active={secaoVisorExibida === 3} delay={300} speed={25} />
+                                </h4>
+                              </div>
+                            </div>
+
+                            <div className="mitigation-items-list">
+                              <div className="mitigation-item">
+                                <div className="mitigation-item-top">
+                                  <span className="mitigation-tag">[FCC / IADC]</span>
+                                  <span className="mitigation-name">Regra de 5 Anos</span>
+                                </div>
+                                <p className="mitigation-desc">
+                                  Desorbitação obrigatória em até 5 anos após o fim da vida útil.
+                                </p>
+                              </div>
+
+                              <div className="mitigation-item">
+                                <div className="mitigation-item-top">
+                                  <span className="mitigation-tag">[IADC]</span>
+                                  <span className="mitigation-name">Passivação de Energia</span>
+                                </div>
+                                <p className="mitigation-desc">
+                                  Esvaziamento de tanques e descarga de baterias para evitar explosões em órbita.
+                                </p>
+                              </div>
+
+                              <div className="mitigation-item">
+                                <div className="mitigation-item-top">
+                                  <span className="mitigation-tag">[ESA ZERO DEBRIS]</span>
+                                  <span className="mitigation-name">Remoção Ativa</span>
+                                </div>
+                                <p className="mitigation-desc">
+                                  Captura robótica de sucatas críticas para limpeza das rotas mais congestionadas.
+                                </p>
+                              </div>
+
+                              <div className="mitigation-item">
+                                <div className="mitigation-item-top">
+                                  <span className="mitigation-tag">[ECO-DESIGN]</span>
+                                  <span className="mitigation-name">Materiais Seguros</span>
+                                </div>
+                                <p className="mitigation-desc">
+                                  Substituição de ligas metálicas tóxicas para reduzir emissões na reentrada.
+                                </p>
+                              </div>
                             </div>
                           </div>
                         </div>
@@ -3088,7 +3181,7 @@ function App() {
                 className={`cinema-planet-btn cinema-sound-btn ${musicaMutada ? 'muted' : 'active'}`}
                 onClick={handleAlternarMusicaPrincipal}
                 aria-label={musicaMutada ? "Desmutar trilha sonora" : "Mutar trilha sonora"}
-                title={musicaMutada ? "Desmutar trilha sonora (Ativar áudio)" : "Mutar trilha sonora (Silenciar)"}
+                title={musicaMutada ? "Desmutar trilha sonora - Ativar áudio" : "Mutar trilha sonora - Silenciar"}
               >
                 {musicaMutada ? (
                   <VolumeOff size={18} className="cinema-planet-icon cinema-sound-icon muted" />
@@ -3266,7 +3359,7 @@ function App() {
                       onClick={() => handleAlternarDensidade('tatica')}
                       title="Amostra Tática: 3.000 objetos calibrados na proporção oficial da ESA"
                     >
-                      <span>TÁTICA (3.000)</span>
+                      <span>TÁTICA 3.000</span>
                     </button>
                     <button
                       type="button"
@@ -3274,7 +3367,7 @@ function App() {
                       onClick={() => handleAlternarDensidade('completo')}
                       title="Amostra Expandida: 10.000 objetos distribuídos na proporção oficial da ESA"
                     >
-                      <span>EXPANDIDA (10.000)</span>
+                      <span>EXPANDIDA 10.000</span>
                     </button>
                   </div>
 
@@ -3309,8 +3402,8 @@ function App() {
                       </button>
                     )}
                     <span className="time-control-divider">|</span>
-                    <span className="time-clock-display">
-                      {formatarRelogioSimuladoUtc(relogioSimuladoMs)}
+                    <span className="time-clock-display" ref={relogioUtcSpanRef}>
+                      --:--:-- UTC
                     </span>
                   </div>
 
@@ -3325,7 +3418,7 @@ function App() {
                       <button
                         key={opcao.valor}
                         type="button"
-                        className={`time-speed-btn ${multiplicadorTempo === opcao.valor ? 'active' : ''}`}
+                        className={`time-speed-btn ${opcao.valor === 0 ? 'pause-btn' : ''} ${multiplicadorTempo === opcao.valor ? 'active' : ''}`}
                         onClick={() => handleSelecionarMultiplicador(opcao.valor)}
                       >
                         <span>{opcao.rotulo}</span>
@@ -3426,7 +3519,7 @@ function App() {
                   <div
                     className="legend-item cat-estacoes permanent-station-badge active"
                     style={{ cursor: 'default' }}
-                    title="As Estações Espaciais Principais (ISS e Tiangong) permanecem fixas e operacionais no cinturão do simulador"
+                    title="As Estações Espaciais Principais ISS e Tiangong permanecem fixas e operacionais no cinturão do simulador"
                   >
                     <div className="legend-info">
                       <span className="category-dot" style={{ backgroundColor: CORES_CATEGORIAS[4] }}></span>
@@ -3442,7 +3535,7 @@ function App() {
                 {/* Divisor Cibernético */}
                 <div className="hud-cyber-divider" />
 
-                {/* DISTRIBUIÇÃO POR REGIME ORBITAL (LEO / MEO / GEO / HEO) - BOTÕES INTERATIVOS */}
+                {/* DISTRIBUIÇÃO POR REGIME ORBITAL - BOTÕES INTERATIVOS */}
                 <div className="legend-section regimes-section">
                   <div className="legend-title" style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
                     <span>Distribuição por Camada</span>
@@ -3461,7 +3554,7 @@ function App() {
                   <div
                     className={`regime-bar-item clickable ${regimeAtivo === 'LEO' ? 'active' : ''}`}
                     onClick={() => handleAlternarRegime('LEO')}
-                    title="Isolar Órbita Baixa (LEO)"
+                    title="Isolar Órbita Baixa LEO"
                   >
                     <div className="regime-bar-info">
                       <span className="regime-tag leo-tag">LEO</span>
@@ -3484,7 +3577,7 @@ function App() {
                   <div
                     className={`regime-bar-item clickable ${regimeAtivo === 'MEO' ? 'active' : ''}`}
                     onClick={() => handleAlternarRegime('MEO')}
-                    title="Isolar Órbita Média (MEO)"
+                    title="Isolar Órbita Média MEO"
                   >
                     <div className="regime-bar-info">
                       <span className="regime-tag meo-tag">MEO</span>
@@ -3507,7 +3600,7 @@ function App() {
                   <div
                     className={`regime-bar-item clickable ${regimeAtivo === 'GEO' ? 'active' : ''}`}
                     onClick={() => handleAlternarRegime('GEO')}
-                    title="Isolar Órbita Geoestacionária (GEO)"
+                    title="Isolar Órbita Geoestacionária GEO"
                   >
                     <div className="regime-bar-info">
                       <span className="regime-tag geo-tag">GEO</span>
@@ -3530,7 +3623,7 @@ function App() {
                   <div
                     className={`regime-bar-item clickable ${regimeAtivo === 'HEO' ? 'active' : ''}`}
                     onClick={() => handleAlternarRegime('HEO')}
-                    title="Isolar Órbita Altamente Elíptica (HEO)"
+                    title="Isolar Órbita Altamente Elíptica HEO"
                   >
                     <div className="regime-bar-info">
                       <span className="regime-tag heo-tag">HEO</span>
@@ -3567,7 +3660,7 @@ function App() {
                 {satSelecionado ? (
                   <button
                     type="button"
-                    className="hud-toggle-btn-inline"
+                    className="hud-toggle-btn-inline panel-close-btn"
                     onClick={() => handleDesfocarCamera(true)}
                     title="Desfocar e resetar câmera"
                   >
@@ -3888,7 +3981,7 @@ function App() {
                     onTocarSom={(tipo) => {
                       if (tipo === 'slide') tocarEfeitoSonoro(somTrocaSlide, 0.45);
                       else if (tipo === 'iniciar') tocarEfeitoSonoro(somIniciar, 0.7);
-                      else if (tipo === 'fechar') tocarEfeitoSonoro(somFadeOut, 0.5);
+                      else if (tipo === 'fechar') tocarEfeitoSonoro(somAbreSlide, 0.55);
                     }}
                   />
                 )}

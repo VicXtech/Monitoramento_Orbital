@@ -18,48 +18,81 @@ export const CAMADAS_ORBITAIS = {
     periodoSub: '14 a 16 voltas diárias',
     subregioes: [
       {
-        nome: 'VLEO (160 - 450 km)',
+        nome: 'VLEO - 160 a 450 km',
         desc: 'Zona das Estações Espaciais e satélites de observação em altíssima resolução.',
         trafego: 'Estações ISS e Tiangong'
       },
       {
-        nome: 'Megaconstelações (500 - 600 km)',
+        nome: 'Megaconstelações - 500 a 600 km',
         desc: 'Frotas de telecomunicações de banda larga em grande escala e alta densidade operacional.',
         trafego: 'Satélites Starlink, OneWeb'
       },
       {
-        nome: 'Heliossíncrona SSO (600 - 900 km)',
+        nome: 'Heliossíncrona SSO - 600 a 900 km',
         desc: 'Passa sempre no mesmo horário solar local para monitoramento climático e florestal.',
         trafego: 'Satélites CBERS-4A, Amazonia-1'
       },
       {
-        nome: 'Zona Crítica (750 - 950 km)',
+        nome: 'Zona Crítica - 750 a 950 km',
         desc: 'Pico histórico de detritos espaciais decorrentes de fragmentações e colisões passadas.',
         trafego: 'Fragmentos de colisões'
       }
     ],
-    termometroAmbiental: [
-      { rotulo: 'Limpeza Natural (Ar)', valor: '5 a 100+ anos', pct: 45, nivel: 'medio', detalhe: 'Depende da altitude' },
-      { rotulo: 'Risco Cascata (Kessler)', valor: 'EXTREMO', pct: 95, nivel: 'critico', detalhe: '84% do lixo espacial' },
-      { rotulo: 'Poluição na Atmosfera', valor: 'ALTA', pct: 85, nivel: 'critico', detalhe: 'Queima diária de metais' }
+    matrizDiagnostico: [
+      {
+        id: 'saturacao',
+        titulo: 'Saturação e Manobras',
+        badge: 'CRÍTICO',
+        nivel: 'critico',
+        destaque: 'Milhares de desvios/ano',
+        pct: 95,
+        detalhe: 'Mega-constelações e a ISS realizam manobras evasivas constantes contra fragmentos.'
+      },
+      {
+        id: 'persistencia',
+        titulo: 'Persistência do Lixo',
+        badge: 'ALTO',
+        nivel: 'medio',
+        destaque: '5 a 100+ anos em órbita',
+        pct: 75,
+        detalhe: 'Abaixo de 500 km cai rápido; acima de 800 km o ar rarefeito mantém detritos por séculos.'
+      },
+      {
+        id: 'energia_colisao',
+        titulo: 'Energia de Colisão',
+        badge: 'CRÍTICO',
+        nivel: 'critico',
+        destaque: 'Choque a ~10–15 km/s',
+        pct: 95,
+        detalhe: 'Um fragmento de 1 cm em órbita cruzada equivale ao impacto de uma granada de mão.'
+      },
+      {
+        id: 'destino_reentrada',
+        titulo: 'Destino na Reentrada',
+        badge: 'CRÍTICO',
+        nivel: 'critico',
+        destaque: 'Vaporização de Metais',
+        pct: 90,
+        detalhe: 'Queima diária de satélites despeja óxido de alumínio e lítio na camada de ozônio.'
+      }
     ],
     matrizImpacto: {
       espaco: {
         titulo: 'NO ESPAÇO',
-        subtitulo: 'Síndrome de Kessler (1978)',
+        subtitulo: 'Síndrome de Kessler',
         desc: 'Colisões a até 14 km/s geram nuvens de estilhaços que ameaçam o acesso humano contínuo ao espaço.',
         consequencia: 'Inutilização de rotas orbitais'
       },
       terra: {
         titulo: 'NO PLANETA TERRA',
-        subtitulo: 'Poluição na Estratosfera (PNAS)',
+        subtitulo: 'Poluição na Estratosfera',
         desc: 'Queima diária de megaconstelações despeja óxidos de alumínio, cobre e lítio que atacam o ozônio.',
         consequencia: 'Dano químico e perda de serviços vitais'
       }
     },
     acoesNormas: [
       { badge: 'FCC 22-103', titulo: 'Regra dos 5 Anos', desc: 'Desorbitagem mandatória em até 5 anos após o término da missão.' },
-      { badge: 'ESA Zero Debris', titulo: 'Remoção Ativa (ADR)', desc: 'Garras robóticas e redes (como ClearSpace-1) para capturar sucatas grandes.' },
+      { badge: 'ESA Zero Debris', titulo: 'Remoção Ativa', desc: 'Garras robóticas e redes como ClearSpace-1 para capturar sucatas grandes.' },
       { badge: 'Engenharia Verde', titulo: 'Satélites Limpos', desc: 'Pesquisa com ligas ecológicas e satélites de madeira para eliminar fumaça tóxica.' }
     ],
     velocimetro: {
@@ -71,19 +104,6 @@ export const CAMADAS_ORBITAIS = {
       tipo: 'polar',
       rotulo: 'Órbita Polar / SSO',
       desc: 'Varredura diária de polo a polo sobre o Brasil.'
-    },
-    corteAtmosfera: {
-      tipo: 'quimica',
-      badgeCurta: 'ATMOSFERA',
-      rotulo: 'Vaporização Química (PNAS)',
-      desc: 'Alumínio e lítio retidos na camada de ozônio.',
-      particulas: ['Óxido de Alumínio', 'Lítio e Cobre']
-    },
-    camaraDensidade: {
-      rotulo: '84% do catálogo',
-      alerta: 'Risco Crítico de Conjunção',
-      nivel: 'critico',
-      particulasCount: 20
     },
     impactoCotidiano: [
       { titulo: 'Monitoramento Florestal', desc: 'Alertas diários de desmatamento pelo INPE.' },
@@ -113,15 +133,48 @@ export const CAMADAS_ORBITAIS = {
         trafego: 'Cinturões Van Allen'
       },
       {
-        nome: 'Corredor GNSS (19.100 - 23.222 km)',
+        nome: 'Corredor GNSS - 19.100 a 23.222 km',
         desc: 'Constelações mundiais de navegação, posicionamento por satélite e sincronismo temporal.',
         trafego: 'Constelações GPS, Galileo, GLONASS, BeiDou'
       }
     ],
-    termometroAmbiental: [
-      { rotulo: 'Limpeza Natural (Ar)', valor: 'Milênios', pct: 95, nivel: 'critico', detalhe: 'Sem ar para frear' },
-      { rotulo: 'Risco Cascata (Kessler)', valor: 'BAIXO', pct: 20, nivel: 'baixo', detalhe: '2% do tráfego global' },
-      { rotulo: 'Poluição na Atmosfera', valor: 'NULA', pct: 5, nivel: 'baixo', detalhe: 'Não reentra na Terra' }
+    matrizDiagnostico: [
+      {
+        id: 'saturacao',
+        titulo: 'Saturação e Manobras',
+        badge: 'BAIXO',
+        nivel: 'baixo',
+        destaque: 'Amplo espaço entre frotas',
+        pct: 20,
+        detalhe: 'Grande volume espacial reduz o risco de abalroamento entre satélites ativos.'
+      },
+      {
+        id: 'persistencia',
+        titulo: 'Persistência do Lixo',
+        badge: 'CRÍTICO',
+        nivel: 'critico',
+        destaque: '> 10.000 anos no espaço',
+        pct: 100,
+        detalhe: 'Vácuo absoluto sem atrito atmosférico; qualquer detrito gerado permanece por milênios.'
+      },
+      {
+        id: 'energia_colisao',
+        titulo: 'Energia de Colisão',
+        badge: 'MODERADO',
+        nivel: 'medio',
+        destaque: 'Planos Cruzados a ~4 km/s',
+        pct: 45,
+        detalhe: 'Baterias e foguetes antigos nos cinturões de radiação podem explodir e cruzar rotas GPS.'
+      },
+      {
+        id: 'destino_reentrada',
+        titulo: 'Destino na Reentrada',
+        badge: 'MODERADO',
+        nivel: 'medio',
+        destaque: 'Órbitas Tampão',
+        pct: 40,
+        detalhe: 'Sem queda natural; satélites desativados são movidos para faixas fora do corredor GNSS.'
+      }
     ],
     matrizImpacto: {
       espaco: {
@@ -151,25 +204,12 @@ export const CAMADAS_ORBITAIS = {
       rotulo: 'Constelação GNSS',
       desc: 'Triangulação de múltiplos feixes sobre a Terra.'
     },
-    corteAtmosfera: {
-      tipo: 'sem_reentrada',
-      badgeCurta: 'CEMITÉRIO',
-      rotulo: 'Sem Reentrada Natural',
-      desc: 'Permanência milenar ou elevação para órbita cemitério.',
-      particulas: ['Sem atrito de ar', 'Permanência secular']
-    },
-    camaraDensidade: {
-      rotulo: '2% do catálogo',
-      alerta: 'Tráfego Disperso e Seguro',
-      nivel: 'baixo',
-      particulasCount: 4
-    },
     impactoCotidiano: [
       { titulo: 'Navegação GPS', desc: 'Posicionamento para trânsito e aviação civil.' },
       { titulo: 'Sincronismo Bancário', desc: 'Validação de horário de transações financeiras.' },
       { titulo: 'Resgate e Emergência', desc: 'Sinal de socorro marítimo e aéreo mundial.' }
     ],
-    pinosRelacionados: ['vanguard-1958']
+    pinosRelacionados: ['vanguard-1958', 'navstar-gps-1978', 'galileo-resgate-2014']
   },
   geo: {
     id: 'geo',
@@ -192,20 +232,53 @@ export const CAMADAS_ORBITAIS = {
         trafego: 'Satélites SGDC, GOES, Meteosat'
       },
       {
-        nome: 'Slots Orbitais (UIT)',
+        nome: 'Slots Orbitais UIT',
         desc: 'Posições equatoriais rigorosamente alocadas pela ONU/UIT para prevenir interferências.',
         trafego: 'Vagas alocadas da UIT'
       },
       {
-        nome: 'Super-GEO (+300 km)',
+        nome: 'Super-GEO +300 km',
         desc: 'Faixa cemitério de descarte definitivo situada acima do anel geoestacionário.',
         trafego: 'Satélites aposentados'
       }
     ],
-    termometroAmbiental: [
-      { rotulo: 'Limpeza Natural (Ar)', valor: 'Eterno', pct: 100, nivel: 'critico', detalhe: 'Impossível cair sozinho' },
-      { rotulo: 'Risco Cascata (Kessler)', valor: 'ALTO', pct: 75, nivel: 'medio', detalhe: 'Vagas orbitais limitadas' },
-      { rotulo: 'Poluição na Atmosfera', valor: 'NULA', pct: 5, nivel: 'baixo', detalhe: 'Descarte em Super-GEO' }
+    matrizDiagnostico: [
+      {
+        id: 'saturacao',
+        titulo: 'Saturação e Manobras',
+        badge: 'ALTO',
+        nivel: 'medio',
+        destaque: 'Anel Único Disputado',
+        pct: 75,
+        detalhe: 'Mais de 550 satélites ativos operam alinhados na mesma faixa estreita sobre o Equador.'
+      },
+      {
+        id: 'persistencia',
+        titulo: 'Persistência do Lixo',
+        badge: 'CRÍTICO',
+        nivel: 'critico',
+        destaque: '> 1 milhão de anos',
+        pct: 100,
+        detalhe: 'Impossível reentrar na atmosfera; objetos abandonados ficam presos eternamente.'
+      },
+      {
+        id: 'energia_colisao',
+        titulo: 'Energia de Colisão',
+        badge: 'ALTO',
+        nivel: 'medio',
+        destaque: 'Risco de Efeito Dominó',
+        pct: 70,
+        detalhe: 'Satélites inativos sem controle derivam pelo anel ameaçando inutilizar vagas comerciais.'
+      },
+      {
+        id: 'destino_reentrada',
+        titulo: 'Destino na Reentrada',
+        badge: 'MODERADO',
+        nivel: 'medio',
+        destaque: 'Cemitério +300 km',
+        pct: 50,
+        detalhe: 'Queima final de combustível eleva a espaçonave para a faixa de descarte Super-GEO.'
+      }
     ],
     matrizImpacto: {
       espaco: {
@@ -222,7 +295,7 @@ export const CAMADAS_ORBITAIS = {
       }
     },
     acoesNormas: [
-      { badge: 'IADC', titulo: 'Órbita Cemitério (+300 km)', desc: 'Reserva mandatória de combustível para elevação final para a faixa cemitério.' },
+      { badge: 'IADC', titulo: 'Órbita Cemitério +300 km', desc: 'Reserva mandatória de combustível para elevação final para a faixa cemitério.' },
       { badge: 'Robótica MEV', titulo: 'Rebocadores Orbitais', desc: 'Veículos robóticos de acoplamento que estendem a operação de satélites em 5 a 10 anos.' }
     ],
     velocimetro: {
@@ -235,25 +308,12 @@ export const CAMADAS_ORBITAIS = {
       rotulo: 'Anel Sincronizado',
       desc: 'Ponto fixo iluminando o mesmo continente.'
     },
-    corteAtmosfera: {
-      tipo: 'sem_reentrada',
-      badgeCurta: 'CEMITÉRIO',
-      rotulo: 'Sem Reentrada Natural',
-      desc: 'Permanência milenar ou elevação para órbita cemitério.',
-      particulas: ['Super-GEO (+300 km)', 'Órbita Cemitério']
-    },
-    camaraDensidade: {
-      rotulo: '9% do catálogo',
-      alerta: 'Faixa Linear Saturada',
-      nivel: 'medio',
-      particulasCount: 8
-    },
     impactoCotidiano: [
       { titulo: 'Monitoramento de Furacões', desc: 'Imagens contínuas de tempestades e clima.' },
       { titulo: 'Comunicações Estratégicas', desc: 'Canais de dados seguros e defesa nacional.' },
       { titulo: 'Transmissão de Mídia', desc: 'Cobertura contínua de TV aberta e rádio.' }
     ],
-    pinosRelacionados: []
+    pinosRelacionados: ['mev1-intelsat-2020', 'galaxy15-2010']
   },
   heo: {
     id: 'heo',
@@ -277,7 +337,7 @@ export const CAMADAS_ORBITAIS = {
       },
       {
         nome: 'Órbitas Molniya e Tundra',
-        desc: 'Alta inclinação (63,4 graus) para comunicação e defesa nas altas latitudes polares.',
+        desc: 'Alta inclinação de 63,4 graus para comunicação e defesa nas altas latitudes polares.',
         trafego: 'Satélites de comunicação polar, defesa e meteorologia'
       },
       {
@@ -286,10 +346,43 @@ export const CAMADAS_ORBITAIS = {
         trafego: 'Satélites científicos Salsa e Cluster'
       }
     ],
-    termometroAmbiental: [
-      { rotulo: 'Limpeza Natural (Ar)', valor: 'Décadas a Séculos', pct: 70, nivel: 'medio', detalhe: 'Só freia no perigeu' },
-      { rotulo: 'Risco Cascata (Kessler)', valor: 'ALTO', pct: 75, nivel: 'medio', detalhe: 'Cruza 3 regimes orbitais' },
-      { rotulo: 'Risco ao Solo / Terra', valor: 'QUEDA DE ESTÁGIOS', pct: 70, nivel: 'medio', detalhe: 'Peças pesadas de titânio' }
+    matrizDiagnostico: [
+      {
+        id: 'saturacao',
+        titulo: 'Saturação e Manobras',
+        badge: 'ALTO',
+        nivel: 'medio',
+        destaque: 'Travessia de 3 Regimes',
+        pct: 75,
+        detalhe: 'A elipse alongada atravessa as faixas de LEO, MEO e GEO duas vezes a cada volta.'
+      },
+      {
+        id: 'persistencia',
+        titulo: 'Persistência do Lixo',
+        badge: 'MODERADO',
+        nivel: 'medio',
+        destaque: 'Décadas a Séculos',
+        pct: 60,
+        detalhe: 'O freio atmosférico atua apenas durante os breves minutos da passagem pelo perigeu.'
+      },
+      {
+        id: 'energia_colisao',
+        titulo: 'Energia de Colisão',
+        badge: 'CRÍTICO',
+        nivel: 'critico',
+        destaque: 'Até 10 km/s no Perigeu',
+        pct: 95,
+        detalhe: 'Estágios de foguetes abandonados em transferência GTO cruzam a órbita baixa em alta velocidade.'
+      },
+      {
+        id: 'destino_reentrada',
+        titulo: 'Destino na Reentrada',
+        badge: 'MODERADO',
+        nivel: 'medio',
+        destaque: 'Queda no Ponto Nemo',
+        pct: 65,
+        detalhe: 'Tanques de titânio e peças densas resistem ao calor e exigem reentrada guiada no oceano.'
+      }
     ],
     matrizImpacto: {
       espaco: {
@@ -306,7 +399,7 @@ export const CAMADAS_ORBITAIS = {
       }
     },
     acoesNormas: [
-      { badge: 'ESA 2024', titulo: 'Reentrada Guiada (Ponto Nemo)', desc: 'Manobras ativas para direcionar o mergulho de satélites para o cemitério oceânico desabitado.' },
+      { badge: 'ESA 2024', titulo: 'Reentrada Guiada no Ponto Nemo', desc: 'Manobras ativas para direcionar o mergulho de satélites para o cemitério oceânico desabitado.' },
       { badge: 'IADC', titulo: 'Passivação e Queima Final', desc: 'Esvaziamento de tanques e queima imediata de descarte do 2º estágio logo após a soltura da carga.' }
     ],
     velocimetro: {
@@ -319,25 +412,12 @@ export const CAMADAS_ORBITAIS = {
       rotulo: 'Órbita Elíptica',
       desc: 'Apogeu lento no norte e perigeu rasante rápido.'
     },
-    corteAtmosfera: {
-      tipo: 'destrocos',
-      badgeCurta: 'OCEANO',
-      rotulo: 'Destroços no Solo / Mar',
-      desc: 'Peças de titânio atingem o oceano no Ponto Nemo.',
-      particulas: ['Titânio e Aço', 'Impacto Ponto Nemo']
-    },
-    camaraDensidade: {
-      rotulo: '5% do catálogo',
-      alerta: 'Cruzamento em Hipervelocidade',
-      nivel: 'elevado',
-      particulasCount: 6
-    },
     impactoCotidiano: [
       { titulo: 'Comunicação Polar', desc: 'Conexão estável em rotas de voo árticas.' },
       { titulo: 'Clima Espacial', desc: 'Monitoramento de radiação e vento solar.' },
       { titulo: 'Pesquisa da Magnetosfera', desc: 'Sensores de plasma no espaço profundo.' }
     ],
-    pinosRelacionados: ['salsa-cluster-2024']
+    pinosRelacionados: ['salsa-cluster-2024', 'molniya-1965']
   }
 };
 
@@ -401,6 +481,56 @@ export const PINOS_HISTORICOS = [
     camadaId: 'meo',
     fatoTecnico: 'Objeto humano mais antigo ainda no espaço; perdeu comunicação em 1964 mas permanecerá em órbita por séculos.',
     licaoSustentabilidade: 'Símbolo da permanência de satélites desprovidos de mecanismos ativos de desorbitagem controlada.'
+  },
+  {
+    id: 'navstar-gps-1978',
+    ano: 1978,
+    nome: 'Lançamento do Navstar 1 - Primeiro Satélite GPS',
+    localNome: 'Corredor GNSS',
+    posicao: { lat: 10.0, lon: -60.0, altKm: 20200 },
+    camadaId: 'meo',
+    fatoTecnico: 'Primeiro satélite da constelação GPS colocado em órbita de 12 horas, inaugurando a era de posicionamento global e relógios atômicos espaciais.',
+    licaoSustentabilidade: 'Estabeleceu a convivência operacional em corredores nobres de navegação que hoje necessitam de órbitas-tampão de descarte.'
+  },
+  {
+    id: 'galileo-resgate-2014',
+    ano: 2014,
+    nome: 'Resgate Orbital dos Satélites Galileo 5 e 6',
+    localNome: 'Cinturões de Radiação',
+    posicao: { lat: -25.0, lon: 15.0, altKm: 17000 },
+    camadaId: 'meo',
+    fatoTecnico: 'Injeção anômala por falha de foguete colocou dois satélites europeus em órbita elíptica incorreta; a ESA manobrou os motores e salvou a carga útil em MEO.',
+    licaoSustentabilidade: 'Demonstrou a resiliência operacional e o perigo de estágios superiores de foguetes abandonados cruzando os cinturões de Van Allen.'
+  },
+  {
+    id: 'mev1-intelsat-2020',
+    ano: 2020,
+    nome: 'Acoplamento Robótico MEV-1 e Intelsat 901',
+    localNome: 'Anel Geoestacionário',
+    posicao: { lat: 0.0, lon: -27.5, altKm: 35786 },
+    camadaId: 'geo',
+    fatoTecnico: 'Primeiro acoplamento comercial da história para extensão de vida útil de satélite em GEO, restaurando as operações do Intelsat 901 por mais 5 anos.',
+    licaoSustentabilidade: 'Comprovou a viabilidade prática da manutenção orbital e reboque ativo de satélites sem combustível direto para a órbita cemitério.'
+  },
+  {
+    id: 'galaxy15-2010',
+    ano: 2010,
+    nome: 'Deriva do Satélite Zumbi Galaxy 15',
+    localNome: 'Anel Geoestacionário',
+    posicao: { lat: 0.0, lon: -133.0, altKm: 35786 },
+    camadaId: 'geo',
+    fatoTecnico: 'Perda total de comando terrestre com a carga útil ligada e transmitindo, derivando à deriva por meses e ameaçando dezenas de slots ativos.',
+    licaoSustentabilidade: 'Impulsionou diretrizes mundiais para desligamento obrigatório de segurança com passivação e corte automático de transmissores.'
+  },
+  {
+    id: 'molniya-1965',
+    ano: 1965,
+    nome: 'Pioneirismo da Órbita Molniya-1',
+    localNome: 'Apogeu Hemisfério Norte',
+    posicao: { lat: 63.4, lon: 90.0, altKm: 39500 },
+    camadaId: 'heo',
+    fatoTecnico: 'Primeiro satélite a utilizar a inclinação crítica de 63,4° para manter apogeu longo sobre as altas latitudes da Sibéria e do Ártico.',
+    licaoSustentabilidade: 'Satélites e estágios descartados em órbitas elípticas cruzam LEO, MEO e GEO a cada órbita, ampliando o risco de colisão em hipervelocidade.'
   }
 ];
 

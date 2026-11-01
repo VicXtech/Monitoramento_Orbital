@@ -161,21 +161,21 @@ export function calcularParametrosOrbitais(satOuLinha1, linha2OuData = null, dat
 
     // 6. Classificação de Regime Orbital
     let regimeCodigo = 'HEO';
-    let regimeNome = 'Órbita Altamente Elíptica (HEO)';
-    let regimeDescricao = 'Trajetória com formato oval ou alongado (GTO, Molniya), alternando passagens rápidas no perigeu e permanência prolongada no apogeu.';
+    let regimeNome = 'Órbita Altamente Elíptica HEO';
+    let regimeDescricao = 'Trajetória com formato oval ou alongado como GTO e Molniya, alternando passagens rápidas no perigeu e permanência prolongada no apogeu.';
 
     if (((periodoMinutos >= 1350 && periodoMinutos <= 1650) || (perigeuKm >= 34000 && apogeuKm <= 50000)) && excentricidade < 0.25) {
       regimeCodigo = 'GEO';
-      regimeNome = 'Órbita Geoestacionária (GEO)';
+      regimeNome = 'Órbita Geoestacionária GEO';
       regimeDescricao = 'Altitude de ~35.786 km ou anel cemitério. O satélite acompanha a rotação da Terra ou deriva no cinturão geoestacionário.';
     } else if (perigeuKm < 2000 && apogeuKm <= 2000 && excentricidade < 0.25) {
       regimeCodigo = 'LEO';
-      regimeNome = 'Órbita Terrestre Baixa (LEO)';
+      regimeNome = 'Órbita Terrestre Baixa LEO';
       regimeDescricao = 'Altitude inferior a 2.000 km. Região de maior concentração operacional e maior densidade de lixo espacial.';
     } else if (perigeuKm >= 2000 && apogeuKm < 35500 && excentricidade < 0.25) {
       regimeCodigo = 'MEO';
-      regimeNome = 'Órbita Terrestre Média (MEO)';
-      regimeDescricao = 'Altitude entre 2.000 km e 35.500 km. Região estratégica utilizada por constelações de posicionamento global (GPS, Galileo, Glonass).';
+      regimeNome = 'Órbita Terrestre Média MEO';
+      regimeDescricao = 'Altitude entre 2.000 km e 35.500 km. Região estratégica utilizada por constelações de posicionamento global como GPS, Galileo e Glonass.';
     }
 
     // 7. Descrição Didática da Inclinação
@@ -188,8 +188,8 @@ export function calcularParametrosOrbitais(satOuLinha1, linha2OuData = null, dat
       classeRotaCurta = 'Polar';
       descricaoInclinacao = 'Cruza os polos Norte e Sul a cada volta, permitindo escanear a superfície do planeta inteiro conforme a Terra gira sob sua rota.';
     } else if (inclinacaoGraus > 95 && inclinacaoGraus <= 105) {
-      classeInclinacao = 'Órbita Heliossíncrona (SSO)';
-      classeRotaCurta = 'Heliossíncrona (SSO)';
+      classeInclinacao = 'Órbita Heliossíncrona SSO';
+      classeRotaCurta = 'Heliossíncrona SSO';
       descricaoInclinacao = 'Trajetória retrógrada cujo plano mantém o mesmo ângulo em relação à luz solar, ideal para satélites de imageamento e monitoramento climático.';
     } else if (inclinacaoGraus > 105) {
       classeInclinacao = 'Órbita Retrógrada';
@@ -211,11 +211,11 @@ export function calcularParametrosOrbitais(satOuLinha1, linha2OuData = null, dat
 
     // 8. Diagnóstico de Arrasto Atmosférico e Estimativa de Vida em Órbita
     let riscoDecaimento = 'Baixo';
-    let estimativaVida = 'Milênios (Permanência Estável)';
+    let estimativaVida = 'Milênios de Permanência Estável';
     let impactoAmbientalReentrada = 'Estável em órbita alta';
 
     if (altitudeInstantaneaKm < 350) {
-      riscoDecaimento = 'Crítico (Reentrada Iminente)';
+      riscoDecaimento = 'Crítico - Reentrada Iminente';
       estimativaVida = 'Semanas a poucos meses';
       impactoAmbientalReentrada = 'Sofre atrito aerodinâmico severo na termosfera. Decai de forma acelerada rumo à incineração.';
     } else if (altitudeInstantaneaKm < 500) {
@@ -225,10 +225,10 @@ export function calcularParametrosOrbitais(satOuLinha1, linha2OuData = null, dat
     } else if (altitudeInstantaneaKm < 650) {
       riscoDecaimento = 'Controlado';
       estimativaVida = '10 a 25 anos';
-      impactoAmbientalReentrada = 'Dentro da diretriz internacional de descarte orbital seguro da ONU (regra dos 25 anos).';
+      impactoAmbientalReentrada = 'Dentro da diretriz internacional de descarte orbital seguro da ONU pela regra dos 25 anos.';
     } else if (altitudeInstantaneaKm < 1000) {
-      riscoDecaimento = 'Permanente (Zona Crítica Kessler)';
-      estimativaVida = 'Séculos (100 a 500 anos)';
+      riscoDecaimento = 'Permanente - Zona Crítica Kessler';
+      estimativaVida = 'Séculos - 100 a 500 anos';
       impactoAmbientalReentrada = 'Altitude onde o ar é rarefeito demais para frear o objeto. Ficará em órbita por séculos sem decair.';
     } else {
       riscoDecaimento = 'Inerte';

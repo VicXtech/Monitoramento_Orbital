@@ -10,14 +10,12 @@ import {
 import { formatLaunchSite, formatRcsSize } from '../utils/satcatDictionaries';
 import { calculateOrbitalAudit } from '../utils/sustainabilityEngine';
 import { obterSatrec } from '../utils/orbitalPhysics';
+import { AutoFitValue } from '../utils/textAutoFit';
 
-// Classifica freio atmosferico em linguagem acessivel
-function formatarFreioAtmosferico(altKm) {
-  const alt = Number(altKm) || 500;
-  if (alt > 1000) return 'Quase Nulo';
-  if (alt > 700) return 'Baixo';
-  if (alt > 450) return 'Moderado';
-  return 'Alto';
+// Remove parenteses de textos vindos de dados externos ou catalogos
+function removerParenteses(str) {
+  if (!str) return str;
+  return String(str).replace(/\s*\([^)]*\)/g, '').trim();
 }
 
 // Descreve formato da rota a partir da excentricidade
@@ -32,7 +30,7 @@ function formatarFormatoRota(excentricidade) {
 function formatarTempoVolta(periodoMinutos) {
   const min = Number(periodoMinutos) || 90;
   const horas = (min / 60).toFixed(1).replace('.0', '');
-  return `${min} min (~${horas}h)`;
+  return `${min} min | ${horas}h`;
 }
 
 // Formata data do satcat evitando datas genericas
@@ -96,14 +94,14 @@ function obterAgrupamentoOrbital(sat) {
   const cospar = sat?.cospar_id || '';
   const catId = Number(sat?.categoria_id);
 
-  if (nome.includes('STARLINK')) return 'Constelação Starlink (SpaceX)';
-  if (nome.includes('ONEWEB')) return 'Constelação OneWeb (Eutelsat)';
+  if (nome.includes('STARLINK')) return 'Constelação Starlink - SpaceX';
+  if (nome.includes('ONEWEB')) return 'Constelação OneWeb - Eutelsat';
   if (nome.includes('IRIDIUM')) return 'Constelação Iridium NEXT';
   if (nome.includes('GLOBALSTAR')) return 'Constelação Globalstar';
   if (nome.includes('GPS') || nome.includes('NAVSTAR')) return 'Constelação GPS / Navstar';
   if (nome.includes('GLONASS')) return 'Constelação GLONASS';
-  if (nome.includes('GALILEO')) return 'Constelação Galileo (União Europeia)';
-  if (nome.includes('BEIDOU')) return 'Constelação BeiDou (China)';
+  if (nome.includes('GALILEO')) return 'Constelação Galileo - União Europeia';
+  if (nome.includes('BEIDOU')) return 'Constelação BeiDou - China';
   if (catId === 3 || nome.includes('DEB')) {
     return `Detrito orbital do evento ${cospar ? cospar.slice(0, 8) : 'catalogado'}`;
   }
@@ -134,6 +132,14 @@ export default function SatelliteDetailTabs({
 }) {
   const [abaAtiva, setAbaAtiva] = useState('telemetria');
   const [telemetriaAoVivo, setTelemetriaAoVivo] = useState(null);
+
+  // Reseta para a aba de telemetria sempre que um novo objeto for inspecionado
+  useEffect(() => {
+    setAbaAtiva('telemetria');
+    if (onMudarAba) {
+      onMudarAba('telemetria');
+    }
+  }, [satSelecionado?.norad_id]);
 
   const handleTrocarAba = (novaAba) => {
     setAbaAtiva(novaAba);
@@ -200,8 +206,6 @@ export default function SatelliteDetailTabs({
   const agrupamentoTexto = obterAgrupamentoOrbital(satSelecionado);
   const temDossieOficial = Boolean(fichaFactual?.contextoMissao || satSelecionado.missao?.descricao);
 
-  const altitudeExibida = telemetriaAoVivo?.altKm ?? parametrosOrbitaisSat?.altitudeInstantaneaKm ?? 500;
-  const freioAtmosferico = formatarFreioAtmosferico(altitudeExibida);
   const formatoRota = formatarFormatoRota(parametrosOrbitaisSat?.excentricidade);
 
   return (
@@ -217,9 +221,15 @@ export default function SatelliteDetailTabs({
       >
         {/* Linha 1: Nome a esquerda e NORAD a direita */}
         <div className="telemetry-id-row">
-          <span className="telemetry-sat-name" title={satSelecionado.nome || 'OBJETO ORBITAL'}>
+          <AutoFitValue
+            base={18}
+            min={12}
+            limiteSeguro={18}
+            className="telemetry-sat-name"
+            title={satSelecionado.nome || 'OBJETO ORBITAL'}
+          >
             {satSelecionado.nome || 'OBJETO ORBITAL'}
-          </span>
+          </AutoFitValue>
           <span className="telemetry-sat-norad">#{satSelecionado.norad_id}</span>
         </div>
 
@@ -304,9 +314,14 @@ export default function SatelliteDetailTabs({
                 <div className="telemetry-metrics-grid">
                   <div className="telemetry-metric-box highlight-box">
                     <span className="metric-box-label">ALTITUDE</span>
-                    <span className="metric-box-val val-cyan">
+                    <AutoFitValue
+                      base={16}
+                      min={10}
+                      limiteSeguro={10}
+                      className="metric-box-val val-cyan"
+                    >
                       {(telemetriaAoVivo?.altKm ?? parametrosOrbitaisSat.altitudeInstantaneaKm).toLocaleString('pt-BR')} km
-                    </span>
+                    </AutoFitValue>
                     <span className="metric-box-sub">
                       {parametrosOrbitaisSat.regimeCodigo}
                     </span>
@@ -314,9 +329,14 @@ export default function SatelliteDetailTabs({
 
                   <div className="telemetry-metric-box highlight-box">
                     <span className="metric-box-label">VELOCIDADE</span>
-                    <span className="metric-box-val val-cyan">
+                    <AutoFitValue
+                      base={16}
+                      min={10}
+                      limiteSeguro={10}
+                      className="metric-box-val val-cyan"
+                    >
                       {telemetriaAoVivo?.velKmS ?? parametrosOrbitaisSat.velocidadeKmS} km/s
-                    </span>
+                    </AutoFitValue>
                     <span className="metric-box-sub">
                       {(telemetriaAoVivo?.velKmH ?? parametrosOrbitaisSat.velocidadeKmH).toLocaleString('pt-BR')} km/h
                     </span>
@@ -324,10 +344,15 @@ export default function SatelliteDetailTabs({
 
                   {/* Card em 100% da largura logo abaixo de Altitude e Velocidade */}
                   <div className="telemetry-metric-box full-width">
-                    <span className="metric-box-label">SOBREVOANDO AGORA (LAT / LON)</span>
-                    <span className="metric-box-val val-coordinates">
+                    <span className="metric-box-label">SOBREVOANDO AGORA</span>
+                    <AutoFitValue
+                      base={13}
+                      min={9.5}
+                      limiteSeguro={26}
+                      className="metric-box-val val-coordinates"
+                    >
                       Lat: {telemetriaAoVivo?.lat ?? '---'}° | Lon: {telemetriaAoVivo?.lon ?? '---'}°
-                    </span>
+                    </AutoFitValue>
                     <span className="metric-box-sub">Ponto da Terra diretamente abaixo do objeto</span>
                   </div>
                 </div>
@@ -341,54 +366,97 @@ export default function SatelliteDetailTabs({
                 <div className="telemetry-metrics-grid">
                   <div className="telemetry-metric-box">
                     <span className="metric-box-label">ALTITUDE MÁX. / MÍN.</span>
-                    <span className="metric-box-val compact-val">
+                    <AutoFitValue
+                      base={14}
+                      min={9}
+                      limiteSeguro={12}
+                      className="metric-box-val compact-val"
+                    >
                       {parametrosOrbitaisSat.apogeuKm.toLocaleString('pt-BR')} / {parametrosOrbitaisSat.perigeuKm.toLocaleString('pt-BR')} km
-                    </span>
-                    <span className="metric-box-sub">Apogeu (máx) e Perigeu (mín)</span>
+                    </AutoFitValue>
+                    <AutoFitValue
+                      base={11}
+                      min={8.5}
+                      limiteSeguro={22}
+                      className="metric-box-sub"
+                    >
+                      Apogeu e Perigeu
+                    </AutoFitValue>
                   </div>
 
                   <div className="telemetry-metric-box">
                     <span className="metric-box-label">INCLINAÇÃO</span>
-                    <span className="metric-box-val compact-val">
+                    <AutoFitValue
+                      base={14}
+                      min={9}
+                      limiteSeguro={12}
+                      className="metric-box-val compact-val"
+                    >
                       {parametrosOrbitaisSat.inclinacaoGraus.toFixed(1)}°
-                    </span>
-                    <span className="metric-box-sub">{parametrosOrbitaisSat.classeRotaCurta}</span>
+                    </AutoFitValue>
+                    <AutoFitValue
+                      base={11}
+                      min={8.5}
+                      limiteSeguro={18}
+                      className="metric-box-sub"
+                    >
+                      {parametrosOrbitaisSat.classeRotaCurta}
+                    </AutoFitValue>
                   </div>
 
                   <div className="telemetry-metric-box">
                     <span className="metric-box-label">FORMATO DA ROTA</span>
-                    <span className="metric-box-val compact-val val-cyan">
+                    <AutoFitValue
+                      base={14}
+                      min={9}
+                      limiteSeguro={12}
+                      className="metric-box-val compact-val val-cyan"
+                    >
                       {formatoRota}
-                    </span>
-                    <span className="metric-box-sub">
-                      (Excentricidade: {parametrosOrbitaisSat.excentricidade.toFixed(4)})
-                    </span>
+                    </AutoFitValue>
+                    <AutoFitValue
+                      base={11}
+                      min={8.5}
+                      limiteSeguro={20}
+                      className="metric-box-sub"
+                    >
+                      Excentricidade: {parametrosOrbitaisSat.excentricidade.toFixed(4)}
+                    </AutoFitValue>
                   </div>
 
                   <div className="telemetry-metric-box">
                     <span className="metric-box-label">TEMPO DE 1 VOLTA</span>
-                    <span className="metric-box-val compact-val">
+                    <AutoFitValue
+                      base={14}
+                      min={9}
+                      limiteSeguro={12}
+                      className="metric-box-val compact-val"
+                    >
                       {formatarTempoVolta(parametrosOrbitaisSat.periodoMinutos)}
-                    </span>
-                    <span className="metric-box-sub">
+                    </AutoFitValue>
+                    <AutoFitValue
+                      base={11}
+                      min={8.5}
+                      limiteSeguro={20}
+                      className="metric-box-sub"
+                    >
                       Completa {parametrosOrbitaisSat.voltasPorDia} voltas/dia
-                    </span>
+                    </AutoFitValue>
                   </div>
                 </div>
 
-                {/* BLOCO 3: FREIO ATMOSFERICO E ULTIMA ATUALIZACAO */}
+                {/* BLOCO 3: FONTE DOS DADOS */}
                 <div className="telemetry-footer-card">
                   <div className="telemetry-footer-row">
-                    <span className="footer-label">Freio Atmosférico (Atrito):</span>
-                    <span className="footer-value val-accent">{freioAtmosferico}</span>
-                  </div>
-                  <div className="telemetry-footer-row">
-                    <span className="footer-label">Última atualização do radar:</span>
-                    <span className="footer-value">
-                      {satSelecionado.ultimo_tle?.epoch
-                        ? new Date(satSelecionado.ultimo_tle.epoch).toLocaleDateString('pt-BR')
-                        : 'Atualizada no catálogo'}
-                    </span>
+                    <span className="footer-label">Fonte dos dados:</span>
+                    <AutoFitValue
+                      base={11}
+                      min={8.5}
+                      limiteSeguro={26}
+                      className="footer-value"
+                    >
+                      CelesTrak · Propagação SGP4
+                    </AutoFitValue>
                   </div>
                 </div>
               </>
@@ -406,35 +474,66 @@ export default function SatelliteDetailTabs({
             <div className="fiche-grid">
               <div className="grid-cell">
                 <span className="cell-label">Operador / País</span>
-                <span className="cell-value" title={satSelecionado.pais || 'Internacional'}>
-                  {satSelecionado.pais || 'Internacional'}
-                </span>
+                <AutoFitValue
+                  base={13}
+                  min={9.5}
+                  limiteSeguro={18}
+                  className="cell-value"
+                  title={removerParenteses(satSelecionado.pais || satSelecionado.operador_pais || 'Internacional')}
+                >
+                  {removerParenteses(satSelecionado.pais || satSelecionado.operador_pais || 'Internacional')}
+                </AutoFitValue>
               </div>
 
               <div className="grid-cell">
-                <span className="cell-label">CÓDIGO DA MISSÃO (COSPAR)</span>
-                <span className="cell-value" title={satSelecionado.cospar_id || 'Não catalogado'}>
+                <span className="cell-label">CÓDIGO DA MISSÃO</span>
+                <AutoFitValue
+                  base={13}
+                  min={9.5}
+                  limiteSeguro={18}
+                  className="cell-value"
+                  title={satSelecionado.cospar_id || 'Não catalogado'}
+                >
                   {satSelecionado.cospar_id || 'Não catalogado'}
-                </span>
+                </AutoFitValue>
               </div>
 
               <div className="grid-cell">
                 <span className="cell-label">Lançamento</span>
-                <span className="cell-value">{dataLancamentoFormatada}</span>
+                <AutoFitValue
+                  base={13}
+                  min={9.5}
+                  limiteSeguro={18}
+                  className="cell-value"
+                >
+                  {dataLancamentoFormatada}
+                </AutoFitValue>
               </div>
 
               <div className="grid-cell">
-                <span className="cell-label">PORTE DO OBJETO (RADAR)</span>
-                <span className="cell-value" title={rcsInfo.desc}>
+                <span className="cell-label">PORTE DO OBJETO</span>
+                <AutoFitValue
+                  base={13}
+                  min={9.5}
+                  limiteSeguro={20}
+                  className="cell-value"
+                  title={removerParenteses(rcsInfo.desc)}
+                >
                   {rcsInfo.label}
-                </span>
+                </AutoFitValue>
               </div>
 
               <div className="grid-cell full-width">
                 <span className="cell-label">Base de Lançamento</span>
-                <span className="cell-value" title={baseLancamento}>
+                <AutoFitValue
+                  base={13}
+                  min={9.5}
+                  limiteSeguro={28}
+                  className="cell-value"
+                  title={baseLancamento}
+                >
                   {baseLancamento}
-                </span>
+                </AutoFitValue>
               </div>
             </div>
 
@@ -548,7 +647,7 @@ export default function SatelliteDetailTabs({
             {/* SCORE SIO */}
             <div className="impact-meter-card">
               <div className="impact-meter-top">
-                <div className="impact-meter-label">SCORE DE IMPACTO ORBITAL (SIO)</div>
+                <div className="impact-meter-label">SCORE DE IMPACTO ORBITAL SIO</div>
                 <div className="impact-meter-score">
                   <span className="score-val" style={{ color: auditoriaSio.overallRating.cor }}>
                     {auditoriaSio.score}
@@ -584,8 +683,8 @@ export default function SatelliteDetailTabs({
               {auditoriaSio.breakdown.map((fator) => (
                 <div key={fator.id} className="audit-factor-item">
                   <div className="audit-factor-top">
-                    <span className="audit-factor-label">{fator.label}</span>
-                    <span className={`factor-badge ${fator.classe}`}>{fator.level}</span>
+                    <span className="audit-factor-label">{removerParenteses(fator.label)}</span>
+                    <span className={`factor-badge ${fator.classe}`}>{removerParenteses(fator.level)}</span>
                   </div>
                   <div className="audit-factor-bar-track">
                     <div
@@ -597,7 +696,7 @@ export default function SatelliteDetailTabs({
                     />
                   </div>
                   <div className="audit-factor-explanation">
-                    {fator.explicacao}
+                    {removerParenteses(fator.explicacao)}
                   </div>
                 </div>
               ))}
@@ -610,9 +709,9 @@ export default function SatelliteDetailTabs({
               key={`${satSelecionado?.norad_id}-destino`}
             />
             <div className="normative-framework-card">
-              <div className="normative-row">
-                <span className="normative-label">Tempo de queda natural:</span>
-                <span className="normative-badge-value">{auditoriaSio.decayEstimate}</span>
+              <div className="normative-decay-section">
+                <span className="normative-decay-title">Tempo de queda natural</span>
+                <span className="normative-decay-value">{removerParenteses(auditoriaSio.decayEstimate)}</span>
               </div>
 
               <div className="normative-destinations-title">Fim de Vida</div>

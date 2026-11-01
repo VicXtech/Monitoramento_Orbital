@@ -188,7 +188,7 @@ export function obterDossieEstagio(estagioId, sat, parametros) {
       return {
         id: ESTAGIOS_CICLO_VIDA.CEMITERIO,
         titulo: 'Órbita Cemitério',
-        descricaoGeral: 'Elevação de altitude (+300 km) para desocupar o cinturão geoestacionário.',
+        descricaoGeral: 'Elevação de altitude +300 km para desocupar o cinturão geoestacionário.',
         situacaoDesteObjeto: apogeu > 34000
           ? `Regime GEO: descarte obrigatório em órbita cemitério supersíncrona.`
           : `Não aplicável para órbitas baixas ou médias.`,

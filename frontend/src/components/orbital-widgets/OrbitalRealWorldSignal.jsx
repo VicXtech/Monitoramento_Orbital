@@ -1,6 +1,5 @@
 import React from 'react';
 import { motion } from 'motion/react';
-import { Radio } from 'lucide-react';
 
 export default function OrbitalRealWorldSignal({ camadaAtual }) {
   if (!camadaAtual?.impactoCotidiano || camadaAtual.impactoCotidiano.length === 0) return null;
@@ -10,11 +9,7 @@ export default function OrbitalRealWorldSignal({ camadaAtual }) {
   return (
     <div className="orbital-widget-box real-world-signal">
       <div className="signal-header">
-        <span className="orbital-widget-heading">Impacto no Cotidiano</span>
-        <div className="signal-source-badge">
-          <Radio size={11} style={{ color: cor }} />
-          <span>Sinal Orbital Ativo</span>
-        </div>
+        <span className="orbital-widget-heading" style={{ color: cor }}>Impacto no Cotidiano</span>
       </div>
 
       <div className="signal-nodes-container">

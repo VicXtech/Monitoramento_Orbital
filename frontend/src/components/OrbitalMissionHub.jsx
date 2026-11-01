@@ -1,5 +1,5 @@
 import { useState, useEffect, useRef, useCallback } from 'react';
-import { MISSOES_ORBITAIS, sortearProximaMissao } from '../utils/orbitalMissions';
+import { sortearProximaMissao } from '../utils/orbitalMissions';
 
 export default function OrbitalMissionHub({
   ativo = true,
@@ -32,6 +32,7 @@ export default function OrbitalMissionHub({
   const timerSucessoRef = useRef(null);
   const timerExpiradoRef = useRef(null);
   const spawnAgendadoRef = useRef(false);
+  const estadoNoInicioRef = useRef({ satNorad: null, aba: null });
 
   // Inicia uma nova missao
   const iniciarMissao = useCallback((novaMissao) => {
@@ -40,11 +41,16 @@ export default function OrbitalMissionHub({
     if (timerSucessoRef.current) clearTimeout(timerSucessoRef.current);
     if (timerExpiradoRef.current) clearTimeout(timerExpiradoRef.current);
 
+    estadoNoInicioRef.current = {
+      satNorad: satSelecionado?.norad_id,
+      aba: abaDetalheAtiva
+    };
+
     setMissaoAtual(novaMissao);
     setTempoRestante(novaMissao.tempoSegundos || 45);
     setEstadoFase('ACTIVE');
     setEmCooldown(false);
-  }, []);
+  }, [satSelecionado?.norad_id, abaDetalheAtiva]);
 
   // Entra em estado de cooldown e agenda o proximo spawn silencioso
   const entrarEmCooldown = useCallback(() => {
@@ -99,14 +105,6 @@ export default function OrbitalMissionHub({
     iniciarMissao(prox);
   };
 
-  // Repete a mesma missao apos expirar
-  const handleRepetir = (e) => {
-    if (e) e.stopPropagation();
-    if (timerExpiradoRef.current) clearTimeout(timerExpiradoRef.current);
-    onTocarSomRef.current?.('slide');
-    iniciarMissao(missaoAtual);
-  };
-
   // Botao de fechar recolhe o painel e entra em cooldown
   const handleFechar = (e) => {
     if (e) e.stopPropagation();
@@ -155,7 +153,9 @@ export default function OrbitalMissionHub({
       regimeAtivo,
       abaDetalheAtiva,
       modoOrbitalAtivo,
-      pinoOrbitalAtivo
+      pinoOrbitalAtivo,
+      satNoradNoInicio: estadoNoInicioRef.current.satNorad,
+      abaNoInicio: estadoNoInicioRef.current.aba
     });
 
     if (vitoria) {
@@ -293,22 +293,6 @@ export default function OrbitalMissionHub({
           <div className="hub-feedback-fail">
             <span className="feedback-bold">TEMPO ESGOTADO</span>
             <span className="feedback-sub">{missaoAtual.dica}</span>
-            <div className="hub-fail-actions">
-              <button
-                type="button"
-                className="hub-btn-retry"
-                onClick={handleRepetir}
-              >
-                Repetir
-              </button>
-              <button
-                type="button"
-                className="hub-btn-next"
-                onClick={handleFechar}
-              >
-                Fechar
-              </button>
-            </div>
           </div>
         )}
       </div>

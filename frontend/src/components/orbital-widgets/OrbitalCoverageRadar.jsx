@@ -1,18 +1,18 @@
 import React from 'react';
 import { motion } from 'motion/react';
+import TypewriterHeading from '../TypewriterHeading';
 
 export default function OrbitalCoverageRadar({ camadaAtual }) {
   if (!camadaAtual?.radarCobertura) return null;
 
-  const { tipo, rotulo, desc } = camadaAtual.radarCobertura;
+  const { tipo, desc } = camadaAtual.radarCobertura;
   const cor = camadaAtual.cor || '#00f0ff';
 
   return (
     <div className="orbital-widget-box coverage-radar">
-      <div className="coverage-header">
-        <span className="orbital-widget-heading">Geometria e Cobertura</span>
-        <span className="coverage-type-badge" style={{ borderColor: `${cor}60`, color: cor }}>
-          {rotulo}
+      <div className="coverage-header" style={{ justifyContent: 'center' }}>
+        <span className="orbital-widget-heading" style={{ color: cor, textAlign: 'center', width: '100%' }}>
+          <TypewriterHeading text="GEOMETRIA E COBERTURA" triggerKey={camadaAtual?.id} delay={0} />
         </span>
       </div>
       <p className="coverage-desc">{desc}</p>

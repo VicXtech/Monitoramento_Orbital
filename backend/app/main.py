@@ -6,6 +6,7 @@ from datetime import datetime, timedelta
 from typing import List, Optional
 from fastapi import FastAPI, Depends, HTTPException, Query
 from fastapi.middleware.cors import CORSMiddleware
+from fastapi.middleware.gzip import GZipMiddleware
 from sqlalchemy import func, text, cast, Date as SQLDate, case
 from sqlalchemy.orm import Session, selectinload
 from apscheduler.schedulers.background import BackgroundScheduler
@@ -165,6 +166,9 @@ app = FastAPI(
     redoc_url="/redoc",
     lifespan=lifespan
 )
+
+# Compressão GZip para respostas volumosas (ex: catálogo de satélites TLE)
+app.add_middleware(GZipMiddleware, minimum_size=1000)
 
 # Configuração de CORS para permitir requisições do frontend React
 app.add_middleware(
@@ -482,47 +486,6 @@ def listar_modulos_estacao(norad_id: str, db: Session = Depends(get_db)):
         raise HTTPException(status_code=500, detail="Erro interno ao consultar módulos da estação")
 
 
-@app.get("/api/objetos/{norad_id}", response_model=schemas.ObjetoOrbitalResponse)
-def obter_objeto_detalhe(norad_id: str, db: Session = Depends(get_db)):
-    """Retorna detalhes de um objeto específico por NORAD ID, enriquecendo via SATCAT se necessário."""
-    try:
-        subq = db.query(
-            TLEHistorico.objeto_id,
-            func.max(TLEHistorico.id).label("max_id")
-        ).group_by(TLEHistorico.objeto_id).subquery()
-
-        row = db.query(ObjetoOrbital, TLEHistorico).outerjoin(
-            subq, ObjetoOrbital.id == subq.c.objeto_id
-        ).outerjoin(
-            TLEHistorico,
-            TLEHistorico.id == subq.c.max_id
-        ).options(
-            selectinload(ObjetoOrbital.missao),
-            selectinload(ObjetoOrbital.categoria)
-        ).filter(ObjetoOrbital.norad_id == str(norad_id).strip()).first()
-
-        if not row:
-            raise HTTPException(status_code=404, detail="Objeto orbital não encontrado")
-
-        obj, tle = row
-
-        # Se não possui cosmódromo ou data precisa, enriquece via SATCAT
-        if obj.local_lancamento is None:
-            try:
-                conector.obter_satcat_individual(obj.norad_id, db)
-                db.refresh(obj)
-            except Exception:
-                pass
-
-        obj.ultimo_tle = tle
-        return obj
-    except HTTPException:
-        raise
-    except Exception as e:
-        logger.error(f"LOG: Erro ao consultar detalhes do objeto {norad_id}: {e}")
-        raise HTTPException(status_code=500, detail="Erro interno ao buscar objeto")
-
-
 @app.get("/api/estatisticas", response_model=schemas.EstatisticasResponse)
 def obter_estatisticas(db: Session = Depends(get_db)):
     """
@@ -618,7 +581,7 @@ def obter_estatisticas(db: Session = Depends(get_db)):
         estacoes_em_orbita = 2  # As 2 estações espaciais principais permanentes (ISS e Tiangong)
         foguetes_em_orbita = contagens_cat.get(5, 2283)
 
-        total_console = ativos_em_orbita + inativos_em_orbita + foguetes_em_orbita + detritos_em_orbita + estacoes_em_orbita  # 11512
+        total_console = ativos_em_orbita + inativos_em_orbita + foguetes_em_orbita + detritos_em_orbita + estacoes_em_orbita
 
         totais_oficiais = schemas.TotaisOficiaisCatalogo(
             total=total_banco,
@@ -629,8 +592,8 @@ def obter_estatisticas(db: Session = Depends(get_db)):
             foguetes=foguetes_em_orbita,
             detritos=detritos_em_orbita,
             estacoes=estacoes_em_orbita,
-            celestrak_catalogados=34729,
-            celestrak_rastreados=31818,
+            celestrak_catalogados=max(total_banco, 34729),
+            celestrak_rastreados=total_console,
             nao_catalogados_estimativa="Mais de 140 milhões"
         )
 

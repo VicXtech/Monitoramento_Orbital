@@ -10,11 +10,11 @@
 
 // 1. CATÁLOGO FACTUAL DE MISSÕES HISTÓRICAS E REAIS
 export const CATALOGO_HISTORICO = {
-  // MISSÕES BRASILEIRAS (INPE / AEB)
+  // MISSÕES BRASILEIRAS
   "22823": {
-    nomeOficial: "SCD-1 (Satélite de Coleta de Dados 1)",
+    nomeOficial: "SCD-1 - Satélite de Coleta de Dados 1",
     pais: "Brasil",
-    operador: "INPE (Instituto Nacional de Pesquisas Espaciais)",
+    operador: "INPE - Instituto Nacional de Pesquisas Espaciais",
     anoLancamento: 1993,
     massaKg: 115,
     finalidade: "Coleta e retransmissão de dados ambientais de plataformas hidrológicas e meteorológicas distribuídas pelo território nacional, incluindo a Bacia Amazônica.",
@@ -22,13 +22,13 @@ export const CATALOGO_HISTORICO = {
     relevancia: "Marco pioneiro do Programa Espacial Brasileiro, validou a competência nacional em subsistemas térmicos, de bordo e controle de atitude por rotação."
   },
   "25400": {
-    nomeOficial: "SCD-2 (Satélite de Coleta de Dados 2)",
+    nomeOficial: "SCD-2 - Satélite de Coleta de Dados 2",
     pais: "Brasil",
     operador: "INPE",
     anoLancamento: 1998,
     massaKg: 117,
     finalidade: "Monitoramento de recursos hídricos, previsão do tempo e qualidade do ar em conjunto com o SCD-1.",
-    historico: "Lançado em outubro de 1998 a bordo de um lançador Pegasus XL, o SCD-2 sucedeu o SCD-1 trazendo melhorias nos sistemas de telemetria e baterias solares desenvolvidas no Laboratório de Integração e Testes (LIT/INPE).",
+    historico: "Lançado em outubro de 1998 a bordo de um lançador Pegasus XL, o SCD-2 sucedeu o SCD-1 trazendo melhorias nos sistemas de telemetria e baterias solares desenvolvidas no Laboratório de Integração e Testes LIT/INPE.",
     relevancia: "Garante a redundância e a perenidade do Sistema Brasileiro de Coleta de Dados Ambientais."
   },
   "54380": {
@@ -38,11 +38,11 @@ export const CATALOGO_HISTORICO = {
     anoLancamento: 2021,
     massaKg: 638,
     finalidade: "Imageamento óptico multiespectral para vigilância de desmatamento na Amazônia Legal e monitoramento da agricultura nacional.",
-    historico: "Lançado em 28 de fevereiro de 2021 pelo lançador indiano PSLV-C51, o Amazonia-1 é o primeiro satélite de sensoriamento remoto de grande porte projetado, integrado, testado e operado 100% pelo Brasil, baseado na Plataforma Multimissão (PMM).",
+    historico: "Lançado em 28 de fevereiro de 2021 pelo lançador indiano PSLV-C51, o Amazonia-1 é o primeiro satélite de sensoriamento remoto de grande porte projetado, integrado, testado e operado 100% pelo Brasil, baseado na Plataforma Multimissão PMM.",
     relevancia: "Consolidou o domínio tecnológico brasileiro na fabricação de satélites estabilizados em 3 eixos e câmeras multiespectrais de alta resolução temporal."
   },
   "44883": {
-    nomeOficial: "CBERS-4A (China-Brazil Earth Resources Satellite)",
+    nomeOficial: "CBERS-4A - China-Brazil Earth Resources Satellite",
     pais: "Brasil / China",
     operador: "INPE / CAST",
     anoLancamento: 2019,
@@ -54,8 +54,8 @@ export const CATALOGO_HISTORICO = {
 
   // ESTAÇÕES ESPACIAIS HABITADAS
   "25544": {
-    nomeOficial: "ISS (Estação Espacial Internacional)",
-    pais: "Multinacional (EUA / Rússia / ESA / Japão / Canadá)",
+    nomeOficial: "ISS - Estação Espacial Internacional",
+    pais: "Multinacional - EUA, Rússia, ESA, Japão e Canadá",
     operador: "NASA / Roscosmos / ESA / JAXA / CSA",
     anoLancamento: 1998,
     massaKg: 450000,
@@ -64,9 +64,9 @@ export const CATALOGO_HISTORICO = {
     relevancia: "A maior e mais complexa estrutura multinacional já construída pela humanidade fora do planeta Terra."
   },
   "48274": {
-    nomeOficial: "Tiangong (Estação Espacial Chinesa - Tianhe)",
+    nomeOficial: "Tiangong - Estação Espacial Chinesa Tianhe",
     pais: "China",
-    operador: "CNSA (China National Space Administration)",
+    operador: "CNSA - China National Space Administration",
     anoLancamento: 2021,
     massaKg: 66000,
     finalidade: "Posto científico orbital permanente da China para missões espaciais de longa duração e física de fluidos.",
@@ -76,7 +76,7 @@ export const CATALOGO_HISTORICO = {
 
   // TELESCÓPIOS E CIÊNCIA
   "20580": {
-    nomeOficial: "Telescópio Espacial Hubble (HST)",
+    nomeOficial: "Telescópio Espacial Hubble HST",
     pais: "Estados Unidos / Europa",
     operador: "NASA / ESA",
     anoLancamento: 1990,
@@ -88,21 +88,21 @@ export const CATALOGO_HISTORICO = {
 
   // CONSTELAÇÕES DE NAVEGAÇÃO
   "24876": {
-    nomeOficial: "GPS BIIR-2 (NAVSTAR 43)",
+    nomeOficial: "GPS BIIR-2 - NAVSTAR 43",
     pais: "Estados Unidos",
     operador: "Força Espacial dos EUA",
     anoLancamento: 1997,
     massaKg: 2032,
     finalidade: "Transmissão de sinais de radionavegação e cronometria de altíssima precisão baseada em relógios atômicos de césio e rubídio.",
-    historico: "Parte da constelação GPS em órbita média (MEO) a cerca de 20.200 km de altitude. Satélites desse bloco garantem posicionamento tridimensional contínuo em qualquer ponto do globo terrestre.",
+    historico: "Parte da constelação GPS em órbita média MEO a cerca de 20.200 km de altitude. Satélites desse bloco garantem posicionamento tridimensional contínuo em qualquer ponto do globo terrestre.",
     relevancia: "Infraestrutura essencial para aviação, navegação marítima, telecomunicações e sincronização de redes elétricas globais."
   },
 
   // DETRITOS HISTÓRICOS DE COLISÃO E IMPACTO
   "22675": {
-    nomeOficial: "Cosmos 2251 (Remanescentes da Colisão de 2009)",
+    nomeOficial: "Cosmos 2251 - Remanescentes da Colisão de 2009",
     pais: "Rússia",
-    operador: "Ministério da Defesa Russo (Desativado)",
+    operador: "Ministério da Defesa Russo - Desativado",
     anoLancamento: 1993,
     massaKg: 900,
     finalidade: "Satélite de comunicação militar da frota Strela-2M. Encerrou sua vida útil em 1995 e permaneceu como satélite inativo descontrolado.",
@@ -110,7 +110,7 @@ export const CATALOGO_HISTORICO = {
     relevancia: "Primeiro choque acidental hiperveloz entre dois satélites artificiais intactos na história espacial, marco prático do Efeito Kessler."
   },
   "24946": {
-    nomeOficial: "Iridium 33 (Remanescentes da Colisão de 2009)",
+    nomeOficial: "Iridium 33 - Remanescentes da Colisão de 2009",
     pais: "Estados Unidos",
     operador: "Iridium Communications",
     anoLancamento: 1997,
@@ -126,7 +126,7 @@ export const DIAGNOSTICO_SETORES = {
   1: {
     titulo: "SATÉLITES ATIVOS",
     itens: [
-      { rotulo: "Densidade Crítica", desc: "87% operando em Órbita Baixa (LEO)" },
+      { rotulo: "Densidade Crítica", desc: "87% operando em Órbita Baixa LEO" },
       { rotulo: "Taxa de Ocupação", desc: "83,7% de satélites funcionais no censo atual" },
       { rotulo: "Alerta de Tráfego", desc: "Alta densidade de megaconstelações comerciais" }
     ]
@@ -136,21 +136,21 @@ export const DIAGNOSTICO_SETORES = {
     itens: [
       { rotulo: "Obsoletos em Órbita", desc: "Carcaças e equipamentos desativados à deriva" },
       { rotulo: "Risco de Fragmentação", desc: "Baterias e tanques pressurizados residuais" },
-      { rotulo: "Órbitas Cemitério", desc: "Frotas em GEO elevadas a zonas de descarte (>36.000 km)" }
+      { rotulo: "Órbitas Cemitério", desc: "Frotas em GEO elevadas a zonas de descarte acima de 36.000 km" }
     ]
   },
   3: {
     titulo: "DETRITOS ESPACIAIS",
     itens: [
       { rotulo: "Risco de Impacto", desc: "Mais de 12.500 fragmentos sem propulsão ou controle" },
-      { rotulo: "Ponto Crítico", desc: "Concentração máxima entre 750 km e 950 km (LEO)" },
+      { rotulo: "Ponto Crítico", desc: "Concentração máxima entre 750 km e 950 km em LEO" },
       { rotulo: "Dinâmica", desc: "Fragmentos hipersônicos a 27.000 km/h sem manobra evasiva" }
     ]
   },
   4: {
     titulo: "BASES TRIPULADAS",
     itens: [
-      { rotulo: "População Orbital", desc: "Estruturas habitadas continuamente (ISS e Tiangong)" },
+      { rotulo: "População Orbital", desc: "Estruturas habitadas continuamente como ISS e Tiangong" },
       { rotulo: "Regime de Voo", desc: "~400 km a 420 km de altitude média" },
       { rotulo: "Manobras Evasivas", desc: "Requerem queima periódica de propulsores contra detritos" }
     ]
@@ -158,7 +158,7 @@ export const DIAGNOSTICO_SETORES = {
   5: {
     titulo: "CORPOS DE FOGUETES",
     itens: [
-      { rotulo: "Massa Crítica", desc: "Estágios superiores descartados (Falcon, Soyuz, Centaur, CZ)" },
+      { rotulo: "Massa Crítica", desc: "Estágios superiores descartados como Falcon, Soyuz, Centaur e CZ" },
       { rotulo: "Risco de Explosão", desc: "Propelente residual e pressurização em tanques esgotados" },
       { rotulo: "Cinturão Kessler", desc: "Alvos massivos que amplificam potencial de fragmentação" }
     ]
@@ -167,7 +167,7 @@ export const DIAGNOSTICO_SETORES = {
     titulo: "SATÉLITES ATIVOS",
     itens: [
       { rotulo: "Densidade Crítica", desc: "Mais de 16.500 satélites operacionais catalogados" },
-      { rotulo: "Taxa de Ocupação", desc: "Predominância em Órbita Baixa (LEO) e Geoestacionária" },
+      { rotulo: "Taxa de Ocupação", desc: "Predominância em Órbita Baixa LEO e Geoestacionária" },
       { rotulo: "Alerta de Tráfego", desc: "Crescimento exponencial de megaconstelações comerciais" }
     ]
   }
@@ -205,27 +205,27 @@ export function obterFichaFactual(sat, parametrosOrbitais) {
   // Identificação por padrões de nomenclatura oficiais
   if (nome.includes("STARLINK")) {
     funcao = "Comunicação de Banda Larga em Megaconstelação";
-    operador = "SpaceX (EUA)";
+    operador = "SpaceX - EUA";
     contextoMissao = "Satélite de megaconstelação para internet de banda larga em órbita baixa, equipado com propulsão iônica para prevenção de colisões e desorbitação ativa ao fim da vida útil.";
-    historia = `Satélite integrante da megaconstelação Starlink em órbita baixa (LEO). Projetado com propulsores de íons de criptônio/argônio para manutenção de posição e desorbitação ativa.`;
+    historia = `Satélite integrante da megaconstelação Starlink em órbita baixa LEO. Projetado com propulsores de íons de criptônio ou argônio para manutenção de posição e desorbitação ativa.`;
     relevancia = `Representa a nova era de satélites serializados em massa, objeto de intensos debates sobre tráfego espacial e reflexividade astronômica.`;
   } else if (nome.includes("ONEWEB")) {
     funcao = "Telecomunicações Globais em Órbita Baixa";
-    operador = "Eutelsat OneWeb (Reino Unido)";
+    operador = "Eutelsat OneWeb - Reino Unido";
     contextoMissao = "Satélite de conectividade global operando a ~1.200 km, com descarte propulsionado obrigatório para evitar permanência de séculos em órbita.";
     historia = `Satélite de comunicações em constelação operando a cerca de 1.200 km de altitude, fornecendo conectividade corporativa e governamental.`;
     relevancia = `Por operar em altitude mais alta que a Starlink, seus remanescentes exigem descarte propulsionado rigoroso.`;
   } else if (nome.includes("NOAA") || nome.includes("GOES") || nome.includes("METOP")) {
     funcao = "Monitoramento Meteorológico, Oceânico e Climático";
-    operador = "Agências Meteorológicas Globais (NOAA/EUMETSAT)";
+    operador = "Agências Meteorológicas Globais NOAA e EUMETSAT";
     contextoMissao = "Plataforma de observação da Terra dedicada ao rastreamento contínuo de sistemas meteorológicos, tempestades tropicais e apoio a alertas de desastres.";
     historia = `Plataforma de sensoriamento remoto dedicada ao rastreamento contínuo de sistemas meteorológicos, tempestades tropicais e temperatura dos oceanos.`;
     relevancia = `Fornece dados abertos vitais para modelos climáticos numéricos globais.`;
   } else if (nome.includes("GALILEO") || nome.includes("GLONASS") || nome.includes("BEIDOU") || nome.includes("GPS") || nome.includes("NAVSTAR")) {
-    funcao = "Radionavegação e Cronometria Global (GNSS)";
+    funcao = "Radionavegação e Cronometria Global GNSS";
     operador = "Governo Soberano / Defesa";
-    contextoMissao = "Satélite de radionavegação e temporização atômica em órbita média (MEO), transmitindo sinais codificados para geolocalização civil e militar.";
-    historia = `Satélite de navegação situado na órbita terrestre média (MEO). Emite sinais de radiofrequência codificados para cálculo de posição e tempo.`;
+    contextoMissao = "Satélite de radionavegação e temporização atômica em órbita média MEO, transmitindo sinais codificados para geolocalização civil e militar.";
+    historia = `Satélite de navegação situado na órbita terrestre média MEO. Emite sinais de radiofrequência codificados para cálculo de posição e tempo.`;
     relevancia = `Pilar fundamental da navegação contemporânea e infraestrutura crítica global.`;
   } else if (categoriaId === 4 || nome.includes("ISS") || nome.includes("TIANGONG") || nome.includes("ESTACAO")) {
     funcao = "Estação Espacial Tripulada Permanente";
@@ -234,7 +234,7 @@ export function obterFichaFactual(sat, parametrosOrbitais) {
     historia = `Complexo orbital tripulado com presença humana contínua em órbita baixa da Terra.`;
     relevancia = `Laboratório único para estudos de medicina espacial, física de fluidos e astrobiologia.`;
   } else if (categoriaId === 3 || nome.includes("DEB") || nome.includes("DEBRIS") || nome.includes("R/B") || nome.includes("STAGE")) {
-    funcao = "Detrito Espacial Inerte (Lixo Orbital)";
+    funcao = "Detrito Espacial Inerte - Lixo Orbital";
     operador = sat.pais || "Nação Lançadora Original";
     if (nome.includes("R/B") || nome.includes("ROCKET")) {
       contextoMissao = "Estágio de foguete descartado à deriva sem propulsão ou telemetria, monitorado por radar devido ao risco de colisão e fragmentação.";
@@ -246,7 +246,7 @@ export function obterFichaFactual(sat, parametrosOrbitais) {
       relevancia = `Possui energia cinética equivalente a artefatos explosivos devido à velocidade orbital superior a 27.000 km/h.`;
     }
   } else if (categoriaId === 2) {
-    funcao = "Satélite Desativado (Inativo em Órbita)";
+    funcao = "Satélite Desativado - Inativo em Órbita";
     operador = sat.pais || "Operador Original";
     contextoMissao = "Satélite desativado que encerrou operações funcionais, permanecendo em rota passiva até reentrada atmosférica ou transferência para órbita cemitério.";
     historia = `Satélite que encerrou suas operações funcionais por esgotamento de combustível ou falha de bateria, permanecendo em rota passiva.`;
@@ -261,7 +261,7 @@ export function obterFichaFactual(sat, parametrosOrbitais) {
     const regime = parametrosOrbitais ? parametrosOrbitais.regimeNome : "Órbita Terrestre";
     const classeInc = parametrosOrbitais ? parametrosOrbitais.classeInclinacao : "Órbita Padrão";
     funcao = `Objeto Operacional em ${regime}`;
-    contextoMissao = `Plataforma operacional em ${regime} (${classeInc}), monitorada por rastreamento radar automatizado da rede global de vigilância espacial.`;
+    contextoMissao = `Plataforma operacional em ${regime} - ${classeInc}, monitorada por rastreamento radar automatizado da rede global de vigilância espacial.`;
     historia = `Plataforma em operação sob responsabilidade de: ${sat.pais || "Registro Internacional"}.`;
     relevancia = `Trajetória propagada analiticamente em tempo real via modelo matemático SGP4.`;
   }
@@ -283,22 +283,22 @@ export const GLOSSARIO_ORBITAL = [
     categoria: "REGIMES DE ÓRBITA",
     itens: [
       {
-        termo: "LEO (Low Earth Orbit)",
+        termo: "LEO - Low Earth Orbit",
         titulo: "Órbita Terrestre Baixa",
         definicao: "Faixa de 160 km a 2.000 km de altitude. Abriga a Estação Espacial Internacional e constelações de satélites de internet. Por concentrar a maior parte dos objetos espaciais, apresenta o maior risco de colisões."
       },
       {
-        termo: "MEO (Medium Earth Orbit)",
+        termo: "MEO - Medium Earth Orbit",
         titulo: "Órbita Terrestre Média",
         definicao: "Faixa intermediária de 2.000 km a 35.786 km de altitude. Região tradicionalmente utilizada por constelações de navegação e geolocalização global, como GPS, Galileo, Glonass e BeiDou."
       },
       {
-        termo: "GEO (Geostationary Earth Orbit)",
+        termo: "GEO - Geostationary Earth Orbit",
         titulo: "Órbita Geoestacionária",
-        definicao: "Órbita circular a 35.786 km de altitude sobre a linha do equador. O satélite acompanha com precisão a rotação da Terra (24 horas), parecendo imóvel no céu para quem observa da superfície."
+        definicao: "Órbita circular a 35.786 km de altitude sobre a linha do equador. O satélite acompanha com precisão a rotação da Terra em 24 horas, parecendo imóvel no céu para quem observa da superfície."
       },
       {
-        termo: "HEO (Highly Elliptical Orbit)",
+        termo: "HEO - Highly Elliptical Orbit",
         titulo: "Órbita Muito Elíptica",
         definicao: "Trajetória oval com altitude bastante variável. O satélite passa veloz e próximo da Terra no ponto mais baixo e passa a maior parte do tempo no ponto mais alto, cobrindo regiões polares isoladas."
       }
@@ -325,7 +325,7 @@ export const GLOSSARIO_ORBITAL = [
       {
         termo: "Excentricidade",
         titulo: "Formato da Órbita",
-        definicao: "Número de 0 a 1 que indica o formato da rota. Valor próximo de 0 significa uma órbita redonda (circular); valor mais alto indica uma órbita oval (alongada)."
+        definicao: "Número de 0 a 1 que indica o formato da rota. Valor próximo de 0 significa uma órbita redonda e circular; valor mais alto indica uma órbita oval e alongada."
       },
       {
         termo: "NORAD ID e COSPAR",
@@ -333,12 +333,12 @@ export const GLOSSARIO_ORBITAL = [
         definicao: "Números de registro de cada objeto no espaço. O NORAD ID é o número sequencial no radar, e o COSPAR indica o ano e o lançamento de origem."
       },
       {
-        termo: "TLE (Two-Line Element)",
+        termo: "TLE - Two-Line Element",
         titulo: "Formato de Dados Orbitais",
         definicao: "Padrão internacional codificado em duas linhas de texto com parâmetros físicos essenciais. Fornece os dados matemáticos necessários para calcular e desenhar a posição de qualquer satélite."
       },
       {
-        termo: "SGP4 (Modelo de Propagação)",
+        termo: "SGP4 - Modelo de Propagação",
         titulo: "Algoritmo de Cálculo Orbital",
         definicao: "Fórmula usada para calcular onde cada satélite está em tempo real, levando em conta a gravidade da Terra, da Lua, do Sol e o atrito do ar."
       },
@@ -346,6 +346,21 @@ export const GLOSSARIO_ORBITAL = [
         termo: "Termo BSTAR",
         titulo: "Atrito com a Atmosfera",
         definicao: "Parâmetro do TLE que mede o impacto da resistência do ar residual sobre a velocidade do satélite. Quanto maior esse valor, mais rápido o objeto perde altitude e cai rumo ao planeta."
+      },
+      {
+        termo: "RCS - Radar Cross Section",
+        titulo: "Seção Reta de Radar",
+        definicao: "Medida da refletividade eletromagnética de um objeto detectado por radares terrestres. Indica a área aparente do satélite como pequeno, médio ou grande porte, permitindo estimar seu tamanho físico mesmo a milhares de quilômetros."
+      },
+      {
+        termo: "RAAN - Ascensão Reta do Nó",
+        titulo: "Orientação do Plano no Espaço",
+        definicao: "Ângulo astronômico que determina a inclinação longitudinal do plano da órbita em relação ao equador terrestre e ao ponto vernal, na direção do Sol no equinócio."
+      },
+      {
+        termo: "SSN - Space Surveillance Network",
+        titulo: "Rede de Vigilância Espacial",
+        definicao: "Rede mundial de sensores, radares terrestres e telescópios ópticos que detecta, rastreia e cataloga continuamente mais de 30 mil objetos artificiais em órbita da Terra."
       }
     ]
   },
@@ -378,9 +393,34 @@ export const GLOSSARIO_ORBITAL = [
         definicao: "Faixa acima de 36.000 km para onde satélites distantes são enviados no fim da vida útil, liberando espaço nas órbitas ativas sem risco de colisão."
       },
       {
-        termo: "SIO (Score de Impacto Orbital)",
+        termo: "SIO - Score de Impacto Orbital",
         titulo: "Índice de Risco do Objeto",
         definicao: "Nota de 0 a 100 usada na plataforma para medir o risco ambiental de um objeto, considerando sua altitude, o tráfego ao redor e se ele possui motor para desviar."
+      },
+      {
+        termo: "IADC - Inter-Agency Debris Committee",
+        titulo: "Comitê Interagências de Detritos",
+        definicao: "Comitê governamental internacional que reúne as principais agências espaciais do mundo como NASA, ESA, JAXA e INPE para estabelecer as diretrizes científicas globais de prevenção ao lixo espacial."
+      },
+      {
+        termo: "FCC - Regra de 5 Anos",
+        titulo: "Comissão Federal de Comunicações",
+        definicao: "Órgão regulador norte-americano que instituiu a norma mandatória de desorbitação de satélites em órbita baixa em no máximo 5 anos após o fim da missão operacional, substituindo a antiga regra de 25 anos."
+      },
+      {
+        termo: "Passivação de Sistemas",
+        titulo: "Esgotamento de Energia Residual",
+        definicao: "Processo obrigatório de desativação de uma espaçonave, consistente em esvaziar tanques de combustível pressurizados e descarregar totalmente as baterias elétricas para impedir explosões espontâneas em órbita."
+      },
+      {
+        termo: "ODPO / NASA",
+        titulo: "Programa de Detritos da NASA",
+        definicao: "Escritório especializado da NASA responsável por modelar o ambiente de fragmentos orbitais, realizar testes de impacto em hipervelocidade e elaborar normas técnicas de segurança."
+      },
+      {
+        termo: "Conjunção Orbital",
+        titulo: "Aproximação Crítica no Espaço",
+        definicao: "Encontro próximo entre dois objetos espaciais cruzando órbitas a alta velocidade dentro de um raio de segurança restrito, exigindo manobras de desvio para evitar colisões catastróficas."
       }
     ]
   }
@@ -392,7 +432,7 @@ export const DADOS_SUSTENTABILIDADE = {
     titulo: "Risco de Colisão",
     fatoChave: "A 27.000 km/h, um fragmento de apenas 1 cm tem a energia de uma granada, perfurando qualquer blindagem aeroespacial moderna.",
     densidadeCriticaFaixa: "Faixa Crítica: 750 a 950 km de altitude",
-    historicoImpacto: "A colisão histórica entre os satélites Iridium e Cosmos (2009) gerou mais de 2.000 fragmentos que até hoje forçam a Estação Espacial Internacional a desvios de rota."
+    historicoImpacto: "A colisão histórica entre os satélites Iridium e Cosmos em 2009 gerou mais de 2.000 fragmentos que até hoje forçam a Estação Espacial Internacional a desvios de rota."
   },
   reentrada: {
     titulo: "Queda na Atmosfera",
@@ -403,8 +443,8 @@ export const DADOS_SUSTENTABILIDADE = {
   magnetosfera: {
     titulo: "Interferência Eletromagnética",
     mecanismo: "A queima contínua de frotas de satélites injeta toneladas de óxido de alumínio e nanopartículas condutoras na alta atmosfera.",
-    dadoConfirmado: "Dado Confirmado: Evidência de metais na estratosfera (PNAS)",
-    hipoteseEstudo: "Hipótese em Estudo: Modelagem de blindagem condutora (arXiv)",
+    dadoConfirmado: "Dado Confirmado: Evidência de metais na estratosfera PNAS",
+    hipoteseEstudo: "Hipótese em Estudo: Modelagem de blindagem condutora arXiv",
     riscoCientifico: "Cientistas investigam se essa camada artificial de poeira condutora pode interferir no funcionamento do escudo magnético natural da Terra."
   },
   climaEOzonio: {

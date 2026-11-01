@@ -177,7 +177,7 @@ export default function ScenarioSimulatorModal({
                 />
                 <div className="slider-range-hints">
                   <span>500</span>
-                  <span className="highlight-hint">~2.400 (Atual)</span>
+                  <span className="highlight-hint">~2.400 · Atual</span>
                   <span>5.000</span>
                 </div>
               </div>
@@ -185,7 +185,7 @@ export default function ScenarioSimulatorModal({
               {/* SLIDER 2: TAXA DE DESORBITAGEM PMD */}
               <div className="scenario-slider-box">
                 <div className="slider-label-row">
-                  <span className="slider-label">Desorbitagem (PMD)</span>
+                  <span className="slider-label">Desorbitagem PMD</span>
                   <span className={`slider-value-display ${taxaDesorbitagemPct >= 90 ? 'green' : taxaDesorbitagemPct >= 60 ? 'amber' : 'red'}`}>
                     {taxaDesorbitagemPct}%
                   </span>
@@ -205,7 +205,7 @@ export default function ScenarioSimulatorModal({
                 />
                 <div className="slider-range-hints">
                   <span>20%</span>
-                  <span>~65% (Atual)</span>
+                  <span>~65% · Atual</span>
                   <span className="highlight-hint green-hint">95%+</span>
                 </div>
               </div>
@@ -233,7 +233,7 @@ export default function ScenarioSimulatorModal({
                 />
                 <div className="slider-range-hints">
                   <span>3 anos</span>
-                  <span>~7 anos (LEO)</span>
+                  <span>~7 anos · LEO</span>
                   <span>15 anos</span>
                 </div>
               </div>

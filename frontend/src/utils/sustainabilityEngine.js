@@ -52,39 +52,39 @@ export function calculateOrbitalAudit(sat, params = null) {
   const orbit = (params?.regimeCodigo || sat.regime || 'LEO').toUpperCase();
 
   // 1. Permanencia por altitude (peso 40%)
-  let permanenceScore = 0;
-  let decayEstimate = '';
-  let permanenceLevel = 'BAIXO';
+  let permanenceScore;
+  let decayEstimate;
+  let permanenceLevel;
 
   if (perigee < 400) {
     permanenceScore = 8;
-    decayEstimate = 'Meses a 2 anos (Conforme FCC)';
+    decayEstimate = 'Meses a 2 anos - Conforme FCC';
     permanenceLevel = 'BAIXO';
   } else if (perigee <= 550) {
     permanenceScore = 16;
-    decayEstimate = 'Menos de 5 anos (Conforme FCC)';
+    decayEstimate = 'Menos de 5 anos - Conforme FCC';
     permanenceLevel = 'BAIXO';
   } else if (perigee <= 650) {
     permanenceScore = 24;
-    decayEstimate = '10 a 25 anos (Conforme IADC)';
+    decayEstimate = '10 a 25 anos - Conforme IADC';
     permanenceLevel = 'MÉDIO';
   } else if (perigee <= 800) {
     permanenceScore = 32;
-    decayEstimate = '50 a 150 anos (Excede 25 anos)';
+    decayEstimate = '50 a 150 anos - Excede 25 anos';
     permanenceLevel = 'ALTO';
   } else if (perigee <= 2000) {
     permanenceScore = 40;
-    decayEstimate = 'Séculos a milênios (Sem limpeza natural)';
+    decayEstimate = 'Séculos a milênios - Sem limpeza natural';
     permanenceLevel = 'CRÍTICO';
   } else {
     permanenceScore = 38;
-    decayEstimate = 'Permanência indefinida (> 10.000 anos)';
+    decayEstimate = 'Permanência indefinida acima de 10.000 anos';
     permanenceLevel = 'CRÍTICO';
   }
 
   // 2. Trafego na mesma altitude (peso 35%)
-  let densityScore = 0;
-  let densityLevel = 'BAIXO';
+  let densityScore;
+  let densityLevel;
 
   if (orbit === 'LEO') {
     if ((meanAlt >= 750 && meanAlt <= 950) || (meanAlt >= 500 && meanAlt <= 600)) {
@@ -109,30 +109,24 @@ export function calculateOrbitalAudit(sat, params = null) {
   }
 
   // 3. Capacidade de desvio e controle (peso 25%)
-  let controlScore = 0;
-  let controlLevel = 'BAIXO';
+  let controlScore;
 
   switch (category) {
     case 'STATION':
       controlScore = 4;
-      controlLevel = 'BAIXO';
       break;
     case 'ACTIVE':
       controlScore = 8;
-      controlLevel = 'BAIXO';
       break;
     case 'INACTIVE':
       controlScore = 20;
-      controlLevel = 'ALTO';
       break;
     case 'ROCKET_BODY':
       controlScore = 23;
-      controlLevel = 'CRÍTICO';
       break;
     case 'DEBRIS':
     default:
       controlScore = 25;
-      controlLevel = 'CRÍTICO';
       break;
   }
 
@@ -162,7 +156,7 @@ export function calculateOrbitalAudit(sat, params = null) {
   }
 
   const temControle = (category === 'STATION' || category === 'ACTIVE');
-  const labelControle = temControle ? 'Ativo (Desvia)' : 'Sem Controle (Inerte)';
+  const labelControle = temControle ? 'Ativo com Desvio' : 'Sem Controle Inerte';
   const explicacaoControle = temControle
     ? "Satélite ativo com propulsão para evitar colisões."
     : "Sucata espacial sem motor; não consegue desviar.";
@@ -202,7 +196,7 @@ export function calculateOrbitalAudit(sat, params = null) {
       },
       {
         id: 'controle',
-        label: 'Capacidade de Desvio (Controle)',
+        label: 'Capacidade de Desvio e Controle',
         peso: '25%',
         level: labelControle,
         classe: temControle ? 'badge-baixo' : 'badge-critico',
