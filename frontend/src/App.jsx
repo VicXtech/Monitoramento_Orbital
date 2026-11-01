@@ -1629,6 +1629,11 @@ function App() {
     if (!window.Cesium) return;
 
     const viewerInstance = new window.Cesium.Viewer('cesium-container', {
+      contextOptions: {
+        webgl: {
+          alpha: true
+        }
+      },
       animation: false,
       timeline: false,
       navigationHelpButton: false,
@@ -1642,6 +1647,8 @@ function App() {
       vrButton: false,
       baseLayer: false
     });
+
+    viewerInstance.scene.backgroundColor = window.Cesium.Color.TRANSPARENT;
 
     viewerInstance.scene.globe.enableLighting = true;
     viewerInstance.scene.globe.showAtmosphere = true;
