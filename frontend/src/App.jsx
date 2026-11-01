@@ -53,7 +53,7 @@ const MODULOS_RECURSOS = [
     title: 'RASTREAMENTO 3D',
     badge: 'CONSOLE',
     icon: Orbit,
-    desc: 'Visualização interativa da Terra em três dimensões com propagação orbital via modelo físico SGP4. Permite filtrar objetos por tipo operacional como ativos, inativos, detritos, corpos de foguete e estações espaciais, localizar qualquer alvo por código NORAD ou nome oficial, e controlar a aceleração do tempo entre 1x e 100x para acompanhar trajetórias e órbitas em tempo real.'
+    desc: 'Visualização interativa da Terra em três dimensões com propagação orbital via modelo físico SGP4. Permite filtrar objetos por tipo operacional como ativos, inativos, detritos, corpos de foguete e estações espaciais, localizar qualquer alvo por código NORAD ou nome oficial, e controlar a aceleração do tempo entre 1x e 300x para acompanhar trajetórias e órbitas em tempo real.'
   },
   {
     id: 'dossie',
@@ -2931,7 +2931,7 @@ function App() {
                                 <h4 className="pod-title">INFRAESTRUTURA</h4>
                               </div>
                               <div className="pod-tech-line">
-                                <span>Docker</span> · <span>Docker Compose</span> · <span>Nginx</span> · <span>Healthchecks</span>
+                                <span>Docker</span> · <span>Docker Compose</span> · <span>Render</span> · <span>Healthchecks</span>
                               </div>
                               <p className="pod-desc">Ambiente isolado em containers com inicialização automatizada.</p>
                             </div>
