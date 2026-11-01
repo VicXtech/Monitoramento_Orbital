@@ -1,5 +1,0 @@
-<svg xmlns="http://www.w3.org/2000/svg" width="64" height="64" viewBox="0 0 64 64">
-  <rect width="64" height="64" rx="12" fill="#070A0F"/>
-  <rect x="2" y="2" width="60" height="60" rx="10" fill="none" stroke="#38BDF8" stroke-width="2" stroke-opacity="0.3"/>
-  <text x="50%" y="54%" text-anchor="middle" dominant-baseline="middle" font-family="'Bruno Ace SC', 'Space Grotesk', system-ui, -apple-system, sans-serif" font-size="34" font-weight="700" fill="#38BDF8" letter-spacing="1">ED</text>
-</svg>

@@ -3139,7 +3139,14 @@ function App() {
                         <div className="tactical-glossary-grid">
                           {GLOSSARIO_ORBITAL.map((categoria, idx) => (
                             <div key={idx} className="tactical-glossary-group">
-                              <h3 className="tactical-group-title">{categoria.categoria}</h3>
+                              <h3 className="tactical-group-title">
+                                <CyberTypewriter
+                                  text={categoria.categoria}
+                                  active={secaoVisorExibida === 4}
+                                  delay={idx * 160}
+                                  speed={22}
+                                />
+                              </h3>
                               <div className="tactical-terms-grid">
                                 {categoria.itens.map((item, itemIdx) => (
                                   <div key={itemIdx} className="tactical-term-card">
@@ -3902,7 +3909,14 @@ function App() {
                 <div className="modal-body-scrollable">
                   {GLOSSARIO_ORBITAL.map((categoria, idx) => (
                     <div key={idx} className="modal-glossary-section">
-                      <h4 className="modal-section-title">{categoria.categoria}</h4>
+                      <h4 className="modal-section-title">
+                        <CyberTypewriter
+                          text={categoria.categoria}
+                          active={modalGlossarioAberto}
+                          delay={idx * 160}
+                          speed={22}
+                        />
+                      </h4>
                       <div className="modal-glossary-grid">
                         {categoria.itens.map((item, itemIdx) => (
                           <div key={itemIdx} className="modal-glossary-item">
