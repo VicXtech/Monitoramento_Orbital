@@ -1002,6 +1002,7 @@ function App() {
   const [recarregandoAmostra, setRecarregandoAmostra] = useState(false);
   const [amostraSeed, setAmostraSeed] = useState(0);
   const [densidadeCatalogo, setDensidadeCatalogo] = useState('tatica'); // 'tatica' (3000) | 'completo' (10000)
+  const cacheDensidadeRef = useRef(new Map());
   const [regimeAtivo, setRegimeAtivo] = useState(null); // null | 'LEO' | 'MEO' | 'GEO' | 'HEO'
   const [abaDetalheAtiva, setAbaDetalheAtiva] = useState('telemetria'); // 'telemetria' | 'registro' | 'auditoria'
 
@@ -1112,17 +1113,43 @@ function App() {
   // 2. CARREGAMENTO REATIVO DE OBJETOS COM BASE NAS 4 CATEGORIAS
   useEffect(() => {
     const carregarObjetosFiltrados = async () => {
+      const ativas = Array.from(new Set([
+        ...Object.entries(categoriasAtivas).filter(([, ativa]) => ativa).map(([k]) => Number(k)),
+        4
+      ]));
+
+      const ativasKey = ativas.sort().join(',');
+      const regimeKey = regimeAtivo || 'todos';
+      const cacheBaseKey = `${regimeKey}_${ativasKey}_${amostraSeed}`;
+      const cacheKey = `${cacheBaseKey}_${densidadeCatalogo}`;
+
+      // Recupera dados do cache em memoria
+      if (cacheDensidadeRef.current.has(cacheKey)) {
+        const dadosEmCache = cacheDensidadeRef.current.get(cacheKey);
+        setObjetos(dadosEmCache);
+        setLoading(false);
+        setRecarregandoAmostra(false);
+        return;
+      }
+
+      // Aproveita fatia tatica do conjunto completo já em cache
+      const keyCompleto = `${cacheBaseKey}_completo`;
+      if (densidadeCatalogo === 'tatica' && cacheDensidadeRef.current.has(keyCompleto)) {
+        const dadosCompletos = cacheDensidadeRef.current.get(keyCompleto);
+        const subamostraTatica = dadosCompletos.slice(0, 3000);
+        cacheDensidadeRef.current.set(cacheKey, subamostraTatica);
+        setObjetos(subamostraTatica);
+        setLoading(false);
+        setRecarregandoAmostra(false);
+        return;
+      }
+
       if (objetos.length === 0) {
         setLoading(true);
       }
       try {
-        const ativas = Array.from(new Set([
-          ...Object.entries(categoriasAtivas).filter(([, ativa]) => ativa).map(([k]) => Number(k)),
-          4
-        ]));
-
         const limite = densidadeCatalogo === 'tatica' ? 3000 : 10000;
-        let url = `${API_URL}/api/objetos?limit=${limite}&seed=${amostraSeed || Date.now()}`;
+        let url = `${API_URL}/api/objetos?limit=${limite}&seed=${amostraSeed || 0}`;
         if (regimeAtivo) {
           url += `&regime=${regimeAtivo}`;
         }
@@ -1139,6 +1166,10 @@ function App() {
         setMetricasPerformance(prev => ({ ...prev, latenciaApiMs: latencia }));
         if (resObjs.ok) {
           const dataObjs = await resObjs.json();
+          cacheDensidadeRef.current.set(cacheKey, dataObjs);
+          if (densidadeCatalogo === 'completo' && !cacheDensidadeRef.current.has(`${cacheBaseKey}_tatica`)) {
+            cacheDensidadeRef.current.set(`${cacheBaseKey}_tatica`, dataObjs.slice(0, 3000));
+          }
           setObjetos(dataObjs);
         }
       } catch (err) {
@@ -1158,6 +1189,7 @@ function App() {
     if (recarregandoAmostra || loading) return;
     tocarEfeitoSonoro(somRecarregarAmostragem, 0.65);
     setRecarregandoAmostra(true);
+    cacheDensidadeRef.current.clear();
     setAmostraSeed(Date.now());
   };
 
@@ -1165,7 +1197,6 @@ function App() {
     if (novoModo === densidadeCatalogo) return;
     tocarEfeitoSonoro(somConsoleButtons, 0.5);
     setDensidadeCatalogo(novoModo);
-    setAmostraSeed(Date.now());
   };
 
   const handleAlternarRegime = (regime) => {

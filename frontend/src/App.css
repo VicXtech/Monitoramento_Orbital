@@ -1805,7 +1805,7 @@
   width: 100vw;
   height: 100vh;
   z-index: 1000;
-  background: radial-gradient(circle at center, rgba(7, 10, 15, 0.45) 0%, rgba(7, 10, 15, 0.78) 100%);
+  background: radial-gradient(circle at center, rgba(7, 10, 15, 0.25) 0%, rgba(7, 10, 15, 0.55) 100%);
   overflow: hidden;
   display: flex;
   justify-content: center;
@@ -2301,7 +2301,7 @@
   transform-origin: center center;
   transition: height 0.48s cubic-bezier(0.16, 1, 0.3, 1),
     box-shadow 0.3s ease;
-  will-change: height, transform;
+  will-change: height;
 }
 
 /* Faixa decorativa superior de 4 cores */
