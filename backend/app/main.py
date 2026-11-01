@@ -41,6 +41,11 @@ PINNED_NORAD_IDS = [
     "00016"   # Vanguard 2 R/B
 ]
 
+# Cache em memoria para acelerar listagens de objetos orbitais
+CACHE_OBJETOS = {}
+CACHE_OBJETOS_EXPIRA = {}
+CACHE_TTL_SEGUNDOS = 3600
+
 
 def executar_coleta_diaria():
     """Tarefa periódica que consome os TLEs e atualiza o PostgreSQL."""
@@ -105,6 +110,8 @@ def executar_coleta_diaria():
         # Enriquece os dados de missão
         conector.enriquecer_missoes(db=db)
         
+        CACHE_OBJETOS.clear()
+        CACHE_OBJETOS_EXPIRA.clear()
         logger.info("LOG: Sincronização automática concluída com sucesso no Scheduler.")
     except Exception as e:
         logger.error(f"LOG: Falha crítica na sincronização automática do Scheduler: {e}")
@@ -228,6 +235,12 @@ def listar_objetos(
     amostragem estratificada 2D calibrada na proporção da ESA e suporte a filtro por camada orbital.
     """
     try:
+        # Consulta cache em memoria para respostas instantaneas
+        cache_key = f"{limit}_{regime}_{categoria_ids}_{categoria_id}_{seed}"
+        agora = time.time()
+        if not busca and cache_key in CACHE_OBJETOS and agora < CACHE_OBJETOS_EXPIRA.get(cache_key, 0):
+            return CACHE_OBJETOS[cache_key]
+
         # Aplica seed pseudo-aleatória no PostgreSQL se fornecida
         if seed:
             try:
@@ -408,6 +421,11 @@ def listar_objetos(
             objeto.ultimo_tle = tle
             objeto.omm = objeto.dados_omm
             response_data.append(objeto)
+
+        # Salva em cache para acelerar proximas chamadas
+        if not busca:
+            CACHE_OBJETOS[cache_key] = response_data
+            CACHE_OBJETOS_EXPIRA[cache_key] = time.time() + CACHE_TTL_SEGUNDOS
 
         return response_data
     except Exception as e:

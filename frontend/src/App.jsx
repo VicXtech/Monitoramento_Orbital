@@ -1146,6 +1146,8 @@ function App() {
 
       if (objetos.length === 0) {
         setLoading(true);
+      } else {
+        setRecarregandoAmostra(true);
       }
       try {
         const limite = densidadeCatalogo === 'tatica' ? 3000 : 10000;
