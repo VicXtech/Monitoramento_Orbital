@@ -4,6 +4,7 @@
   position: relative;
   overflow: hidden;
   background-color: var(--bg-dark);
+  isolation: isolate;
 }
 
 /* Container do Globo Cesium */
@@ -14,6 +15,10 @@
   width: 100%;
   height: 100%;
   z-index: 1;
+}
+
+.cesium-container canvas {
+  will-change: transform;
 }
 
 /* Camada Interativa HUD por cima do Cesium */
@@ -228,14 +233,14 @@
   max-width: calc(100vw - 32px);
   min-width: 280px;
   background: var(--bg-panel);
-  backdrop-filter: blur(12px);
-  -webkit-backdrop-filter: blur(12px);
+  backdrop-filter: blur(20px) saturate(160%) brightness(1.000001);
+  -webkit-backdrop-filter: blur(20px) saturate(160%) brightness(1.000001);
   border: 1px solid var(--border-subtle);
   border-radius: 2px;
   display: flex;
   flex-direction: column;
   pointer-events: auto;
-  box-shadow: 0 8px 32px 0 rgba(0, 0, 0, 0.45);
+  box-shadow: 0 8px 32px 0 rgba(0, 0, 0, 0.45), inset 0 1px 0 0 rgba(255, 255, 255, 0.1);
   transition: transform 0.4s cubic-bezier(0.16, 1, 0.3, 1), opacity 0.4s ease, visibility 0.4s ease;
   visibility: visible;
 }
@@ -2287,8 +2292,8 @@
   max-height: calc(100vh - 140px);
   margin: auto 0;
   background: var(--bg-panel-elevated);
-  backdrop-filter: blur(16px);
-  -webkit-backdrop-filter: blur(16px);
+  backdrop-filter: blur(24px) saturate(160%) brightness(1.000001);
+  -webkit-backdrop-filter: blur(24px) saturate(160%) brightness(1.000001);
   border: 1px solid var(--border-structural) !important;
   padding: 0;
   box-sizing: border-box;
