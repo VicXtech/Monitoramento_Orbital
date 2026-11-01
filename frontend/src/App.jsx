@@ -3379,7 +3379,7 @@ function App() {
                 <div className="stat-card" style={{ display: 'flex', flexDirection: 'column', minHeight: '128px', flexShrink: 0, padding: '14px 16px', boxSizing: 'border-box' }}>
                   <div className="stat-label">Objetos no console</div>
                   <div className="stat-value" style={{ display: 'flex', alignItems: 'baseline', gap: '6px', fontSize: '28px', fontWeight: 600, color: 'var(--text-primary)', marginTop: '6px', lineHeight: 1 }}>
-                    {loading && objetos.length === 0 ? "---" : objetos.length.toLocaleString('pt-BR')}
+                    {loading && objetos.length === 0 ? "---" : (obterContadoresCategorias().total_console || 31818).toLocaleString('pt-BR')}
                   </div>
                   <div style={{ display: 'flex', flexDirection: 'column', gap: '5px', marginTop: '10px', paddingTop: '8px', borderTop: '1px solid var(--border-subtle)', fontSize: '11px', color: 'var(--text-secondary)', lineHeight: 1.3 }}>
                     <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>

@@ -4,7 +4,6 @@
   position: relative;
   overflow: hidden;
   background-color: var(--bg-dark);
-  isolation: isolate;
 }
 
 /* Container do Globo Cesium */
@@ -15,10 +14,6 @@
   width: 100%;
   height: 100%;
   z-index: 1;
-}
-
-.cesium-container canvas {
-  will-change: transform;
 }
 
 /* Camada Interativa HUD por cima do Cesium */
@@ -233,14 +228,14 @@
   max-width: calc(100vw - 32px);
   min-width: 280px;
   background: var(--bg-panel);
-  backdrop-filter: blur(20px) saturate(160%) brightness(1.000001);
-  -webkit-backdrop-filter: blur(20px) saturate(160%) brightness(1.000001);
+  backdrop-filter: blur(12px);
+  -webkit-backdrop-filter: blur(12px);
   border: 1px solid var(--border-subtle);
   border-radius: 2px;
   display: flex;
   flex-direction: column;
   pointer-events: auto;
-  box-shadow: 0 8px 32px 0 rgba(0, 0, 0, 0.45), inset 0 1px 0 0 rgba(255, 255, 255, 0.1);
+  box-shadow: 0 8px 32px 0 rgba(0, 0, 0, 0.45);
   transition: transform 0.4s cubic-bezier(0.16, 1, 0.3, 1), opacity 0.4s ease, visibility 0.4s ease;
   visibility: visible;
 }
@@ -1810,7 +1805,8 @@
   width: 100vw;
   height: 100vh;
   z-index: 1000;
-  background: radial-gradient(circle at center, rgba(7, 10, 15, 0.25) 0%, rgba(7, 10, 15, 0.55) 100%);
+  background: radial-gradient(circle at center, rgba(7, 10, 15, 0.45) 0%, rgba(7, 10, 15, 0.78) 100%);
+  overflow: hidden;
   display: flex;
   justify-content: center;
   align-items: center;
@@ -2292,19 +2288,20 @@
   max-height: calc(100vh - 140px);
   margin: auto 0;
   background: var(--bg-panel-elevated);
-  backdrop-filter: blur(24px) saturate(160%) brightness(1.000001);
-  -webkit-backdrop-filter: blur(24px) saturate(160%) brightness(1.000001);
+  backdrop-filter: blur(16px);
+  -webkit-backdrop-filter: blur(16px);
   border: 1px solid var(--border-structural) !important;
   padding: 0;
   box-sizing: border-box;
   display: flex;
   flex-direction: column;
   border-radius: 2px;
-  box-shadow: 0 20px 60px rgba(0, 0, 0, 0.75), inset 0 1px 0 0 rgba(255, 255, 255, 0.12);
+  box-shadow: 0 20px 60px rgba(0, 0, 0, 0.75);
   overflow: hidden;
   transform-origin: center center;
   transition: height 0.48s cubic-bezier(0.16, 1, 0.3, 1),
     box-shadow 0.3s ease;
+  will-change: height, transform;
 }
 
 /* Faixa decorativa superior de 4 cores */
@@ -2345,7 +2342,7 @@
   }
 
   100% {
-    transform: none;
+    transform: scaleX(1) scaleY(1);
     opacity: 1;
   }
 }
