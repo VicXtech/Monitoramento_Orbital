@@ -73,7 +73,7 @@ export function calculateOrbitalAudit(sat, params = null) {
       permanenceScore = 40;
       decayEstimate = 'Milênios — Sem limpeza natural';
       permanenceLevel = 'CRÍTICO';
-      explicacaoPermanencia = 'Sem ar suficiente para frear o objeto; séculos em órbita.';
+      explicacaoPermanencia = 'Vácuo espacial sem arrasto atmosférico; permanece por milênios.';
     }
   } else {
     if (perigee < 400) {
@@ -105,7 +105,7 @@ export function calculateOrbitalAudit(sat, params = null) {
       permanenceScore = 38;
       decayEstimate = 'Permanência indefinida acima de 10.000 anos';
       permanenceLevel = 'CRÍTICO';
-      explicacaoPermanencia = 'Sem ar suficiente para frear o objeto; séculos em órbita.';
+      explicacaoPermanencia = 'Vácuo espacial sem arrasto atmosférico; permanece por milênios.';
     }
   }
 
@@ -163,10 +163,21 @@ export function calculateOrbitalAudit(sat, params = null) {
 
   // Destino esperado de fim de vida
   let endOfLifeTarget = 'REENTRY';
-  if (orbit === 'GEO') {
-    endOfLifeTarget = 'GRAVEYARD';
-  } else if ((category === 'DEBRIS' || category === 'INACTIVE' || category === 'ROCKET_BODY') && perigee > 650) {
-    endOfLifeTarget = 'PERMANENT_DEBRIS';
+  const ehObjetoInerte = (category === 'DEBRIS' || category === 'INACTIVE' || category === 'ROCKET_BODY');
+
+  if (ehObjetoInerte) {
+    if (perigee > 650) {
+      endOfLifeTarget = 'PERMANENT_DEBRIS';
+    } else {
+      endOfLifeTarget = 'REENTRY';
+    }
+  } else {
+    // Satélites ativos ou estações
+    if (orbit === 'GEO' || orbit === 'MEO') {
+      endOfLifeTarget = 'GRAVEYARD';
+    } else {
+      endOfLifeTarget = 'REENTRY';
+    }
   }
 
   // Frases explicativas concisas

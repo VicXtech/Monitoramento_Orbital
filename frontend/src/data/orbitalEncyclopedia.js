@@ -266,10 +266,26 @@ export function obterFichaFactual(sat, parametrosOrbitais) {
     historia = `Satélite que encerrou suas operações funcionais por esgotamento de combustível ou falha de bateria, permanecendo em rota passiva.`;
     relevancia = `Satélites inativos não respondem a comandos evasivos, atuando como alvos fixos na teia da Síndrome de Kessler.`;
   } else if (nome.includes("COSMOS") || nome.includes("USA ") || nome.includes("NROL") || nome.includes("KOSMOS") || nome.includes("YAOGAN")) {
-    funcao = "Carga Útil de Reconhecimento e Defesa";
     operador = sat.pais || "Defesa Soberana";
-    contextoMissao = "Carga útil militar/reconhecimento em órbita baixa polar ou heliossíncrona, monitorada por rastreamento radar automatizado.";
-    historia = `Plataforma de defesa e sensoriamento governamental em órbita especializada.`;
+    const regimeCodigo = (parametrosOrbitais?.regimeCodigo || sat.regime || 'LEO').toUpperCase();
+
+    if (regimeCodigo === 'GEO') {
+      funcao = "Carga Útil de Defesa e Telecomunicações GEO";
+      contextoMissao = "Carga útil governamental de defesa e comunicações estratégicas em órbita geoestacionária, operando em posição orbital fixa.";
+      historia = `Plataforma governamental de defesa e comunicações estratégicas em órbita geoestacionária.`;
+    } else if (regimeCodigo === 'HEO') {
+      funcao = "Carga Útil de Vigilância e Comunicação Polar";
+      contextoMissao = "Carga útil governamental em órbita altamente elíptica, projetada para comunicações e vigilância em altas latitudes polares.";
+      historia = `Plataforma governamental em trajetória elíptica com grande permanência sobre as regiões polares.`;
+    } else if (regimeCodigo === 'MEO') {
+      funcao = "Carga Útil de Defesa em Órbita Média";
+      contextoMissao = "Carga útil governamental de defesa e sincronismo em órbita média especializada, monitorada por vigilância espacial.";
+      historia = `Plataforma governamental operando na faixa de órbita média da Terra.`;
+    } else {
+      funcao = "Carga Útil de Reconhecimento e Defesa";
+      contextoMissao = "Carga útil governamental de reconhecimento e sensoriamento em órbita baixa, monitorada por vigilância espacial.";
+      historia = `Plataforma de defesa e sensoriamento governamental em órbita especializada.`;
+    }
     relevancia = `Operação de alta relevância estratégica sob rastreamento pelas redes globais de defesa aeroespacial.`;
   } else {
     const regime = parametrosOrbitais ? parametrosOrbitais.regimeNome : "Órbita Terrestre";
