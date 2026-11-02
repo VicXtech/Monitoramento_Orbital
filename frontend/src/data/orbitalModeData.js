@@ -128,14 +128,19 @@ export const CAMADAS_ORBITAIS = {
     periodoSub: '2 voltas por dia',
     subregioes: [
       {
-        nome: 'Cinturões de Radiação',
-        desc: 'Zonas de prótons e elétrons aprisionados pelo campo magnético da Terra.',
-        trafego: 'Cinturões Van Allen'
+        nome: 'Telecomunicações de Baixa Latência - 8.000 km',
+        desc: 'Órbita equatorial intermediária para conectividade de alta capacidade com menor atraso que a GEO.',
+        trafego: 'Constelações O3b e O3b mPOWER'
       },
       {
         nome: 'Corredor GNSS - 19.100 a 23.222 km',
         desc: 'Constelações mundiais de navegação, posicionamento por satélite e sincronismo temporal.',
         trafego: 'Constelações GPS, Galileo, GLONASS, BeiDou'
+      },
+      {
+        nome: 'Cinturões de Radiação',
+        desc: 'Zonas de prótons e elétrons aprisionados pelo campo magnético da Terra.',
+        trafego: 'Cinturões Van Allen'
       }
     ],
     matrizDiagnostico: [
@@ -230,6 +235,11 @@ export const CAMADAS_ORBITAIS = {
         nome: 'Anel Operacional',
         desc: 'Satélites de telecomunicações de grande porte, meteorologia contínua e defesa nacional.',
         trafego: 'Satélites SGDC, GOES, Meteosat'
+      },
+      {
+        nome: 'Órbita Geossíncrona Inclinada (IGSO)',
+        desc: 'Altitude geossíncrona com inclinação elevada, desenhando uma trajetória em "8" para cobertura de altas latitudes.',
+        trafego: 'Sistemas BeiDou IGSO e QZSS Michibiki'
       },
       {
         nome: 'Slots Orbitais UIT',
