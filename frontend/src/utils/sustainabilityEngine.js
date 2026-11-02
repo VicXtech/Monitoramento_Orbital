@@ -50,36 +50,63 @@ export function calculateOrbitalAudit(sat, params = null) {
   const meanAlt = (perigee + apogee) / 2;
   const category = normalizarCategoria(sat);
   const orbit = (params?.regimeCodigo || sat.regime || 'LEO').toUpperCase();
+  const isEliptica = (apogee - perigee > 1000) || (orbit === 'HEO') || (orbit === 'GTO');
 
-  // 1. Permanencia por altitude (peso 40%)
+    // 1. Permanencia por altitude (peso 40%)
   let permanenceScore;
   let decayEstimate;
   let permanenceLevel;
+  let explicacaoPermanencia;
 
-  if (perigee < 400) {
-    permanenceScore = 8;
-    decayEstimate = 'Meses a 2 anos - Conforme FCC';
-    permanenceLevel = 'BAIXO';
-  } else if (perigee <= 550) {
-    permanenceScore = 16;
-    decayEstimate = 'Menos de 5 anos - Conforme FCC';
-    permanenceLevel = 'BAIXO';
-  } else if (perigee <= 650) {
-    permanenceScore = 24;
-    decayEstimate = '10 a 25 anos - Conforme IADC';
-    permanenceLevel = 'MÉDIO';
-  } else if (perigee <= 800) {
-    permanenceScore = 32;
-    decayEstimate = '50 a 150 anos - Excede 25 anos';
-    permanenceLevel = 'ALTO';
-  } else if (perigee <= 2000) {
-    permanenceScore = 40;
-    decayEstimate = 'Séculos a milênios - Sem limpeza natural';
-    permanenceLevel = 'CRÍTICO';
+  if (isEliptica) {
+    if (perigee < 400) {
+      permanenceScore = 24;
+      decayEstimate = '20 a 100 anos — Órbita Elíptica (GTO)';
+      permanenceLevel = 'MÉDIO';
+      explicacaoPermanencia = 'Atrito do ar ocorre apenas no perigeu, levando décadas para decair.';
+    } else if (perigee <= 650) {
+      permanenceScore = 32;
+      decayEstimate = 'Séculos — Órbita Elíptica';
+      permanenceLevel = 'ALTO';
+      explicacaoPermanencia = 'Arrasto residual no perigeu insuficiente para desorbitar em curto prazo.';
+    } else {
+      permanenceScore = 40;
+      decayEstimate = 'Milênios — Sem limpeza natural';
+      permanenceLevel = 'CRÍTICO';
+      explicacaoPermanencia = 'Sem ar suficiente para frear o objeto; séculos em órbita.';
+    }
   } else {
-    permanenceScore = 38;
-    decayEstimate = 'Permanência indefinida acima de 10.000 anos';
-    permanenceLevel = 'CRÍTICO';
+    if (perigee < 400) {
+      permanenceScore = 8;
+      decayEstimate = 'Meses a 2 anos - Conforme FCC';
+      permanenceLevel = 'BAIXO';
+      explicacaoPermanencia = 'Perde altitude sozinho em poucos anos pelo atrito do ar.';
+    } else if (perigee <= 550) {
+      permanenceScore = 16;
+      decayEstimate = 'Menos de 5 anos - Conforme FCC';
+      permanenceLevel = 'BAIXO';
+      explicacaoPermanencia = 'Perde altitude sozinho em poucos anos pelo atrito do ar.';
+    } else if (perigee <= 650) {
+      permanenceScore = 24;
+      decayEstimate = '10 a 25 anos - Conforme IADC';
+      permanenceLevel = 'MÉDIO';
+      explicacaoPermanencia = 'Decaimento lento em décadas por arrasto residual.';
+    } else if (perigee <= 800) {
+      permanenceScore = 32;
+      decayEstimate = '50 a 150 anos - Excede 25 anos';
+      permanenceLevel = 'ALTO';
+      explicacaoPermanencia = 'Decaimento lento em décadas por arrasto residual.';
+    } else if (perigee <= 2000) {
+      permanenceScore = 40;
+      decayEstimate = 'Séculos a milênios - Sem limpeza natural';
+      permanenceLevel = 'CRÍTICO';
+      explicacaoPermanencia = 'Sem ar suficiente para frear o objeto; séculos em órbita.';
+    } else {
+      permanenceScore = 38;
+      decayEstimate = 'Permanência indefinida acima de 10.000 anos';
+      permanenceLevel = 'CRÍTICO';
+      explicacaoPermanencia = 'Sem ar suficiente para frear o objeto; séculos em órbita.';
+    }
   }
 
   // 2. Trafego na mesma altitude (peso 35%)
@@ -143,11 +170,8 @@ export function calculateOrbitalAudit(sat, params = null) {
   }
 
   // Frases explicativas concisas
-  let explicacaoPermanencia = "Perde altitude sozinho em poucos anos pelo atrito do ar.";
-  if (perigee > 800) {
-    explicacaoPermanencia = "Sem ar suficiente para frear o objeto; séculos em órbita.";
-  } else if (perigee > 550) {
-    explicacaoPermanencia = "Decaimento lento em décadas por arrasto residual.";
+  if (!explicacaoPermanencia) {
+    explicacaoPermanencia = "Perde altitude sozinho em poucos anos pelo atrito do ar.";
   }
 
   let explicacaoTrafego = "Faixa orbital com tráfego moderado e disperso.";
@@ -156,7 +180,7 @@ export function calculateOrbitalAudit(sat, params = null) {
   }
 
   const temControle = (category === 'STATION' || category === 'ACTIVE');
-  const labelControle = temControle ? 'Ativo com Desvio' : 'Sem Controle Inerte';
+  const labelControle = temControle ? 'MANOBRÁVEL' : 'INERTE';
   const explicacaoControle = temControle
     ? "Satélite ativo com propulsão para evitar colisões."
     : "Sucata espacial sem motor; não consegue desviar.";
