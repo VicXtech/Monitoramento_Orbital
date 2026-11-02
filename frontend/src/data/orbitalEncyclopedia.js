@@ -223,9 +223,23 @@ export function obterFichaFactual(sat, parametrosOrbitais) {
     relevancia = `Fornece dados abertos vitais para modelos climáticos numéricos globais.`;
   } else if (nome.includes("GALILEO") || nome.includes("GLONASS") || nome.includes("BEIDOU") || nome.includes("GPS") || nome.includes("NAVSTAR")) {
     funcao = "Radionavegação e Cronometria Global GNSS";
-    operador = "Governo Soberano / Defesa";
-    contextoMissao = "Satélite de radionavegação e temporização atômica em órbita média MEO, transmitindo sinais codificados para geolocalização civil e militar.";
-    historia = `Satélite de navegação situado na órbita terrestre média MEO. Emite sinais de radiofrequência codificados para cálculo de posição e tempo.`;
+    operador = sat.pais || (nome.includes("BEIDOU") ? "China" : "Governo Soberano / Defesa");
+    const regimeCodigo = (parametrosOrbitais?.regimeCodigo || sat.regime || '').toUpperCase();
+    const inclinacao = Number(parametrosOrbitais?.inclinacaoGraus ?? sat.inclinacao ?? 0);
+    const perigeu = Number(parametrosOrbitais?.perigeuKm ?? sat.perigeu ?? 0);
+    const isIgso = nome.includes("IGSO") || (regimeCodigo === 'GEO' && inclinacao > 15);
+    const isGeo = !isIgso && (regimeCodigo === 'GEO' || perigeu > 30000);
+
+    if (isIgso) {
+      contextoMissao = "Satélite de radionavegação e temporização atômica em órbita geossíncrona inclinada (IGSO) a ~35.786 km, projetado para garantir sinal contínuo em ângulos elevados sobre a Ásia-Pacífico.";
+      historia = `Satélite de navegação em órbita geossíncrona inclinada (IGSO). Emite sinais de radiofrequência codificados com cobertura otimizada em altas elevações.`;
+    } else if (isGeo) {
+      contextoMissao = "Satélite de radionavegação em órbita geoestacionária (GEO) a ~35.786 km, fornecendo aumento de precisão regional, sincronismo atômico e serviços de mensagens curtas.";
+      historia = `Satélite de navegação posicionado em órbita geoestacionária (GEO). Fornece aumento de precisão regional e serviços de mensagens bidirecionais.`;
+    } else {
+      contextoMissao = "Satélite de radionavegação e temporização atômica em órbita média (MEO), transmitindo sinais codificados para geolocalização global civil e militar.";
+      historia = `Satélite de navegação situado na órbita terrestre média MEO. Emite sinais de radiofrequência codificados para cálculo de posição e tempo.`;
+    }
     relevancia = `Pilar fundamental da navegação contemporânea e infraestrutura crítica global.`;
   } else if (categoriaId === 4 || nome.includes("ISS") || nome.includes("TIANGONG") || nome.includes("ESTACAO")) {
     funcao = "Estação Espacial Tripulada Permanente";
