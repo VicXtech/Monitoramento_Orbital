@@ -5073,6 +5073,27 @@
 /* ==========================================
    RESPONSIVIDADE UNIVERSAL
    ========================================== */
+@media (max-width: 1150px) {
+  .brand-section {
+    width: auto;
+    min-width: 0;
+    max-width: 280px;
+    padding: 0 12px;
+  }
+
+  .search-section {
+    width: auto;
+    min-width: 0;
+    max-width: 260px;
+  }
+
+  .orbital-mission-hub-panel {
+    left: 50% !important;
+    transform: translateX(-50%) !important;
+    width: min(440px, calc(100vw - 32px));
+  }
+}
+
 @media (max-width: 1050px) {
   .cinema-navbar {
     padding: 0 24px;
@@ -5144,6 +5165,62 @@
   .cinema-hero-title {
     font-size: 26px;
     letter-spacing: 0.06em;
+  }
+
+  .cinema-side-nav svg {
+    width: 32px;
+    height: 32px;
+  }
+
+  .brand-section {
+    width: auto;
+    min-width: 0;
+    max-width: 220px;
+    height: 46px;
+    padding: 0 10px;
+  }
+
+  .brand-title {
+    font-size: 18px;
+  }
+
+  .search-section {
+    width: auto;
+    min-width: 0;
+    max-width: 200px;
+  }
+
+  .search-bar-container {
+    height: 46px;
+    padding: 0 10px;
+  }
+
+  .search-input {
+    font-size: 11px;
+  }
+
+  .sustainability-hub-modal-card {
+    min-height: auto;
+    max-height: 92vh;
+    width: 96%;
+  }
+
+  .hub-stepper-bar {
+    padding: 6px 8px;
+    gap: 2px;
+    overflow-x: auto;
+  }
+
+  .hub-step-tab-btn {
+    padding: 6px 4px;
+  }
+
+  .step-tab-num {
+    font-size: 9px;
+  }
+
+  .step-tab-sub {
+    font-size: 7.5px;
   }
 
   .cinema-bracket-btn {
@@ -5319,6 +5396,89 @@
     padding: 12px 22px;
     font-size: 11px;
     letter-spacing: 0.08em;
+  }
+
+  .hud-modal-backdrop {
+    padding: 10px;
+  }
+
+  .hud-header {
+    flex-direction: column;
+    align-items: stretch;
+    gap: 8px;
+    margin-bottom: 8px;
+  }
+
+  .brand-section {
+    width: 100% !important;
+    max-width: 100% !important;
+    min-width: 0 !important;
+    height: 44px;
+    padding: 0 12px;
+  }
+
+  .search-section {
+    width: 100% !important;
+    max-width: 100% !important;
+    min-width: 0 !important;
+    margin-left: 0 !important;
+  }
+
+  .search-bar-container {
+    height: 44px;
+    width: 100%;
+  }
+
+  .cinema-side-nav svg {
+    width: 24px;
+    height: 24px;
+  }
+
+  .cinema-side-nav.prev {
+    left: 2px;
+  }
+
+  .cinema-side-nav.next {
+    right: 2px;
+  }
+
+  .orbital-engineering-grid {
+    grid-template-columns: 1fr;
+    gap: 10px;
+  }
+
+  .subdivisions-list {
+    grid-template-columns: 1fr;
+    gap: 6px;
+  }
+
+  .sustainability-hub-modal-card {
+    width: 100%;
+    min-height: auto;
+    max-height: 94vh;
+  }
+
+  .hub-modal-header {
+    padding: 10px 14px;
+  }
+
+  .hub-modal-body {
+    padding: 12px 14px;
+    gap: 12px;
+  }
+
+  .hub-stepper-bar {
+    display: flex;
+    overflow-x: auto;
+    scrollbar-width: thin;
+    padding: 6px 8px;
+    gap: 4px;
+  }
+
+  .hub-step-tab-btn {
+    flex: 0 0 auto;
+    min-width: 80px;
+    padding: 6px 8px;
   }
 
   .hud-panel {
@@ -7060,7 +7220,7 @@
 .sustainability-hub-modal-card {
   width: 92%;
   max-width: 1020px;
-  min-height: 620px;
+  min-height: 480px;
   max-height: 90vh;
   background: rgba(6, 14, 24, 0.96) !important;
   border: 1px solid rgba(0, 240, 255, 0.3) !important;
