@@ -4400,6 +4400,8 @@
   display: flex;
   flex-direction: column;
   justify-content: center;
+  align-items: center;
+  text-align: center;
   gap: 6px;
 }
 
@@ -4411,6 +4413,7 @@
   color: #94A3B8;
   text-transform: uppercase;
   line-height: 1.2;
+  text-align: center;
 }
 
 .uncataloged-strip-value {
@@ -4420,6 +4423,7 @@
   color: #F1F5F9;
   letter-spacing: -0.02em;
   line-height: 1.2;
+  text-align: center;
 }
 
 .uncataloged-strip-sub {
@@ -4428,6 +4432,7 @@
   font-weight: 500;
   color: #E5A93C;
   line-height: 1.2;
+  text-align: center;
 }
 
 .uncataloged-strip-col.col-box {
@@ -4438,6 +4443,8 @@
   display: flex;
   flex-direction: column;
   justify-content: center;
+  align-items: center;
+  text-align: center;
   gap: 3px;
 }
 
@@ -4447,6 +4454,7 @@
   font-weight: 600;
   color: #F1F5F9;
   letter-spacing: -0.01em;
+  text-align: center;
 }
 
 .uncataloged-box-text {
@@ -4455,6 +4463,7 @@
   color: #94A3B8;
   line-height: 1.35;
   margin: 0;
+  text-align: center;
 }
 
 .census-uncataloged-note {
