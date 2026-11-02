@@ -110,7 +110,7 @@ class TotaisOficiaisCatalogo(BaseModel):
     estacoes: int = 2
     celestrak_catalogados: int = 34729
     celestrak_rastreados: int = 31818
-    nao_catalogados_estimativa: str = "Mais de 140 milhões"
+    nao_catalogados_estimativa: str = "Mais de 230 milhões"
 
     model_config = ConfigDict(from_attributes=True)
 

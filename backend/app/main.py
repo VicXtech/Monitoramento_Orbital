@@ -621,7 +621,7 @@ def obter_estatisticas(db: Session = Depends(get_db)):
             estacoes=estacoes_em_orbita,
             celestrak_catalogados=max(total_banco, 34729),
             celestrak_rastreados=total_console,
-            nao_catalogados_estimativa="Mais de 140 milhões"
+            nao_catalogados_estimativa="Mais de 230 milhões"
         )
 
         perc_detritos = round((detritos_em_orbita / total_em_orbita) * 100.0, 2) if total_em_orbita > 0 else 0.0

@@ -177,7 +177,7 @@ export const SERIE_HISTORICA_ESA = [
     ano: 2026,
     rotulo: '2026',
     evento: 'Censo atual do catálogo orbital oficial',
-    cargasAtivas: 10500,
+    cargasAtivas: 11300,
     cargasInativas: 3250,
     corposFoguete: 2340,
     detritos: 13410,

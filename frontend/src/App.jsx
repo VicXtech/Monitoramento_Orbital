@@ -2464,7 +2464,7 @@ function App() {
       total_console: 31818,
       celestrak_catalogados: 34729,
       celestrak_rastreados: 31818,
-      nao_catalogados_estimativa: "Mais de 140 milhões"
+      nao_catalogados_estimativa: "Mais de 230 milhões"
     };
   };
 
@@ -3094,19 +3094,19 @@ function App() {
                               {/* BLOCO 1 (ESQUERDA): DESTAQUE NUMÉRICO */}
                               <div className="uncataloged-strip-col col-stat">
                                 <span className="uncataloged-strip-label">NÃO CATALOGADOS (&lt; 10 CM)</span>
-                                <span className="uncataloged-strip-value">+140 MILHÕES</span>
-                                <span className="uncataloged-strip-sub">Invisíveis aos radares pelo Modelo ESA</span>
+                                <span className="uncataloged-strip-value">+230 MILHÕES</span>
+                                <span className="uncataloged-strip-sub">Invisíveis aos radares · Modelo ESA MASTER-8 (2026)</span>
                               </div>
 
                               {/* BLOCO 2 (CENTRO): CAIXA SUTIL 1 A 10 CM */}
                               <div className="uncataloged-strip-col col-box">
-                                <span className="uncataloged-box-title">1 a 10 cm ~1.000.000</span>
+                                <span className="uncataloged-box-title">1 a 10 cm ~1.500.000</span>
                                 <p className="uncataloged-box-text">Letalidade total em impacto; impossível manobrar.</p>
                               </div>
 
                               {/* BLOCO 3 (DIREITA): CAIXA SUTIL 1 MM A 1 CM */}
                               <div className="uncataloged-strip-col col-box">
-                                <span className="uncataloged-box-title">1 mm a 1 cm ~130.000.000</span>
+                                <span className="uncataloged-box-title">1 mm a 1 cm ~230.000.000</span>
                                 <p className="uncataloged-box-text">Perfuração contínua de painéis solares e ópticas.</p>
                               </div>
                             </div>
@@ -3391,7 +3391,7 @@ function App() {
                     <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
                       <span>Objetos não catalogados:</span>
                       <strong style={{ color: 'var(--cat-inactive)', fontFamily: 'var(--font-mono)', fontVariantNumeric: 'tabular-nums', fontWeight: 600 }}>
-                        {obterContadoresCategorias().nao_catalogados_estimativa || "Mais de 140 milhões"}
+                        {obterContadoresCategorias().nao_catalogados_estimativa || "Mais de 230 milhões"}
                       </strong>
                     </div>
                   </div>
