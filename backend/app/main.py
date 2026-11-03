@@ -238,7 +238,7 @@ def listar_objetos(
         # Consulta cache em memoria para respostas instantaneas
         cache_key = f"{limit}_{regime}_{categoria_ids}_{categoria_id}_{seed}"
         agora = time.time()
-        if not busca and cache_key in CACHE_OBJETOS and agora < CACHE_OBJETOS_EXPIRA.get(cache_key, 0):
+        if not busca and not seed and cache_key in CACHE_OBJETOS and agora < CACHE_OBJETOS_EXPIRA.get(cache_key, 0):
             return CACHE_OBJETOS[cache_key]
 
         # Aplica seed pseudo-aleatória no PostgreSQL se fornecida
@@ -435,8 +435,11 @@ def listar_objetos(
             objeto.omm = objeto.dados_omm
             response_data.append(objeto)
 
-        # Salva em cache para acelerar proximas chamadas
-        if not busca:
+        # Salva em cache para acelerar chamadas repetidas (sem acumular seeds dinamicas)
+        if not busca and not seed:
+            if len(CACHE_OBJETOS) >= 2:
+                CACHE_OBJETOS.clear()
+                CACHE_OBJETOS_EXPIRA.clear()
             CACHE_OBJETOS[cache_key] = response_data
             CACHE_OBJETOS_EXPIRA[cache_key] = time.time() + CACHE_TTL_SEGUNDOS
 
