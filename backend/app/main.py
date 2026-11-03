@@ -1,5 +1,4 @@
 import time
-import random
 import logging
 import math
 from contextlib import asynccontextmanager
@@ -46,60 +45,6 @@ PINNED_NORAD_IDS = [
 CACHE_OBJETOS = {}
 CACHE_OBJETOS_EXPIRA = {}
 CACHE_TTL_SEGUNDOS = 3600
-
-# Pool em memória de objetos ativos para amostragem pseudo-aleatória ultrarrápida
-CACHE_POOL_ATIVOS = None
-CACHE_POOL_EXPIRA = 0
-POOL_TTL_SEGUNDOS = 3600
-
-
-def obter_pool_ativos(db: Session):
-    """Carrega ou reaproveita o pool em memória de todos os objetos ativos para amostragem instantânea."""
-    global CACHE_POOL_ATIVOS, CACHE_POOL_EXPIRA
-    agora = time.time()
-    if CACHE_POOL_ATIVOS is not None and agora < CACHE_POOL_EXPIRA:
-        return CACHE_POOL_ATIVOS
-
-    logger.info("LOG: Carregando pool de objetos ativos do banco de dados para memória...")
-
-    prioridade_pais = case(
-        (ObjetoOrbital.pais.is_(None), 1),
-        (ObjetoOrbital.pais == "", 1),
-        (ObjetoOrbital.pais.ilike("%não identificado%"), 1),
-        (ObjetoOrbital.pais.ilike("%desconhecido%"), 1),
-        (ObjetoOrbital.pais.ilike("%unknown%"), 1),
-        else_=0
-    )
-
-    subq = db.query(
-        TLEHistorico.objeto_id,
-        func.max(TLEHistorico.id).label("max_id")
-    ).group_by(TLEHistorico.objeto_id).subquery()
-
-    query_ativos = db.query(ObjetoOrbital, TLEHistorico).outerjoin(
-        subq, ObjetoOrbital.id == subq.c.objeto_id
-    ).outerjoin(
-        TLEHistorico,
-        TLEHistorico.id == subq.c.max_id
-    ).filter(
-        ObjetoOrbital.data_decaimento.is_(None),
-        (ObjetoOrbital.codigo_status != 'D') | (ObjetoOrbital.codigo_status.is_(None))
-    ).options(
-        selectinload(ObjetoOrbital.missao),
-        selectinload(ObjetoOrbital.categoria)
-    ).order_by(prioridade_pais.asc(), ObjetoOrbital.id.asc()).all()
-
-    pool_preparado = []
-    for objeto, tle in query_ativos:
-        objeto.ultimo_tle = tle
-        objeto.omm = objeto.dados_omm
-        pool_preparado.append(objeto)
-
-    CACHE_POOL_ATIVOS = pool_preparado
-    CACHE_POOL_EXPIRA = agora + POOL_TTL_SEGUNDOS
-    logger.info(f"LOG: Pool carregado com sucesso ({len(pool_preparado)} objetos em memória).")
-    return CACHE_POOL_ATIVOS
-
 
 
 def executar_coleta_diaria():
@@ -167,9 +112,6 @@ def executar_coleta_diaria():
         
         CACHE_OBJETOS.clear()
         CACHE_OBJETOS_EXPIRA.clear()
-        global CACHE_POOL_ATIVOS, CACHE_POOL_EXPIRA
-        CACHE_POOL_ATIVOS = None
-        CACHE_POOL_EXPIRA = 0
         logger.info("LOG: Sincronização automática concluída com sucesso no Scheduler.")
     except Exception as e:
         logger.error(f"LOG: Falha crítica na sincronização automática do Scheduler: {e}")
@@ -291,35 +233,48 @@ def listar_objetos(
     Retorna a lista de objetos orbitais com categoria, dados de missão e último TLE.
     Garante presença de satélites históricos/científicos essenciais (PINNED),
     amostragem estratificada 2D calibrada na proporção da ESA e suporte a filtro por camada orbital.
-    A amostragem pseudo-aleatória opera via pool em memória com tempo de resposta em milissegundos.
     """
     try:
+        # Consulta cache em memoria para respostas instantaneas
+        cache_key = f"{limit}_{regime}_{categoria_ids}_{categoria_id}_{seed}"
+        agora = time.time()
+        if not busca and cache_key in CACHE_OBJETOS and agora < CACHE_OBJETOS_EXPIRA.get(cache_key, 0):
+            return CACHE_OBJETOS[cache_key]
+
+        # Aplica seed pseudo-aleatória no PostgreSQL se fornecida
+        if seed:
+            try:
+                seed_float = (abs(hash(str(seed))) % 1000000) / 1000000.0
+                db.execute(text(f"SELECT setseed({seed_float})"))
+            except Exception as e:
+                logger.warning(f"Aviso ao aplicar setseed: {e}")
+
+        prioridade_pais = case(
+            (ObjetoOrbital.pais.is_(None), 1),
+            (ObjetoOrbital.pais == "", 1),
+            (ObjetoOrbital.pais.ilike("%não identificado%"), 1),
+            (ObjetoOrbital.pais.ilike("%desconhecido%"), 1),
+            (ObjetoOrbital.pais.ilike("%unknown%"), 1),
+            else_=0
+        )
+
+        subq = db.query(
+            TLEHistorico.objeto_id,
+            func.max(TLEHistorico.id).label("max_id")
+        ).group_by(TLEHistorico.objeto_id).subquery()
+
+        query_base = db.query(ObjetoOrbital, TLEHistorico).outerjoin(
+            subq, ObjetoOrbital.id == subq.c.objeto_id
+        ).outerjoin(
+            TLEHistorico,
+            TLEHistorico.id == subq.c.max_id
+        ).options(
+            selectinload(ObjetoOrbital.missao),
+            selectinload(ObjetoOrbital.categoria)
+        )
+
         # 1. Se for busca textual direta por nome ou NORAD ID
         if busca:
-            prioridade_pais = case(
-                (ObjetoOrbital.pais.is_(None), 1),
-                (ObjetoOrbital.pais == "", 1),
-                (ObjetoOrbital.pais.ilike("%não identificado%"), 1),
-                (ObjetoOrbital.pais.ilike("%desconhecido%"), 1),
-                (ObjetoOrbital.pais.ilike("%unknown%"), 1),
-                else_=0
-            )
-
-            subq = db.query(
-                TLEHistorico.objeto_id,
-                func.max(TLEHistorico.id).label("max_id")
-            ).group_by(TLEHistorico.objeto_id).subquery()
-
-            query_base = db.query(ObjetoOrbital, TLEHistorico).outerjoin(
-                subq, ObjetoOrbital.id == subq.c.objeto_id
-            ).outerjoin(
-                TLEHistorico,
-                TLEHistorico.id == subq.c.max_id
-            ).options(
-                selectinload(ObjetoOrbital.missao),
-                selectinload(ObjetoOrbital.categoria)
-            )
-
             busca_limpa = busca.strip()
             query = query_base.filter(
                 ObjetoOrbital.nome.ilike(f"%{busca_limpa}%") | 
@@ -335,123 +290,144 @@ def listar_objetos(
                     query = query.filter(ObjetoOrbital.categoria_id.in_(cids))
             results = query.order_by(prioridade_pais.asc(), ObjetoOrbital.id.asc()).offset(skip).limit(limit).all()
 
+            # Enriquecimento sob demanda via SATCAT se o objeto buscado ainda não tiver cosmódromo
             if len(results) == 1 and results[0][0].local_lancamento is None:
                 try:
                     conector.obter_satcat_individual(results[0][0].norad_id, db)
                 except Exception:
                     pass
 
-            response_data = []
-            for objeto, tle in results:
-                objeto.ultimo_tle = tle
-                objeto.omm = objeto.dados_omm
-                response_data.append(objeto)
-            return response_data
-
-        # 2. Amostragem do Radar via pool de objetos ativos em memória (sub-milissegundo)
-        cache_key = f"{limit}_{regime}_{categoria_ids}_{categoria_id}_{seed}"
-        agora = time.time()
-        if cache_key in CACHE_OBJETOS and agora < CACHE_OBJETOS_EXPIRA.get(cache_key, 0):
-            return CACHE_OBJETOS[cache_key]
-
-        pool = obter_pool_ativos(db)
-
-        # Categorias ativas
-        if categoria_ids:
-            cats_ativas = set(int(x.strip()) for x in categoria_ids.split(",") if x.strip().isdigit())
-        elif categoria_id is not None:
-            cats_ativas = {categoria_id}
         else:
-            cats_ativas = {1, 2, 3, 4, 5}
+            # 2. No radar do simulador 3D: apenas objetos em órbita ativa (expurga objetos decaídos)
+            query_base = query_base.filter(
+                ObjetoOrbital.data_decaimento.is_(None),
+                (ObjetoOrbital.codigo_status != 'D') | (ObjetoOrbital.codigo_status.is_(None))
+            )
 
-        cats_radar = set(c for c in cats_ativas if c in [1, 2, 3, 4, 5])
-        regime_filtro = regime.strip().upper() if regime else None
+            # Categorias ativas
+            if categoria_ids:
+                cats_ativas = [int(x.strip()) for x in categoria_ids.split(",") if x.strip().isdigit()]
+            elif categoria_id is not None:
+                cats_ativas = [categoria_id]
+            else:
+                cats_ativas = [1, 2, 3, 4, 5]
 
-        # Semente pseudo-aleatória determinística por requisição
-        seed_val = int(abs(hash(str(seed))) % 10000000) if seed else 0
-        rng = random.Random(seed_val)
+            cats_radar = [c for c in cats_ativas if c in [1, 2, 3, 4, 5]]
+            regime_filtro = regime.strip().upper() if regime else None
 
-        pinned_set = set(PINNED_NORAD_IDS) | {"25544", "48274"}
-        pinned_objs = [
-            o for o in pool 
-            if o.norad_id in pinned_set and (o.categoria_id in cats_radar or o.norad_id in {"25544", "48274"})
-        ]
-        pinned_ids = set(p.id for p in pinned_objs)
+            # CASO A: Filtro específico por camada orbital (Drill-Down / isolamento de camada)
+            if regime_filtro in ["LEO", "MEO", "GEO", "HEO"]:
+                pinned_filter = (
+                    ObjetoOrbital.norad_id.in_(["25544", "48274"]) | (
+                        ObjetoOrbital.categoria_id.in_(cats_radar) &
+                        ObjetoOrbital.norad_id.in_(PINNED_NORAD_IDS)
+                    )
+                )
+                pinned_na_camada = query_base.filter(
+                    pinned_filter,
+                    ObjetoOrbital.regime == regime_filtro
+                ).all()
+                pinned_ids = set(p[0].id for p in pinned_na_camada)
 
-        # CASO A: Filtro específico por camada orbital (LEO, MEO, GEO, HEO)
-        if regime_filtro in ["LEO", "MEO", "GEO", "HEO"]:
-            pinned_na_camada = [p for p in pinned_objs if (p.regime or "LEO") == regime_filtro]
-            vagas = max(0, limit - len(pinned_na_camada))
-            candidatos = [
-                o for o in pool
-                if (o.regime or "LEO") == regime_filtro
-                and o.categoria_id in cats_radar
-                and o.id not in pinned_ids
-                and not o.estacao_pai_norad
-                and not (o.nome and (o.nome.startswith("ISS (") or o.nome.startswith("CSS (")))
-            ]
-            amostra_outros = rng.sample(candidatos, min(vagas, len(candidatos))) if vagas > 0 else []
-            results = pinned_na_camada + amostra_outros
+                vagas_restantes = max(0, limit - len(pinned_na_camada))
+                outros = []
+                if vagas_restantes > 0:
+                    outros_query = query_base.filter(
+                        ObjetoOrbital.regime == regime_filtro,
+                        ObjetoOrbital.categoria_id.in_(cats_radar),
+                        ObjetoOrbital.estacao_pai_norad.is_(None),
+                        ~ObjetoOrbital.nome.ilike("ISS (%"),
+                        ~ObjetoOrbital.nome.ilike("CSS (%")
+                    )
+                    if pinned_ids:
+                        outros_query = outros_query.filter(~ObjetoOrbital.id.in_(pinned_ids))
 
-        # CASO B: Amostragem Estratificada 2D Proporcional da ESA (84% LEO, 9% GEO, 5% HEO, 2% MEO)
-        else:
-            cota_leo = int(round(limit * 0.84))
-            cota_geo = int(round(limit * 0.09))
-            cota_heo = int(round(limit * 0.05))
-            cota_meo = max(1, limit - (cota_leo + cota_geo + cota_heo))
+                    outros = outros_query.order_by(prioridade_pais.asc(), func.random()).limit(vagas_restantes).all()
 
-            cotas_camadas = {
-                "LEO": cota_leo,
-                "GEO": cota_geo,
-                "HEO": cota_heo,
-                "MEO": cota_meo
-            }
+                results = pinned_na_camada + outros
 
-            pinned_por_reg = {"LEO": [], "GEO": [], "HEO": [], "MEO": []}
-            for p in pinned_objs:
-                reg_obj = p.regime if p.regime in cotas_camadas else "LEO"
-                pinned_por_reg[reg_obj].append(p)
+            # CASO B: Amostragem Estratificada 2D Proporcional da ESA (84% LEO, 9% GEO, 5% HEO, 2% MEO)
+            else:
+                cota_leo = int(round(limit * 0.84))
+                cota_geo = int(round(limit * 0.09))
+                cota_heo = int(round(limit * 0.05))
+                cota_meo = max(1, limit - (cota_leo + cota_geo + cota_heo))
 
-            candidatos_por_reg = {"LEO": [], "GEO": [], "HEO": [], "MEO": []}
-            for o in pool:
-                if o.id in pinned_ids or o.categoria_id not in cats_radar:
-                    continue
-                if o.estacao_pai_norad:
-                    continue
-                if o.nome and (o.nome.startswith("ISS (") or o.nome.startswith("CSS (")):
-                    continue
-                reg_obj = o.regime if o.regime in cotas_camadas else "LEO"
-                candidatos_por_reg[reg_obj].append(o)
+                cotas_camadas = {
+                    "LEO": cota_leo,
+                    "GEO": cota_geo,
+                    "HEO": cota_heo,
+                    "MEO": cota_meo
+                }
 
-            amostras_totais = []
-            sobra_vagas = 0
+                # Objetos VIP / Pinned sempre garantidos (inclui as 2 estações principais permanentemente)
+                pinned_filter = (
+                    ObjetoOrbital.norad_id.in_(["25544", "48274"]) | (
+                        ObjetoOrbital.categoria_id.in_(cats_radar) &
+                        ObjetoOrbital.norad_id.in_(PINNED_NORAD_IDS)
+                    )
+                )
+                pinned = query_base.filter(pinned_filter).all()
+                pinned_ids = set(p[0].id for p in pinned)
 
-            for reg_nome, cota_alvo in cotas_camadas.items():
-                pins = pinned_por_reg[reg_nome]
-                amostras_totais.extend(pins)
-                vagas = max(0, cota_alvo - len(pins))
-                cands = candidatos_por_reg[reg_nome]
-                if vagas > 0 and cands:
-                    qtd = min(vagas, len(cands))
-                    amostra = rng.sample(cands, qtd)
-                    amostras_totais.extend(amostra)
-                    if qtd < vagas:
-                        sobra_vagas += (vagas - qtd)
-                elif vagas > 0:
-                    sobra_vagas += vagas
+                pinned_por_reg = {"LEO": [], "GEO": [], "HEO": [], "MEO": []}
+                for p in pinned:
+                    reg_obj = p[0].regime or "LEO"
+                    if reg_obj in pinned_por_reg:
+                        pinned_por_reg[reg_obj].append(p)
+                    else:
+                        pinned_por_reg["LEO"].append(p)
 
-            # Se sobrar alguma vaga em camadas com menos satélites, completa com LEO
-            if sobra_vagas > 0:
-                ids_ja_inclusos = set(r.id for r in amostras_totais)
-                extras_leo = [o for o in candidatos_por_reg["LEO"] if o.id not in ids_ja_inclusos]
-                if extras_leo:
-                    amostras_totais.extend(rng.sample(extras_leo, min(sobra_vagas, len(extras_leo))))
+                amostras_totais = []
+                sobra_vagas = 0
 
-            results = amostras_totais
+                for reg_nome, cota_alvo in cotas_camadas.items():
+                    pinned_camada = pinned_por_reg[reg_nome]
+                    amostras_totais.extend(pinned_camada)
+                    vagas = max(0, cota_alvo - len(pinned_camada))
+                    if vagas > 0:
+                        itens_query = query_base.filter(
+                            ObjetoOrbital.regime == reg_nome,
+                            ObjetoOrbital.categoria_id.in_(cats_radar),
+                            ObjetoOrbital.estacao_pai_norad.is_(None),
+                            ~ObjetoOrbital.nome.ilike("ISS (%"),
+                            ~ObjetoOrbital.nome.ilike("CSS (%")
+                        )
+                        if pinned_ids:
+                            itens_query = itens_query.filter(~ObjetoOrbital.id.in_(pinned_ids))
 
-        CACHE_OBJETOS[cache_key] = results
-        CACHE_OBJETOS_EXPIRA[cache_key] = time.time() + CACHE_TTL_SEGUNDOS
-        return results
+                        itens_camada = itens_query.order_by(prioridade_pais.asc(), func.random()).limit(vagas).all()
+                        amostras_totais.extend(itens_camada)
+                        if len(itens_camada) < vagas:
+                            sobra_vagas += (vagas - len(itens_camada))
+
+                # Se sobrar alguma vaga (ex: camada pequena com menos itens que a cota), compensa em LEO
+                if sobra_vagas > 0:
+                    ids_ja_inclusos = set(r[0].id for r in amostras_totais)
+                    extras_leo = query_base.filter(
+                        ObjetoOrbital.regime == "LEO",
+                        ObjetoOrbital.categoria_id.in_(cats_radar),
+                        ObjetoOrbital.estacao_pai_norad.is_(None),
+                        ~ObjetoOrbital.id.in_(ids_ja_inclusos),
+                        ~ObjetoOrbital.nome.ilike("ISS (%"),
+                        ~ObjetoOrbital.nome.ilike("CSS (%")
+                    ).order_by(prioridade_pais.asc(), func.random()).limit(sobra_vagas).all()
+                    amostras_totais.extend(extras_leo)
+
+                results = amostras_totais
+
+        response_data = []
+        for objeto, tle in results:
+            objeto.ultimo_tle = tle
+            objeto.omm = objeto.dados_omm
+            response_data.append(objeto)
+
+        # Salva em cache para acelerar proximas chamadas
+        if not busca:
+            CACHE_OBJETOS[cache_key] = response_data
+            CACHE_OBJETOS_EXPIRA[cache_key] = time.time() + CACHE_TTL_SEGUNDOS
+
+        return response_data
     except Exception as e:
         logger.error(f"LOG: Erro ao listar objetos orbitais: {e}")
         raise HTTPException(status_code=500, detail="Erro interno no servidor ao processar a listagem")
