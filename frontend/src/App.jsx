@@ -1115,6 +1115,8 @@ function App() {
 
   // 2. CARREGAMENTO REATIVO DE OBJETOS COM BASE NAS 4 CATEGORIAS
   useEffect(() => {
+    const abortCtrl = new AbortController();
+
     const carregarObjetosFiltrados = async () => {
       const ativas = Array.from(new Set([
         ...Object.entries(categoriasAtivas).filter(([, ativa]) => ativa).map(([k]) => Number(k)),
@@ -1165,7 +1167,9 @@ function App() {
         }
 
         const tInicio = performance.now();
-        const resObjs = await fetch(url);
+        const timeoutId = setTimeout(() => abortCtrl.abort(), 12000);
+        const resObjs = await fetch(url, { signal: abortCtrl.signal });
+        clearTimeout(timeoutId);
         const tFim = performance.now();
         const latencia = Math.round(tFim - tInicio);
         setMetricasPerformance(prev => ({ ...prev, latenciaApiMs: latencia }));
@@ -1178,7 +1182,9 @@ function App() {
           setObjetos(dataObjs);
         }
       } catch (err) {
-        console.error("Erro ao carregar objetos orbitais:", err);
+        if (err.name !== 'AbortError') {
+          console.error("Erro ao carregar objetos orbitais:", err);
+        }
       } finally {
         setLoading(false);
         setTimeout(() => {
@@ -1188,6 +1194,7 @@ function App() {
     };
 
     carregarObjetosFiltrados();
+    return () => abortCtrl.abort();
   }, [categoriasAtivas, amostraSeed, densidadeCatalogo, regimeAtivo]);
 
   const handleRecarregarAmostra = () => {
