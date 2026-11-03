@@ -476,11 +476,14 @@ function App() {
             if (noradId === satSelecionadoId) continue;
 
             const entry = pointsRef.current.get(noradId);
-            if (entry && entry.point && entry.point.show) {
+            if (entry && entry.point) {
               const lat = posicoes[offset + 1];
               const alt = posicoes[offset + 2];
               const novoPos = window.Cesium.Cartesian3.fromDegrees(lon, lat, alt, undefined, scratch);
               entry.point.position = novoPos;
+              if (entry.deveMostrar && !entry.point.show) {
+                entry.point.show = true;
+              }
             }
           }
 
@@ -1441,6 +1444,10 @@ function App() {
       setPainelEsquerdoAberto(false);
     }
 
+    const entrySel = pointsRef.current.get(String(sat?.norad_id));
+    if (entrySel && !entrySel.satrec) {
+      entrySel.satrec = obterSatrec(sat);
+    }
     const v = viewerRef.current;
     if (sat && (sat.ultimo_tle || sat.omm)) {
       const dataSimulada = new Date(simulatedTimeMsRef.current);
@@ -1656,7 +1663,8 @@ function App() {
     viewerInstance.scene.globe.showAtmosphere = true;
     viewerInstance.scene.globe.atmosphereLightIntensity = 1.3;
     viewerInstance.scene.globe.depthTestAgainstTerrain = true;
-    viewerInstance.resolutionScale = Math.min(window.devicePixelRatio || 1.0, 1.5);
+    // Limita escala de resolução a 1.0 para otimizar desempenho e taxa de preenchimento em GPUs integradas
+    viewerInstance.resolutionScale = 1.0;
 
     // Configurações da câmera: trava a rotação e o foco no centro do planeta
     const ctrl = viewerInstance.scene.screenSpaceCameraController;
@@ -1764,44 +1772,43 @@ function App() {
         return;
       }
 
-      // 1. Tentar pegar o objeto via drillPick no pixel exato
+      // 1. Identificação rápida por pick simples direto no pixel do clique
       let satEntryClique = null;
-      const pickedList = viewerInstance.scene.drillPick(click.position);
-      if (pickedList && pickedList.length > 0) {
-        for (let i = 0; i < pickedList.length; i++) {
-          const item = pickedList[i];
-          const noradId = typeof item.id === 'string' ? item.id : (item.primitive?.id || null);
-          if (noradId && pointsRef.current.has(String(noradId))) {
-            satEntryClique = pointsRef.current.get(String(noradId));
-            break;
+      const picked = viewerInstance.scene.pick(click.position);
+      const directNoradId = typeof picked?.id === 'string' ? picked.id : (picked?.primitive?.id || null);
+      if (directNoradId && pointsRef.current.has(String(directNoradId))) {
+        satEntryClique = pointsRef.current.get(String(directNoradId));
+      }
+
+      // 2. Tenta drillPick com limite estrito de 2 primitivas se o pick direto falhar
+      if (!satEntryClique) {
+        const pickedList = viewerInstance.scene.drillPick(click.position, 2);
+        if (pickedList && pickedList.length > 0) {
+          for (let i = 0; i < pickedList.length; i++) {
+            const item = pickedList[i];
+            const noradId = typeof item.id === 'string' ? item.id : (item.primitive?.id || null);
+            if (noradId && pointsRef.current.has(String(noradId))) {
+              satEntryClique = pointsRef.current.get(String(noradId));
+              break;
+            }
           }
         }
       }
 
-      // 2. Tolerância sutil de até 4px via drillPick na GPU
+      // 3. Tolerância sutil em 4 pontos cardeais com pick rápido (sem loops pesados de GPU)
       if (!satEntryClique) {
-        const offsets = [
-          [-2, 0], [2, 0], [0, -2], [0, 2],
-          [-3, -3], [3, -3], [-3, 3], [3, 3],
-          [-4, 0], [4, 0], [0, -4], [0, 4]
-        ];
+        const offsets = [[-3, 0], [3, 0], [0, -3], [0, 3]];
         for (let i = 0; i < offsets.length; i++) {
           const p = new window.Cesium.Cartesian2(
             click.position.x + offsets[i][0],
             click.position.y + offsets[i][1]
           );
-          const vizList = viewerInstance.scene.drillPick(p);
-          if (vizList && vizList.length > 0) {
-            for (let j = 0; j < vizList.length; j++) {
-              const item = vizList[j];
-              const noradId = typeof item.id === 'string' ? item.id : (item.primitive?.id || null);
-              if (noradId && pointsRef.current.has(String(noradId))) {
-                satEntryClique = pointsRef.current.get(String(noradId));
-                break;
-              }
-            }
+          const item = viewerInstance.scene.pick(p);
+          const noradId = typeof item?.id === 'string' ? item.id : (item?.primitive?.id || null);
+          if (noradId && pointsRef.current.has(String(noradId))) {
+            satEntryClique = pointsRef.current.get(String(noradId));
+            break;
           }
-          if (satEntryClique) break;
         }
       }
 
@@ -1813,13 +1820,18 @@ function App() {
       }
     }, window.Cesium.ScreenSpaceEventType.LEFT_CLICK);
 
-    // Manipulador de Hover do Mouse (Gera trilha orbital dinamicamente sob o cursor)
+    // Manipulador de Hover do Mouse com Throttling via requestAnimationFrame
     let lastHoveredEntity = null;
     let lastHoveredEventoEntity = null;
+    let hoverAnimFrameId = null;
+    let ultimoHoverProcessadoMs = 0;
+    let movimentoPendente = null;
+
     const hoverHandler = new window.Cesium.ScreenSpaceEventHandler(viewerInstance.scene.canvas);
     const tooltipEl = document.getElementById('hud-tooltip');
 
-    hoverHandler.setInputAction((movement) => {
+    const executarProcessamentoHover = (movement) => {
+      if (!viewerInstance || viewerInstance.isDestroyed() || !window.Cesium) return;
       if (telaAtivaRef.current !== 'simulador') {
         viewerInstance.scene.canvas.style.cursor = 'default';
         if (tooltipEl) tooltipEl.style.display = 'none';
@@ -1830,7 +1842,7 @@ function App() {
       if (modoOrbitalAtivoRef.current) {
         let pickedObject = viewerInstance.scene.pick(movement.endPosition);
         if (!window.Cesium.defined(pickedObject)) {
-          const drillList = viewerInstance.scene.drillPick(movement.endPosition);
+          const drillList = viewerInstance.scene.drillPick(movement.endPosition, 1);
           if (drillList && drillList.length > 0) pickedObject = drillList[0];
         }
 
@@ -1907,15 +1919,25 @@ function App() {
         return;
       }
 
+      // Modo rastreamento normal: identificação rápida por pick simples
       let satEntryHover = null;
-      const pickedListHover = viewerInstance.scene.drillPick(movement.endPosition);
-      if (pickedListHover && pickedListHover.length > 0) {
-        for (let i = 0; i < pickedListHover.length; i++) {
-          const item = pickedListHover[i];
-          const noradId = typeof item.id === 'string' ? item.id : (item.primitive?.id || null);
-          if (noradId && pointsRef.current.has(String(noradId))) {
-            satEntryHover = pointsRef.current.get(String(noradId));
-            break;
+      const picked = viewerInstance.scene.pick(movement.endPosition);
+      const directNoradId = typeof picked?.id === 'string' ? picked.id : (picked?.primitive?.id || null);
+      if (directNoradId && pointsRef.current.has(String(directNoradId))) {
+        satEntryHover = pointsRef.current.get(String(directNoradId));
+      }
+
+      // Se não encontrou, tenta drillPick com limite de 2 primitivas
+      if (!satEntryHover) {
+        const pickedListHover = viewerInstance.scene.drillPick(movement.endPosition, 2);
+        if (pickedListHover && pickedListHover.length > 0) {
+          for (let i = 0; i < pickedListHover.length; i++) {
+            const item = pickedListHover[i];
+            const noradId = typeof item.id === 'string' ? item.id : (item.primitive?.id || null);
+            if (noradId && pointsRef.current.has(String(noradId))) {
+              satEntryHover = pointsRef.current.get(String(noradId));
+              break;
+            }
           }
         }
       }
@@ -2059,6 +2081,32 @@ function App() {
           tooltipEl.style.display = 'none';
         }
       }
+    };
+
+    hoverHandler.setInputAction((movement) => {
+      if (telaAtivaRef.current !== 'simulador') {
+        viewerInstance.scene.canvas.style.cursor = 'default';
+        if (tooltipEl) tooltipEl.style.display = 'none';
+        return;
+      }
+
+      movimentoPendente = movement;
+      const agora = performance.now();
+      if (agora - ultimoHoverProcessadoMs < 60) {
+        if (!hoverAnimFrameId) {
+          hoverAnimFrameId = requestAnimationFrame(() => {
+            hoverAnimFrameId = null;
+            if (movimentoPendente) {
+              executarProcessamentoHover(movimentoPendente);
+              ultimoHoverProcessadoMs = performance.now();
+            }
+          });
+        }
+        return;
+      }
+
+      ultimoHoverProcessadoMs = agora;
+      executarProcessamentoHover(movement);
     }, window.Cesium.ScreenSpaceEventType.MOUSE_MOVE);
 
     // Acompanhamento do objeto focado, relogio simulado e giro ocioso no preRender
@@ -2211,6 +2259,10 @@ function App() {
     });
 
     return () => {
+      if (hoverAnimFrameId) {
+        cancelAnimationFrame(hoverAnimFrameId);
+        hoverAnimFrameId = null;
+      }
       removerPreRender();
       clickHandler.destroy();
       hoverHandler.destroy();
@@ -2278,8 +2330,7 @@ function App() {
       if (nomeUpper.startsWith('ISS (') && sat.norad_id !== '25544') return false;
       if (nomeUpper.startsWith('CSS (') && sat.norad_id !== '48274') return false;
 
-      const isAtiva = (catId in categoriasAtivas) && categoriasAtivas[catId];
-      return isAtiva && Boolean(sat.omm || sat.ultimo_tle);
+      return Boolean(sat.omm || sat.ultimo_tle);
     });
 
     const dataBase = new Date(simulatedTimeMsRef.current);
@@ -2288,45 +2339,33 @@ function App() {
     satelitesFiltrados.forEach(sat => {
       try {
         const catId = Number(sat.categoria_id);
-        const satrec = obterSatrec(sat);
-        if (!satrec) return;
+        const isEstacaoPrincipal = String(sat.norad_id) === '25544' || String(sat.norad_id) === '48274';
+        const isSelecionado = satSelecionadoRef.current && String(sat.norad_id) === String(satSelecionadoRef.current.norad_id);
 
-        let posAndVel = satellite.propagate(satrec, dataBase);
-        let rMag = posAndVel && posAndVel.position ? Math.sqrt(posAndVel.position.x * posAndVel.position.x + posAndVel.position.y * posAndVel.position.y + posAndVel.position.z * posAndVel.position.z) : 0;
-        let altKm = rMag - 6378.137;
+        let initialPos = window.Cesium.Cartesian3.ZERO;
+        let satrec = null;
+        let jaTemPosicao = false;
 
-        const isLeoinvalido = sat.regime === 'LEO' && (altKm > 2000 || altKm < 60);
-        const isGeralInvalido = altKm < 60 || altKm > 100000;
-
-        if (!posAndVel || !posAndVel.position || isLeoinvalido || isGeralInvalido) {
-          try {
-            const line2 = sat.ultimo_tle?.linha2 || '';
-            let mm = parseFloat(line2.substring(52, 63).trim()) || sat.omm?.MEAN_MOTION || 15;
-            if (mm <= 0) mm = 15;
-            const periodMs = (1440 / mm) * 60000;
-            const epochyr = satrec.epochyr < 57 ? 2000 + satrec.epochyr : 1900 + satrec.epochyr;
-            const epochDate = new Date(Date.UTC(epochyr, 0, 1) + (satrec.epochdays - 1) * 86400000);
-            const elapsedMs = dataBase.getTime() - epochDate.getTime();
-            const modDate = new Date(epochDate.getTime() + (Math.abs(elapsedMs) % periodMs));
-            const freshSatrec = obterSatrec(sat);
-            if (freshSatrec) {
-              posAndVel = satellite.propagate(freshSatrec, modDate);
+        // Propagação imediata na thread de UI apenas para estações ou objeto selecionado
+        if (isEstacaoPrincipal || isSelecionado) {
+          satrec = obterSatrec(sat);
+          if (satrec) {
+            const posAndVel = satellite.propagate(satrec, dataBase);
+            if (posAndVel && posAndVel.position) {
+              const posGd = satellite.eciToGeodetic(posAndVel.position, gmstBase);
+              const lon = satellite.degreesLong(posGd.longitude);
+              const lat = satellite.degreesLat(posGd.latitude);
+              const alt = posGd.height * 1000;
+              initialPos = window.Cesium.Cartesian3.fromDegrees(lon, lat, alt);
+              jaTemPosicao = true;
             }
-          } catch {
-            // Mantém cálculo original
           }
         }
 
-        if (!posAndVel || !posAndVel.position) return;
-
-        const posGd = satellite.eciToGeodetic(posAndVel.position, gmstBase);
-        const longitude = satellite.degreesLong(posGd.longitude);
-        const latitude = satellite.degreesLat(posGd.latitude);
-        const altitude = posGd.height * 1000;
-        const initialPos = window.Cesium.Cartesian3.fromDegrees(longitude, latitude, altitude);
-
-        const isEstacaoPrincipal = String(sat.norad_id) === '25544' || String(sat.norad_id) === '48274';
         const estilo = obterEstiloPontoCesium(catId, 'padrao', sat.norad_id);
+        const isAtiva = (catId in categoriasAtivas) ? categoriasAtivas[catId] : true;
+        const deveMostrar = (telaAtivaRef.current === 'simulador') && isAtiva && (!regimeAtivo || sat.regime === regimeAtivo);
+
         const point = colecao.add({
           id: String(sat.norad_id),
           position: initialPos,
@@ -2337,12 +2376,12 @@ function App() {
           scaleByDistance: isEstacaoPrincipal
             ? new window.Cesium.NearFarScalar(1.5e6, 1.25, 8.0e7, 0.65)
             : new window.Cesium.NearFarScalar(1.5e6, 1.2, 8.0e7, 0.35),
-          show: (telaAtivaRef.current === 'simulador') && (catId in categoriasAtivas ? categoriasAtivas[catId] : true) && (!regimeAtivo || sat.regime === regimeAtivo)
+          show: jaTemPosicao && deveMostrar
         });
 
         point._satCategoriaId = catId;
         point._noradId = String(sat.norad_id);
-        pointsRef.current.set(String(sat.norad_id), { point, sat, satrec });
+        pointsRef.current.set(String(sat.norad_id), { point, sat, satrec, deveMostrar });
       } catch {
         // Ignora objeto com TLE instável
       }
@@ -2371,17 +2410,20 @@ function App() {
       colecao.removeAll();
       pointsRef.current.clear();
     };
-  }, [objetos, categoriasAtivas, regimeAtivo, viewer]);
+  }, [objetos, regimeAtivo, viewer]);
 
   // Sincroniza a visibilidade dos pontos e atividade do Web Worker com a tela ativa
   useEffect(() => {
     if (!viewer || viewer.isDestroyed() || !pointCollectionRef.current) return;
     const mostrarObjetos = (telaAtiva === 'simulador') && !modoOrbitalAtivo;
-    pointsRef.current.forEach(({ point, sat }) => {
+    pointsRef.current.forEach(entry => {
+      const { point, sat } = entry;
       const catId = Number(sat.categoria_id);
       const isAtiva = (catId in categoriasAtivas) ? categoriasAtivas[catId] : true;
       const matchRegime = !regimeAtivo || (sat.regime === regimeAtivo);
-      point.show = mostrarObjetos && isAtiva && matchRegime;
+      const deve = mostrarObjetos && isAtiva && matchRegime;
+      entry.deveMostrar = deve;
+      point.show = deve;
     });
 
     if (workerRef.current && mostrarObjetos) {
