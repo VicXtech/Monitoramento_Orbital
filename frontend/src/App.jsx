@@ -479,8 +479,11 @@ function App() {
             if (entry && entry.point) {
               const lat = posicoes[offset + 1];
               const alt = posicoes[offset + 2];
-              const novoPos = window.Cesium.Cartesian3.fromDegrees(lon, lat, alt, undefined, scratch);
-              entry.point.position = novoPos;
+              if (entry.point.position) {
+                window.Cesium.Cartesian3.fromDegrees(lon, lat, alt, undefined, entry.point.position);
+              } else {
+                entry.point.position = window.Cesium.Cartesian3.fromDegrees(lon, lat, alt);
+              }
               if (entry.deveMostrar && !entry.point.show) {
                 entry.point.show = true;
               }
@@ -2348,27 +2351,40 @@ function App() {
       try {
         const catId = Number(sat.categoria_id);
         const isEstacaoPrincipal = String(sat.norad_id) === '25544' || String(sat.norad_id) === '48274';
-        const isSelecionado = satSelecionadoRef.current && String(sat.norad_id) === String(satSelecionadoRef.current.norad_id);
 
-        let initialPos = window.Cesium.Cartesian3.ZERO;
-        let satrec = null;
-        let jaTemPosicao = false;
+        const satrec = obterSatrec(sat);
+        if (!satrec) return;
 
-        // Propagação imediata na thread de UI apenas para estações ou objeto selecionado
-        if (isEstacaoPrincipal || isSelecionado) {
-          satrec = obterSatrec(sat);
-          if (satrec) {
-            const posAndVel = satellite.propagate(satrec, dataBase);
-            if (posAndVel && posAndVel.position) {
-              const posGd = satellite.eciToGeodetic(posAndVel.position, gmstBase);
-              const lon = satellite.degreesLong(posGd.longitude);
-              const lat = satellite.degreesLat(posGd.latitude);
-              const alt = posGd.height * 1000;
-              initialPos = window.Cesium.Cartesian3.fromDegrees(lon, lat, alt);
-              jaTemPosicao = true;
-            }
+        let posAndVel = satellite.propagate(satrec, dataBase);
+        let r = posAndVel && posAndVel.position ? Math.sqrt(posAndVel.position.x * posAndVel.position.x + posAndVel.position.y * posAndVel.position.y + posAndVel.position.z * posAndVel.position.z) : 0;
+        let altKm = r - 6378.137;
+
+        const isLeoinvalido = sat.regime === 'LEO' && (altKm > 2000 || altKm < 60);
+        const isGeralInvalido = altKm < 60 || altKm > 100000;
+
+        if (!posAndVel || !posAndVel.position || isLeoinvalido || isGeralInvalido) {
+          try {
+            const line2 = sat.ultimo_tle?.linha2 || '';
+            let mm = parseFloat(line2.substring(52, 63).trim()) || sat.omm?.MEAN_MOTION || 15;
+            if (mm <= 0) mm = 15;
+            const periodMs = (1440 / mm) * 60000;
+            const epochyr = satrec.epochyr < 57 ? 2000 + satrec.epochyr : 1900 + satrec.epochyr;
+            const epochDate = new Date(Date.UTC(epochyr, 0, 1) + (satrec.epochdays - 1) * 86400000);
+            const elapsedMs = dataBase.getTime() - epochDate.getTime();
+            const modDate = new Date(epochDate.getTime() + (Math.abs(elapsedMs) % periodMs));
+            posAndVel = satellite.propagate(satrec, modDate);
+          } catch {
+            // Mantém cálculo original
           }
         }
+
+        if (!posAndVel || !posAndVel.position) return;
+
+        const posGd = satellite.eciToGeodetic(posAndVel.position, gmstBase);
+        const lon = satellite.degreesLong(posGd.longitude);
+        const lat = satellite.degreesLat(posGd.latitude);
+        const alt = posGd.height * 1000;
+        const initialPos = window.Cesium.Cartesian3.fromDegrees(lon, lat, alt);
 
         const estilo = obterEstiloPontoCesium(catId, 'padrao', sat.norad_id);
         const isAtiva = (catId in categoriasAtivas) ? categoriasAtivas[catId] : true;
@@ -2384,7 +2400,7 @@ function App() {
           scaleByDistance: isEstacaoPrincipal
             ? new window.Cesium.NearFarScalar(1.5e6, 1.25, 8.0e7, 0.65)
             : new window.Cesium.NearFarScalar(1.5e6, 1.2, 8.0e7, 0.35),
-          show: jaTemPosicao && deveMostrar
+          show: deveMostrar
         });
 
         point._satCategoriaId = catId;
