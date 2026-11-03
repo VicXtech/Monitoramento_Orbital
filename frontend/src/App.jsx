@@ -1167,7 +1167,8 @@ function App() {
         }
 
         const tInicio = performance.now();
-        const timeoutId = setTimeout(() => abortCtrl.abort(), 12000);
+        const timeoutMs = densidadeCatalogo === 'completo' ? 60000 : 30000;
+        const timeoutId = setTimeout(() => abortCtrl.abort(), timeoutMs);
         const resObjs = await fetch(url, { signal: abortCtrl.signal });
         clearTimeout(timeoutId);
         const tFim = performance.now();

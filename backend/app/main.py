@@ -406,6 +406,10 @@ def listar_objetos(
                 func.max(TLEHistorico.id).label("max_id")
             ).filter(TLEHistorico.objeto_id.in_(ids_finais)).group_by(TLEHistorico.objeto_id).subquery()
 
+            opcoes_carga = [selectinload(ObjetoOrbital.categoria)]
+            if busca:
+                opcoes_carga.append(selectinload(ObjetoOrbital.missao))
+
             itens_carregados = db.query(ObjetoOrbital, TLEHistorico).filter(
                 ObjetoOrbital.id.in_(ids_finais)
             ).outerjoin(
@@ -413,10 +417,7 @@ def listar_objetos(
             ).outerjoin(
                 TLEHistorico,
                 TLEHistorico.id == subq.c.max_id
-            ).options(
-                selectinload(ObjetoOrbital.missao),
-                selectinload(ObjetoOrbital.categoria)
-            ).all()
+            ).options(*opcoes_carga).all()
 
             mapa = {item[0].id: item for item in itens_carregados}
             results = [mapa[oid] for oid in ids_finais if oid in mapa]
