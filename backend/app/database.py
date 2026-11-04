@@ -14,14 +14,8 @@ if not DATABASE_URL:
     db_name = os.getenv("DB_NAME", "orbital_db")
     DATABASE_URL = f"postgresql://{db_user}:{db_pass}@{db_host}:{db_port}/{db_name}"
 
-# Cria a engine de conexão com pool restrito para economizar memória
-engine = create_engine(
-    DATABASE_URL,
-    pool_pre_ping=True,
-    pool_size=3,
-    max_overflow=2,
-    pool_recycle=300
-)
+# Cria a engine de conexão
+engine = create_engine(DATABASE_URL, pool_pre_ping=True)
 
 # Configura a sessão do banco
 SessionLocal = sessionmaker(autocommit=False, autoflush=False, bind=engine)

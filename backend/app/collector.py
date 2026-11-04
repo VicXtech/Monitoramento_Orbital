@@ -755,23 +755,14 @@ class APIConector:
 
         db.commit()
 
-        # Demais categorias: filtra apenas registros sem missao para economizar memoria
-        objetos_sem_missao = db.query(
-            ObjetoOrbital.id,
-            ObjetoOrbital.nome,
-            ObjetoOrbital.categoria_id,
-            ObjetoOrbital.data_lancamento,
-            ObjetoOrbital.pais,
-            ObjetoOrbital.norad_id
-        ).outerjoin(
-            InformacaoMissao, ObjetoOrbital.id == InformacaoMissao.objeto_id
-        ).filter(
-            InformacaoMissao.id.is_(None)
-        ).all()
-
+        # Demais categorias
+        todos_objetos = db.query(ObjetoOrbital).all()
+        ids_com_missao = set(r[0] for r in db.query(InformacaoMissao.objeto_id).all())
         dados_a_inserir = []
 
-        for obj in objetos_sem_missao:
+        for obj in todos_objetos:
+            if obj.id in ids_com_missao:
+                continue
 
             nome_up = obj.nome.upper()
             ano_lancamento = str(obj.data_lancamento.year) if obj.data_lancamento else "ano histórico"
@@ -894,7 +885,6 @@ class APIConector:
                 ids_com_missao.add(obj.id)
 
         if dados_a_inserir:
-            for i in range(0, len(dados_a_inserir), 500):
-                db.bulk_save_objects(dados_a_inserir[i:i+500])
-                db.commit()
+            db.bulk_save_objects(dados_a_inserir)
+            db.commit()
             logger.info(f"LOG: {len(dados_a_inserir)} registros gerados com sucesso no banco.")
