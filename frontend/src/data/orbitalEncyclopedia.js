@@ -17,7 +17,7 @@ export const CATALOGO_HISTORICO = {
     operador: "INPE - Instituto Nacional de Pesquisas Espaciais",
     anoLancamento: 1993,
     massaKg: 115,
-    finalidade: "Coleta e retransmissão de dados ambientais de plataformas hidrológicas e meteorológicas distribuídas pelo território nacional, incluindo a Bacia Amazônica.",
+    finalidade: "Coleta dados de chuva, rios e clima em estações espalhadas pelo Brasil, incluindo a Amazônia.",
     historico: "Lançado em 9 de fevereiro de 1993 pelo foguete americano Pegasus, o SCD-1 é o primeiro satélite desenvolvido integralmente no Brasil. Projetado originalmente para operar por apenas 1 ano, superou todas as expectativas da engenharia espacial brasileira e permanece em operação contínua e transmitindo dados há mais de 30 anos.",
     relevancia: "Marco pioneiro do Programa Espacial Brasileiro, validou a competência nacional em subsistemas térmicos, de bordo e controle de atitude por rotação."
   },
@@ -27,7 +27,7 @@ export const CATALOGO_HISTORICO = {
     operador: "INPE",
     anoLancamento: 1998,
     massaKg: 117,
-    finalidade: "Monitoramento de recursos hídricos, previsão do tempo e qualidade do ar em conjunto com o SCD-1.",
+    finalidade: "Ajuda a acompanhar rios, previsão do tempo e qualidade do ar junto com o SCD-1.",
     historico: "Lançado em outubro de 1998 a bordo de um lançador Pegasus XL, o SCD-2 sucedeu o SCD-1 trazendo melhorias nos sistemas de telemetria e baterias solares desenvolvidas no Laboratório de Integração e Testes LIT/INPE.",
     relevancia: "Garante a redundância e a perenidade do Sistema Brasileiro de Coleta de Dados Ambientais."
   },
@@ -37,7 +37,7 @@ export const CATALOGO_HISTORICO = {
     operador: "INPE / AEB",
     anoLancamento: 2021,
     massaKg: 638,
-    finalidade: "Imageamento óptico multiespectral para vigilância de desmatamento na Amazônia Legal e monitoramento da agricultura nacional.",
+    finalidade: "Tira fotos do território nacional para vigiar o desmatamento na Amazônia e acompanhar a agricultura.",
     historico: "Lançado em 28 de fevereiro de 2021 pelo lançador indiano PSLV-C51, o Amazonia-1 é o primeiro satélite de sensoriamento remoto de grande porte projetado, integrado, testado e operado 100% pelo Brasil, baseado na Plataforma Multimissão PMM.",
     relevancia: "Consolidou o domínio tecnológico brasileiro na fabricação de satélites estabilizados em 3 eixos e câmeras multiespectrais de alta resolução temporal."
   },
@@ -47,7 +47,7 @@ export const CATALOGO_HISTORICO = {
     operador: "INPE / CAST",
     anoLancamento: 2019,
     massaKg: 1980,
-    finalidade: "Sensoriamento remoto global com resolução espacial de até 2 metros para gestão ambiental, recursos hídricos e ordenamento territorial.",
+    finalidade: "Tira imagens detalhadas (até 2 metros) da Terra para cuidar das florestas, rios e cidades.",
     historico: "Sexto satélite do programa bilateral sino-brasileiro iniciado em 1988, o CBERS-4A foi lançado em dezembro de 2019 a partir do Centro de Lançamento de Taiyuan, transportando câmeras brasileiras MUX e WFI e chinesas WPM.",
     relevancia: "Exemplo internacional de cooperação Sul-Sul em alta tecnologia espacial e distribuição aberta de dados geoespaciais."
   },
@@ -93,7 +93,7 @@ export const CATALOGO_HISTORICO = {
     operador: "Força Espacial dos EUA",
     anoLancamento: 1997,
     massaKg: 2032,
-    finalidade: "Transmissão de sinais de radionavegação e cronometria de altíssima precisão baseada em relógios atômicos de césio e rubídio.",
+    finalidade: "Envia sinais de localização GPS e horário exato com relógios atômicos de alta precisão.",
     historico: "Parte da constelação GPS em órbita média MEO a cerca de 20.200 km de altitude. Satélites desse bloco garantem posicionamento tridimensional contínuo em qualquer ponto do globo terrestre.",
     relevancia: "Infraestrutura essencial para aviação, navegação marítima, telecomunicações e sincronização de redes elétricas globais."
   },
@@ -154,19 +154,19 @@ export function obterFichaFactual(sat, parametrosOrbitais) {
   if (nome.includes("STARLINK")) {
     funcao = "Comunicação de Banda Larga em Megaconstelação";
     operador = "SpaceX - EUA";
-    contextoMissao = "Satélite de megaconstelação para internet de banda larga em órbita baixa, equipado com propulsão iônica para prevenção de colisões e desorbitação ativa ao fim da vida útil.";
+    contextoMissao = "Satélite da rede Starlink para levar internet rápida em órbita baixa. Tem pequenos propulsores para desviar de outros objetos e sair de órbita ao fim do uso.";
     historia = `Satélite integrante da megaconstelação Starlink em órbita baixa LEO. Projetado com propulsores de íons de criptônio ou argônio para manutenção de posição e desorbitação ativa.`;
     relevancia = `Representa a nova era de satélites serializados em massa, objeto de intensos debates sobre tráfego espacial e reflexividade astronômica.`;
   } else if (nome.includes("ONEWEB")) {
     funcao = "Telecomunicações Globais em Órbita Baixa";
     operador = "Eutelsat OneWeb - Reino Unido";
-    contextoMissao = "Satélite de conectividade global operando a ~1.200 km, com descarte propulsionado obrigatório para evitar permanência de séculos em órbita.";
+    contextoMissao = "Satélite de internet operando a ~1.200 km de altura, com motor para sair de órbita ao fim da missão e não virar lixo espacial.";
     historia = `Satélite de comunicações em constelação operando a cerca de 1.200 km de altitude, fornecendo conectividade corporativa e governamental.`;
     relevancia = `Por operar em altitude mais alta que a Starlink, seus remanescentes exigem descarte propulsionado rigoroso.`;
   } else if (nome.includes("NOAA") || nome.includes("GOES") || nome.includes("METOP")) {
     funcao = "Monitoramento Meteorológico, Oceânico e Climático";
     operador = "Agências Meteorológicas Globais NOAA e EUMETSAT";
-    contextoMissao = "Plataforma de observação da Terra dedicada ao rastreamento contínuo de sistemas meteorológicos, tempestades tropicais e apoio a alertas de desastres.";
+    contextoMissao = "Satélite de monitoramento do tempo, tempestades, oceanos e clima.";
     historia = `Plataforma de sensoriamento remoto dedicada ao rastreamento contínuo de sistemas meteorológicos, tempestades tropicais e temperatura dos oceanos.`;
     relevancia = `Fornece dados abertos vitais para modelos climáticos numéricos globais.`;
   } else if (nome.includes("GALILEO") || nome.includes("GLONASS") || nome.includes("BEIDOU") || nome.includes("GPS") || nome.includes("NAVSTAR")) {
@@ -199,18 +199,18 @@ export function obterFichaFactual(sat, parametrosOrbitais) {
     funcao = "Detrito Espacial Inerte - Lixo Orbital";
     operador = sat.pais || "Nação Lançadora Original";
     if (nome.includes("R/B") || nome.includes("ROCKET")) {
-      contextoMissao = "Estágio de foguete descartado à deriva sem propulsão ou telemetria, monitorado por radar devido ao risco de colisão e fragmentação.";
+      contextoMissao = "Estágio de foguete deixado no espaço após o lançamento, sem motor nem comunicação.";
       historia = `Corpo de foguete descartado que atingiu velocidade orbital e permaneceu à deriva no espaço desprovido de controle.`;
       relevancia = `Constitui uma das maiores fontes potenciais de novos fragmentos por risco de colisão.`;
     } else {
-      contextoMissao = "Fragmento metálico inerte resultante de colisão ou degradação em órbita, rastreado preventivamente para evitar conjunções catastróficas.";
+      contextoMissao = "Pedaço solto de satélite ou foguete viajando a mais de 27.000 km/h sem controle.";
       historia = `Fragmento metálico remanescente de colisão ou degradação térmica em órbita, deslocando-se a velocidades hipersônicas sem propulsão.`;
       relevancia = `Possui energia cinética equivalente a artefatos explosivos devido à velocidade orbital superior a 27.000 km/h.`;
     }
   } else if (categoriaId === 2) {
     funcao = "Satélite Desativado - Inativo em Órbita";
     operador = sat.pais || "Operador Original";
-    contextoMissao = "Satélite desativado que encerrou operações funcionais, permanecendo em rota passiva até reentrada atmosférica ou transferência para órbita cemitério.";
+    contextoMissao = "Satélite que já encerrou sua missão e segue em órbita sem controle.";
     historia = `Satélite que encerrou suas operações funcionais por esgotamento de combustível ou falha de bateria, permanecendo em rota passiva.`;
     relevancia = `Satélites inativos não respondem a comandos evasivos, atuando como alvos fixos na teia da Síndrome de Kessler.`;
   } else if (nome.includes("COSMOS") || nome.includes("USA ") || nome.includes("NROL") || nome.includes("KOSMOS") || nome.includes("YAOGAN")) {
@@ -239,7 +239,7 @@ export function obterFichaFactual(sat, parametrosOrbitais) {
     const regime = parametrosOrbitais ? parametrosOrbitais.regimeNome : "Órbita Terrestre";
     const classeInc = parametrosOrbitais ? parametrosOrbitais.classeInclinacao : "Órbita Padrão";
     funcao = `Objeto Operacional em ${regime}`;
-    contextoMissao = `Plataforma operacional em ${regime} - ${classeInc}, monitorada por rastreamento radar automatizado da rede global de vigilância espacial.`;
+    contextoMissao = `Satélite em operação em ${regime} - ${classeInc}, acompanhado continuamente pelos radares em terra.`;
     historia = `Plataforma em operação sob responsabilidade de: ${sat.pais || "Registro Internacional"}.`;
     relevancia = `Trajetória propagada analiticamente em tempo real via modelo matemático SGP4.`;
   }
@@ -255,7 +255,7 @@ export function obterFichaFactual(sat, parametrosOrbitais) {
   };
 }
 
-// 3. GLOSSÁRIO DIDÁTICO ASTRODINÂMICO (PARA O 4º SLIDE E CONSULTA NO CONSOLE)
+// 3. GLOSSÁRIO ESPACIAL
 export const GLOSSARIO_ORBITAL = [
   {
     categoria: "REGIMES DE ÓRBITA",
@@ -279,11 +279,36 @@ export const GLOSSARIO_ORBITAL = [
         termo: "HEO - Highly Elliptical Orbit",
         titulo: "Órbita Muito Elíptica",
         definicao: "Trajetória oval com altitude bastante variável. O satélite passa veloz e próximo da Terra no ponto mais baixo e passa a maior parte do tempo no ponto mais alto, cobrindo regiões polares isoladas."
+      },
+      {
+        termo: "VLEO - Very Low Earth Orbit",
+        titulo: "Órbita Terrestre Muito Baixa",
+        definicao: "Faixa mais baixa do espaço usado por satélites, entre 160 km e 450 km. Por ficar próxima ao ar da Terra, exige correções de altura com mais frequência."
+      },
+      {
+        termo: "SSO - Sun-Synchronous Orbit",
+        titulo: "Órbita Heliossíncrona",
+        definicao: "Tipo especial de órbita polar em que o satélite passa por cada lugar da Terra sempre no mesmo horário do Sol. É ideal para fotografar florestas e nuvens sempre com a mesma iluminação."
+      },
+      {
+        termo: "GTO - Geostationary Transfer Orbit",
+        titulo: "Órbita de Transferência",
+        definicao: "Caminho oval temporário usado por foguetes para levar satélites da órbita baixa até a órbita geoestacionária (35.786 km)."
+      },
+      {
+        termo: "IGSO - Inclined Geosynchronous Orbit",
+        titulo: "Órbita Geossíncrona Inclinada",
+        definicao: "Órbita à mesma altura da GEO (35.786 km), mas inclinada em relação ao equador. No mapa, o satélite parece desenhar um \"8\" no céu, cobrindo áreas fora da linha do equador."
+      },
+      {
+        termo: "Órbita Retrógrada",
+        titulo: "Sentido Contrário à Terra",
+        definicao: "Órbita com ângulo acima de 90°, em que o satélite gira no sentido oposto ao da rotação da Terra."
       }
     ]
   },
   {
-    categoria: "MECÂNICA CELESTE E ENGENHARIA",
+    categoria: "CONCEITOS E DADOS ESPACIAIS",
     itens: [
       {
         termo: "Perigeu",
@@ -323,22 +348,42 @@ export const GLOSSARIO_ORBITAL = [
       {
         termo: "Termo BSTAR",
         titulo: "Atrito com a Atmosfera",
-        definicao: "Parâmetro do TLE que mede o impacto da resistência do ar residual sobre a velocidade do satélite. Quanto maior esse valor, mais rápido o objeto perde altitude e cai rumo ao planeta."
+        definicao: "Número usado nos dados TLE que indica o quanto o ar rarefeito freia o satélite. Quanto maior esse valor, mais rápido o objeto perde altitude e cai."
       },
       {
         termo: "RCS - Radar Cross Section",
-        titulo: "Seção Reta de Radar",
-        definicao: "Medida da refletividade eletromagnética de um objeto detectado por radares terrestres. Indica a área aparente do satélite como pequeno, médio ou grande porte, permitindo estimar seu tamanho físico mesmo a milhares de quilômetros."
+        titulo: "Tamanho no Radar",
+        definicao: "Medida de quanto um objeto reflete o sinal dos radares da Terra. Ajuda a estimar se ele é pequeno, médio ou grande, mesmo a milhares de quilômetros de distância."
       },
       {
         termo: "RAAN - Ascensão Reta do Nó",
-        titulo: "Orientação do Plano no Espaço",
-        definicao: "Ângulo astronômico que determina a inclinação longitudinal do plano da órbita em relação ao equador terrestre e ao ponto vernal, na direção do Sol no equinócio."
+        titulo: "Orientação da Órbita",
+        definicao: "Ângulo que mostra para qual direção a órbita está virada no espaço em relação à Terra. Ajuda a saber por quais regiões do planeta o satélite vai passar."
       },
       {
         termo: "SSN - Space Surveillance Network",
         titulo: "Rede de Vigilância Espacial",
-        definicao: "Rede mundial de sensores, radares terrestres e telescópios ópticos que detecta, rastreia e cataloga continuamente mais de 30 mil objetos artificiais em órbita da Terra."
+        definicao: "Rede mundial de radares e telescópios que detecta, acompanha e cataloga dezenas de milhares de objetos artificiais ao redor da Terra."
+      },
+      {
+        termo: "GNSS - Global Navigation Satellite System",
+        titulo: "Navegação Global por Satélite",
+        definicao: "Nome dado aos sistemas de localização por satélite que funcionam no mundo todo, como GPS (EUA), Galileo (Europa), GLONASS (Rússia) e BeiDou (China)."
+      },
+      {
+        termo: "OMM e SATCAT",
+        titulo: "Catálogos Orbitais Públicos",
+        definicao: "Formatos oficiais do CelesTrak. O OMM traz os dados de órbita no padrão moderno (JSON) e o SATCAT lista informações do objeto, como país, data e local de lançamento."
+      },
+      {
+        termo: "Dia Sideral",
+        titulo: "Giro Real da Terra",
+        definicao: "Tempo que a Terra leva para dar uma volta completa em torno de si mesma em relação às estrelas: 23 horas, 56 minutos e 4 segundos — exatamente o período da órbita GEO."
+      },
+      {
+        termo: "Cinturões de Van Allen",
+        titulo: "Zonas de Radiação",
+        definicao: "Duas regiões ao redor da Terra onde o campo magnético prende partículas carregadas vindas do espaço. Satélites que cruzam essas áreas enfrentam radiação forte."
       }
     ]
   },
@@ -383,22 +428,37 @@ export const GLOSSARIO_ORBITAL = [
       {
         termo: "FCC - Regra de 5 Anos",
         titulo: "Comissão Federal de Comunicações",
-        definicao: "Órgão regulador norte-americano que instituiu a norma mandatória de desorbitação de satélites em órbita baixa em no máximo 5 anos após o fim da missão operacional, substituindo a antiga regra de 25 anos."
+        definicao: "Regra do órgão regulador dos EUA (FCC 22-74) que obriga satélites em órbita baixa a sair de órbita em até 5 anos após o fim do uso, substituindo o antigo prazo de 25 anos."
       },
       {
         termo: "Passivação de Sistemas",
-        titulo: "Esgotamento de Energia Residual",
-        definicao: "Processo obrigatório de desativação de uma espaçonave, consistente em esvaziar tanques de combustível pressurizados e descarregar totalmente as baterias elétricas para impedir explosões espontâneas em órbita."
+        titulo: "Desligamento Seguro",
+        definicao: "Procedimento obrigatório ao encerrar o uso de um satélite: esvaziar os tanques de combustível e descarregar as baterias para evitar que ele exploda no espaço."
       },
       {
         termo: "ODPO / NASA",
         titulo: "Programa de Detritos da NASA",
-        definicao: "Escritório especializado da NASA responsável por modelar o ambiente de fragmentos orbitais, realizar testes de impacto em hipervelocidade e elaborar normas técnicas de segurança."
+        definicao: "Escritório da NASA responsável por estudar o lixo espacial, testar impactos em alta velocidade e criar regras técnicas de segurança."
       },
       {
         termo: "Conjunção Orbital",
-        titulo: "Aproximação Crítica no Espaço",
-        definicao: "Encontro próximo entre dois objetos espaciais cruzando órbitas a alta velocidade dentro de um raio de segurança restrito, exigindo manobras de desvio para evitar colisões catastróficas."
+        titulo: "Aproximação de Risco",
+        definicao: "Quando dois objetos no espaço passam muito perto um do outro em alta velocidade, exigindo manobra de desvio para evitar uma batida."
+      },
+      {
+        termo: "ASAT - Anti-Satellite Weapon",
+        titulo: "Arma Antissatélite",
+        definicao: "Míssil ou tecnologia criada para destruir satélites em órbita. Testes desse tipo já geraram milhares de fragmentos de lixo espacial."
+      },
+      {
+        termo: "PMD - Post-Mission Disposal",
+        titulo: "Descarte Pós-Missão",
+        definicao: "Plano para retirar um satélite do caminho quando ele termina sua missão, seja levando-o para queimar na atmosfera ou movendo-o para uma órbita cemitério."
+      },
+      {
+        termo: "UIT - União Internacional de Telecomunicações",
+        titulo: "Vagas no Espaço",
+        definicao: "Agência da ONU que organiza as posições (slots) dos satélites na órbita geoestacionária e as frequências de rádio para evitar interferências entre países."
       }
     ]
   }

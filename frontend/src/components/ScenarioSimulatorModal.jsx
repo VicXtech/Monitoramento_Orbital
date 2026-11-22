@@ -110,7 +110,7 @@ export default function ScenarioSimulatorModal({
           <div className="scenario-preset-selector">
             <span className="scenario-section-badge">
               <Sliders size={12} />
-              Cenários Pré-definidos
+              Cenários Prontos
             </span>
             <div className="scenario-cards-grid">
               {CENARIOS_PREDEFINIDOS.map((cenario) => {
@@ -186,7 +186,7 @@ export default function ScenarioSimulatorModal({
               {/* SLIDER 2: TAXA DE DESORBITAGEM PMD */}
               <div className="scenario-slider-box">
                 <div className="slider-label-row">
-                  <span className="slider-label">Desorbitagem PMD</span>
+                  <span className="slider-label">Retirada Pós-Missão (PMD)</span>
                   <span className={`slider-value-display ${taxaDesorbitagemPct >= 90 ? 'green' : taxaDesorbitagemPct >= 60 ? 'amber' : 'red'}`}>
                     {taxaDesorbitagemPct}%
                   </span>
@@ -317,7 +317,7 @@ export default function ScenarioSimulatorModal({
               <div className="scenario-res-card highlight-border" style={{ borderColor: 'var(--neon-amber)' }}>
                 <div className="res-card-header">
                   <ShieldAlert size={16} style={{ color: 'var(--neon-amber)' }} />
-                  <span className="res-card-label">OBJETOS INERTES</span>
+                  <span className="res-card-label">OBJETOS SEM CONTROLE</span>
                 </div>
                 <div className="res-card-val-row">
                   <span className="res-card-main-val" style={{ color: 'var(--neon-amber)' }}>
@@ -363,7 +363,7 @@ export default function ScenarioSimulatorModal({
                   <span className="res-card-unit">ton / ano</span>
                 </div>
                 <div className="res-card-sub-stats">
-                  <span>Al₂O₃: <strong>~{resultados.toneladasAluminioOxidoAno} t/ano</strong></span>
+                  <span>Poeira de alumínio (Al₂O₃): <strong>~{resultados.toneladasAluminioOxidoAno} t/ano</strong></span>
                 </div>
               </div>
 
@@ -377,7 +377,7 @@ export default function ScenarioSimulatorModal({
                 ) : (
                   <CheckCircle2 size={18} className="synthesis-icon green" />
                 )}
-                <h4 className="synthesis-title">Diagnóstico Numérico</h4>
+                <h4 className="synthesis-title">Resumo do Cenário</h4>
               </div>
               <p className="synthesis-text">{resultados.diagnosticoTexto}</p>
             </div>

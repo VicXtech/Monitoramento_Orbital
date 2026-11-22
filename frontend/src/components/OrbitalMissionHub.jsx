@@ -234,7 +234,7 @@ export default function OrbitalMissionHub({
       {/* Cabecalho tatico com niveis e acoes */}
       <div className="hub-top-bar">
         <div className="hub-tag-group">
-          <span className="hub-type-label">MISSÃO TÁTICA</span>
+          <span className="hub-type-label">DESAFIO</span>
           <span className="hub-level-badge">{missaoAtual.nivelRotulo}</span>
           <span className={`hub-status-badge status-${estadoFase.toLowerCase()}`}>
             {estadoFase === 'SUCCESS' ? 'CONCLUÍDA' : estadoFase === 'EXPIRED' ? 'EXPIRADA' : 'ATIVA'}
@@ -284,8 +284,8 @@ export default function OrbitalMissionHub({
         {/* Feedback visual de sucesso */}
         {estadoFase === 'SUCCESS' && (
           <div className="hub-feedback-success">
-            <span className="feedback-bold">MISSÃO CUMPRIDA</span>
-            <span className="feedback-sub">Dados validados no Diagnóstico Orbital.</span>
+            <span className="feedback-bold">DESAFIO CONCLUÍDO</span>
+            <span className="feedback-sub">Muito bem! Confira os dados em Detalhes do Objeto.</span>
           </div>
         )}
 

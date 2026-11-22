@@ -8,7 +8,7 @@ export const CAMADAS_ORBITAIS = {
     sigla: 'LEO',
     cor: '#38BDF8',
     altitudeCurta: '160 a 2.000 km',
-    altitudeSub: 'Regime de alta densidade',
+    altitudeSub: 'Faixa mais cheia de objetos',
     trafegoGlobal: '~84% do total',
     trafegoSub: 'Fonte: Catálogo ESA',
     risco: 'Crítico',
@@ -19,22 +19,22 @@ export const CAMADAS_ORBITAIS = {
     subregioes: [
       {
         nome: 'VLEO - 160 a 450 km',
-        desc: 'Zona das Estações Espaciais e satélites de observação em altíssima resolução.',
+        desc: 'Onde ficam as Estações Espaciais e satélites de fotos bem detalhadas.',
         trafego: 'Estações ISS e Tiangong'
       },
       {
         nome: 'Megaconstelações - 500 a 600 km',
-        desc: 'Frotas de telecomunicações de banda larga em grande escala e alta densidade operacional.',
+        desc: 'Grandes grupos de satélites que levam internet rápida para o planeta inteiro.',
         trafego: 'Satélites Starlink, OneWeb'
       },
       {
-        nome: 'Heliossíncrona SSO - 600 a 900 km',
-        desc: 'Passa sempre no mesmo horário solar local para monitoramento climático e florestal.',
+        nome: 'Heliossíncrona (SSO) - 600 a 900 km',
+        desc: 'Passa por cada lugar sempre no mesmo horário do Sol, ideal para acompanhar o clima e as florestas.',
         trafego: 'Satélites CBERS-4A, Amazonia-1'
       },
       {
         nome: 'Zona Crítica - 750 a 950 km',
-        desc: 'Pico histórico de detritos espaciais decorrentes de fragmentações e colisões passadas.',
+        desc: 'Região com mais lixo espacial acumulado de colisões e explosões antigas.',
         trafego: 'Fragmentos de colisões'
       }
     ],
@@ -46,54 +46,54 @@ export const CAMADAS_ORBITAIS = {
         nivel: 'critico',
         destaque: 'Milhares de desvios/ano',
         pct: 95,
-        detalhe: 'Mega-constelações e a ISS realizam manobras evasivas constantes contra fragmentos.'
+        detalhe: 'Frotas de satélites e a ISS precisam desviar de fragmentos o tempo todo.'
       },
       {
         id: 'persistencia',
-        titulo: 'Persistência do Lixo',
+        titulo: 'Permanência do Lixo',
         badge: 'ALTO',
         nivel: 'medio',
         destaque: '5 a 100+ anos em órbita',
         pct: 75,
-        detalhe: 'Abaixo de 500 km cai rápido; acima de 800 km o ar rarefeito mantém detritos por séculos.'
+        detalhe: 'Abaixo de 500 km cai rápido; acima de 800 km o ar é muito fino e o lixo fica por séculos.'
       },
       {
         id: 'energia_colisao',
-        titulo: 'Energia de Colisão',
+        titulo: 'Força da Batida',
         badge: 'CRÍTICO',
         nivel: 'critico',
         destaque: 'Choque a ~10–15 km/s',
         pct: 95,
-        detalhe: 'Um fragmento de 1 cm em órbita cruzada equivale ao impacto de uma granada de mão.'
+        detalhe: 'Um pedaço de apenas 1 cm bate com a mesma energia de uma granada de mão.'
       },
       {
         id: 'destino_reentrada',
-        titulo: 'Destino na Reentrada',
+        titulo: 'Poluição ao Voltar',
         badge: 'CRÍTICO',
         nivel: 'critico',
-        destaque: 'Vaporização de Metais',
+        destaque: 'Poeira de Metais',
         pct: 90,
-        detalhe: 'Queima diária de satélites despeja óxido de alumínio e lítio na camada de ozônio.'
+        detalhe: 'A queima diária de satélites solta poeira de alumínio e lítio nas camadas altas do ar.'
       }
     ],
     matrizImpacto: {
       espaco: {
         titulo: 'NO ESPAÇO',
         subtitulo: 'Síndrome de Kessler',
-        desc: 'Colisões a até 14 km/s geram nuvens de estilhaços que ameaçam o acesso humano contínuo ao espaço.',
-        consequencia: 'Inutilização de rotas orbitais'
+        desc: 'Batidas a até 14 km/s criam nuvens de estilhaços que podem impedir novos voos espaciais.',
+        consequencia: 'Rotas perigosas demais para usar'
       },
       terra: {
         titulo: 'NO PLANETA TERRA',
-        subtitulo: 'Poluição na Estratosfera',
-        desc: 'Queima diária de megaconstelações despeja óxidos de alumínio, cobre e lítio que atacam o ozônio.',
-        consequencia: 'Dano químico e perda de serviços vitais'
+        subtitulo: 'Poluição na Alta Atmosfera',
+        desc: 'A queima de muitos satélites libera óxidos de alumínio, cobre e lítio que atacam a camada de ozônio.',
+        consequencia: 'Dano ao ozônio e perda de serviços'
       }
     },
     acoesNormas: [
-      { badge: 'FCC 22-74', titulo: 'Regra dos 5 Anos', desc: 'Desorbitagem mandatória em até 5 anos após o término da missão.' },
-      { badge: 'ESA Zero Debris', titulo: 'Remoção Ativa', desc: 'Garras robóticas e redes como a missão ClearSpace-1 da ESA (prevista para 2030, mirando o satélite PROBA-1) para capturar detritos grandes.' },
-      { badge: 'Engenharia Verde', titulo: 'Satélites Limpos', desc: 'Pesquisa com ligas ecológicas e satélites de madeira para eliminar fumaça tóxica.' }
+      { badge: 'FCC 22-74', titulo: 'Regra dos 5 Anos', desc: 'Obrigação de retirar o satélite de órbita em até 5 anos após o fim do uso.' },
+      { badge: 'ESA Zero Debris', titulo: 'Remoção Ativa', desc: 'Garras robóticas e redes, como na missão ClearSpace-1 da ESA (prevista para 2030, visando o satélite PROBA-1), para capturar lixo grande.' },
+      { badge: 'Engenharia Verde', titulo: 'Satélites Limpos', desc: 'Pesquisas com materiais mais seguros e satélites de madeira que geram menos fumaça tóxica ao queimar.' }
     ],
     velocimetro: {
       velocidadeKmS: 7.8,
@@ -123,81 +123,81 @@ export const CAMADAS_ORBITAIS = {
     trafegoSub: 'Fonte: Catálogo ESA',
     risco: 'Moderado',
     velocidadeFicha: '~3,9 km/s',
-    velocidadeSub: 'Velocidade orbital intermediária',
+    velocidadeSub: 'Velocidade intermediária',
     periodoFicha: '~12 horas',
     periodoSub: '2 voltas por dia',
     subregioes: [
       {
-        nome: 'Telecomunicações de Baixa Latência - 8.000 km',
-        desc: 'Órbita equatorial intermediária para conectividade de alta capacidade com menor atraso que a GEO.',
+        nome: 'Internet de Baixo Atraso - 8.000 km',
+        desc: 'Órbita intermediária para conexões rápidas de alta capacidade, com menos atraso que a GEO.',
         trafego: 'Constelações O3b e O3b mPOWER'
       },
       {
         nome: 'Corredor GNSS - 19.100 a 23.222 km',
-        desc: 'Constelações mundiais de navegação, posicionamento por satélite e sincronismo temporal.',
+        desc: 'Satélites usados mundialmente para localização por GPS e acerto de relógios.',
         trafego: 'Constelações GPS, Galileo, GLONASS, BeiDou'
       },
       {
         nome: 'Cinturões de Radiação',
-        desc: 'Zonas de prótons e elétrons aprisionados pelo campo magnético da Terra.',
-        trafego: 'Cinturões Van Allen'
+        desc: 'Regiões com partículas presas pelo campo magnético da Terra.',
+        trafego: 'Cinturões de Van Allen'
       }
     ],
     matrizDiagnostico: [
       {
         id: 'saturacao',
-        titulo: 'Saturação e Manobras',
+        titulo: 'Espaço Entre Frotas',
         badge: 'BAIXO',
         nivel: 'baixo',
-        destaque: 'Amplo espaço entre frotas',
+        destaque: 'Bastante espaço livre',
         pct: 20,
-        detalhe: 'Grande volume espacial reduz o risco de abalroamento entre satélites ativos.'
+        detalhe: 'Grande distância entre os satélites reduz bastante o risco de batida direta.'
       },
       {
         id: 'persistencia',
-        titulo: 'Persistência do Lixo',
+        titulo: 'Permanência do Lixo',
         badge: 'CRÍTICO',
         nivel: 'critico',
         destaque: '> 10.000 anos no espaço',
         pct: 100,
-        detalhe: 'Vácuo absoluto sem atrito atmosférico; qualquer detrito gerado permanece por milênios.'
+        detalhe: 'Quase não existe ar nessa altura; qualquer sucata deixada lá fica por milênios.'
       },
       {
         id: 'energia_colisao',
-        titulo: 'Energia de Colisão',
+        titulo: 'Risco de Explosão',
         badge: 'MODERADO',
         nivel: 'medio',
-        destaque: 'Planos Cruzados a ~4 km/s',
+        destaque: 'Cruzamentos a ~4 km/s',
         pct: 45,
-        detalhe: 'Baterias e foguetes antigos nos cinturões de radiação podem explodir e cruzar rotas GPS.'
+        detalhe: 'Baterias e foguetes antigos nessa região de radiação podem explodir e atingir rotas de GPS.'
       },
       {
         id: 'destino_reentrada',
-        titulo: 'Destino na Reentrada',
+        titulo: 'Para Onde Vão',
         badge: 'MODERADO',
         nivel: 'medio',
-        destaque: 'Órbitas Tampão',
+        destaque: 'Órbitas de Descarte',
         pct: 40,
-        detalhe: 'Sem queda natural; satélites desativados são movidos para faixas fora do corredor GNSS.'
+        detalhe: 'Como não caem sozinhos, satélites aposentados são movidos para fora das rotas GNSS.'
       }
     ],
     matrizImpacto: {
       espaco: {
         titulo: 'NO ESPAÇO',
-        subtitulo: 'Contaminação de Corredor',
-        desc: 'Explosões de baterias antigas por radiação dos Cinturões de Van Allen ameaçam as frotas de posicionamento.',
-        consequencia: 'Paralisia de frotas de navegação GNSS'
+        subtitulo: 'Risco aos Satélites de Navegação',
+        desc: 'Explosões de baterias antigas nos Cinturões de Van Allen ameaçam as frotas de GPS.',
+        consequencia: 'Risco para os sistemas GNSS (GPS)'
       },
       terra: {
         titulo: 'NO PLANETA TERRA',
-        subtitulo: 'Dependência de Navegação',
-        desc: 'A perda dessa faixa paralisaria aviação comercial, rotas marítimas e sincronismo de redes bancárias.',
-        consequencia: 'Blecaute em aviação, bancos e defesa'
+        subtitulo: 'Dependência no Dia a Dia',
+        desc: 'Perder essa faixa afetaria aviões, navios, sistemas bancários e mapas no celular.',
+        consequencia: 'Falhas na aviação, bancos e navegação'
       }
     },
     acoesNormas: [
-      { badge: 'IADC', titulo: 'Órbitas Tampão', desc: 'Alocação de satélites aposentados em zonas seguras fora dos corredores GNSS.' },
-      { badge: 'Diretriz', titulo: 'Passivação de Energia', desc: 'Dreno obrigatório de baterias e despressurização de tanques para evitar fragmentação.' }
+      { badge: 'IADC', titulo: 'Órbitas de Descarte', desc: 'Mover satélites aposentados para zonas seguras fora das rotas de navegação GNSS.' },
+      { badge: 'Diretriz', titulo: 'Passivação de Energia', desc: 'Esvaziar baterias e tanques de combustível para impedir que o satélite exploda depois de desativado.' }
     ],
     velocimetro: {
       velocidadeKmS: 3.9,
@@ -207,7 +207,7 @@ export const CAMADAS_ORBITAIS = {
     radarCobertura: {
       tipo: 'constelacao',
       rotulo: 'Constelação GNSS',
-      desc: 'Triangulação de múltiplos feixes sobre a Terra.'
+      desc: 'Vários satélites enviam sinais ao mesmo tempo para calcular sua posição exata.'
     },
     impactoCotidiano: [
       { titulo: 'Navegação GPS', desc: 'Posicionamento para trânsito e aviação civil.' },
@@ -222,91 +222,91 @@ export const CAMADAS_ORBITAIS = {
     sigla: 'GEO',
     cor: '#7C69EF',
     altitudeCurta: '35.786 km fixos',
-    altitudeSub: 'Anel equatorial sincronizado',
+    altitudeSub: 'Anel sobre a linha do equador',
     trafegoGlobal: '~9% do total',
     trafegoSub: 'Fonte: Catálogo ESA',
     risco: 'Crítico',
     velocidadeFicha: '~3,07 km/s',
-    velocidadeSub: 'Sincronizada à rotação da Terra',
+    velocidadeSub: 'Acompanha o giro da Terra',
     periodoFicha: '23h 56m 04s',
     periodoSub: '1 volta por dia sideral',
     subregioes: [
       {
-        nome: 'Anel Operacional',
-        desc: 'Satélites de telecomunicações de grande porte, meteorologia contínua e defesa nacional.',
+        nome: 'Anel Principal',
+        desc: 'Grandes satélites de TV, internet, previsão do tempo contínua e defesa.',
         trafego: 'Satélites SGDC, GOES, Meteosat'
       },
       {
         nome: 'Órbita Geossíncrona Inclinada (IGSO)',
-        desc: 'Altitude geossíncrona com inclinação elevada, desenhando uma trajetória em "8" para cobertura de altas latitudes.',
+        desc: 'Mesma altura da GEO, mas inclinada: desenha um "8" no céu para cobrir regiões fora do equador.',
         trafego: 'Sistemas BeiDou IGSO e QZSS Michibiki'
       },
       {
-        nome: 'Slots Orbitais UIT',
-        desc: 'Posições equatoriais rigorosamente alocadas pela ONU/UIT para prevenir interferências.',
+        nome: 'Vagas da UIT',
+        desc: 'Posições no anel organizadas pela ONU (UIT) para que um satélite não atrapalhe o sinal do outro.',
         trafego: 'Vagas alocadas da UIT'
       },
       {
         nome: 'Super-GEO +300 km',
-        desc: 'Faixa cemitério de descarte definitivo situada acima do anel geoestacionário.',
+        desc: 'Órbita cemitério acima da faixa ativa, usada para guardar satélites aposentados.',
         trafego: 'Satélites aposentados'
       }
     ],
     matrizDiagnostico: [
       {
         id: 'saturacao',
-        titulo: 'Saturação e Manobras',
+        titulo: 'Espaço Disputado',
         badge: 'ALTO',
         nivel: 'medio',
-        destaque: 'Anel Único Disputado',
+        destaque: 'Anel Único Cheio',
         pct: 75,
-        detalhe: 'Mais de 550 satélites ativos operam alinhados na mesma faixa estreita sobre o Equador.'
+        detalhe: 'Mais de 550 satélites ativos ficam alinhados na mesma faixa estreita sobre o equador.'
       },
       {
         id: 'persistencia',
-        titulo: 'Persistência do Lixo',
+        titulo: 'Permanência do Lixo',
         badge: 'CRÍTICO',
         nivel: 'critico',
         destaque: '> 1 milhão de anos',
         pct: 100,
-        detalhe: 'Impossível reentrar na atmosfera; objetos abandonados ficam presos eternamente.'
+        detalhe: 'Longe demais da atmosfera para cair; qualquer objeto deixado ali fica preso para sempre.'
       },
       {
         id: 'energia_colisao',
-        titulo: 'Energia de Colisão',
+        titulo: 'Efeito Dominó',
         badge: 'ALTO',
         nivel: 'medio',
-        destaque: 'Risco de Efeito Dominó',
+        destaque: 'Risco no Anel',
         pct: 70,
-        detalhe: 'Satélites inativos sem controle derivam pelo anel ameaçando inutilizar vagas comerciais.'
+        detalhe: 'Satélites sem controle podem vagar pelo anel e ameaçar vagas ativas muito disputadas.'
       },
       {
         id: 'destino_reentrada',
-        titulo: 'Destino na Reentrada',
+        titulo: 'Para Onde Vão',
         badge: 'MODERADO',
         nivel: 'medio',
         destaque: 'Cemitério +300 km',
         pct: 50,
-        detalhe: 'Queima final de combustível eleva a espaçonave para a faixa de descarte Super-GEO.'
+        detalhe: 'O combustível final é usado para subir o satélite até a faixa cemitério Super-GEO.'
       }
     ],
     matrizImpacto: {
       espaco: {
         titulo: 'NO ESPAÇO',
         subtitulo: 'Satélites Zumbis',
-        desc: 'Espaçonaves inativas sem controle derivam pelo anel equatorial, inutilizando slots valiosos para TV e dados.',
-        consequencia: 'Bloqueio permanente de slots equatoriais'
+        desc: 'Satélites quebrados continuam passeando pelo anel e podem bloquear vagas importantes.',
+        consequencia: 'Perda permanente de vagas no anel GEO'
       },
       terra: {
         titulo: 'NO PLANETA TERRA',
-        subtitulo: 'Infraestrutura Crítica',
-        desc: 'Perda de satélites GEO compromete monitoramento de furacões, previsão de tempo severo e canais de segurança.',
-        consequencia: 'Perda de previsão de clima severo e defesa'
+        subtitulo: 'Serviços Essenciais',
+        desc: 'Sem esses satélites, faltariam imagens contínuas de furacões, previsão de tempestades e links de segurança.',
+        consequencia: 'Prejuízo a alertas de clima e comunicações'
       }
     },
     acoesNormas: [
-      { badge: 'IADC', titulo: 'Órbita Cemitério +300 km', desc: 'Reserva mandatória de combustível para elevação final para a faixa cemitério.' },
-      { badge: 'Robótica MEV', titulo: 'Rebocadores Orbitais', desc: 'Veículos robóticos de acoplamento que estendem a operação de satélites em 5 a 10 anos.' }
+      { badge: 'IADC', titulo: 'Órbita Cemitério +300 km', desc: 'Guardar combustível suficiente para subir o satélite até a órbita cemitério ao fim do uso.' },
+      { badge: 'Robótica MEV', titulo: 'Rebocadores Espaciais', desc: 'Veículos robôs que se encaixam em satélites sem combustível para estender a vida útil em 5 a 10 anos.' }
     ],
     velocimetro: {
       velocidadeKmS: 3.07,
@@ -336,81 +336,81 @@ export const CAMADAS_ORBITAIS = {
     trafegoSub: 'Fonte: Catálogo ESA',
     risco: 'Elevado',
     velocidadeFicha: '1,5 a 10 km/s',
-    velocidadeSub: 'Rápida no perigeu, lenta no apogeu',
+    velocidadeSub: 'Muito rápida perto da Terra, lenta no ponto mais alto',
     periodoFicha: '12h a 57h+',
     periodoSub: 'Varia conforme o alongamento da órbita',
     subregioes: [
       {
         nome: 'Transferência GTO',
-        desc: 'Corredor de transição onde operam e são descartados estágios superiores de foguetes.',
+        desc: 'Caminho oval usado para levar satélites até órbitas altas, onde muitos estágios de foguete acabam descartados.',
         trafego: 'Estágios superiores de foguetes e satélites rumo a GEO'
       },
       {
         nome: 'Órbitas Molniya e Tundra',
-        desc: 'Alta inclinação de 63,4 graus para comunicação e defesa nas altas latitudes polares.',
+        desc: 'Órbitas inclinadas em 63,4 graus para manter o satélite por mais tempo sobre os polos.',
         trafego: 'Satélites de comunicação polar, defesa e meteorologia'
       },
       {
         nome: 'Observatórios Científicos',
-        desc: 'Telescópios e sensores para monitoramento da magnetosfera e radiação profunda.',
+        desc: 'Telescópios e sensores que estudam o campo magnético da Terra e a radiação espacial.',
         trafego: 'Satélites científicos Salsa e Cluster'
       }
     ],
     matrizDiagnostico: [
       {
         id: 'saturacao',
-        titulo: 'Saturação e Manobras',
+        titulo: 'Cruzamento de Camadas',
         badge: 'ALTO',
         nivel: 'medio',
-        destaque: 'Travessia de 3 Regimes',
+        destaque: 'Cruza 3 Camadas',
         pct: 75,
-        detalhe: 'A elipse alongada atravessa as faixas de LEO, MEO e GEO duas vezes a cada volta.'
+        detalhe: 'A órbita oval atravessa as faixas LEO, MEO e GEO duas vezes a cada volta.'
       },
       {
         id: 'persistencia',
-        titulo: 'Persistência do Lixo',
+        titulo: 'Permanência do Lixo',
         badge: 'MODERADO',
         nivel: 'medio',
         destaque: 'Décadas a Séculos',
         pct: 60,
-        detalhe: 'O freio atmosférico atua apenas durante os breves minutos da passagem pelo perigeu.'
+        detalhe: 'O ar só freia o objeto nos poucos minutos em que ele passa mais perto da Terra.'
       },
       {
         id: 'energia_colisao',
-        titulo: 'Energia de Colisão',
+        titulo: 'Força da Batida',
         badge: 'CRÍTICO',
         nivel: 'critico',
         destaque: 'Até 10 km/s no Perigeu',
         pct: 95,
-        detalhe: 'Estágios de foguetes abandonados em transferência GTO cruzam a órbita baixa em alta velocidade.'
+        detalhe: 'Restos de foguetes em transferência GTO cruzam a órbita baixa em altíssima velocidade.'
       },
       {
         id: 'destino_reentrada',
-        titulo: 'Destino na Reentrada',
+        titulo: 'Destino Final',
         badge: 'MODERADO',
         nivel: 'medio',
         destaque: 'Queda no Ponto Nemo',
         pct: 65,
-        detalhe: 'Tanques de titânio e peças densas resistem ao calor e exigem reentrada guiada no oceano.'
+        detalhe: 'Tanques de titânio e peças pesadas não derretem por completo e precisam cair em áreas desabitadas do oceano.'
       }
     ],
     matrizImpacto: {
       espaco: {
         titulo: 'NO ESPAÇO',
-        subtitulo: 'Efeito Cruzamento',
-        desc: 'Estágios de foguetes em GTO cruzam LEO, MEO e GEO duas vezes por dia a velocidades de até 10 km/s.',
-        consequencia: 'Risco de colisão cruzada a até 10 km/s'
+        subtitulo: 'Cruzamento Perigoso',
+        desc: 'Foguetes abandonados em GTO cruzam LEO, MEO e GEO duas vezes por dia a até 10 km/s.',
+        consequencia: 'Risco de batidas cruzando 3 camadas'
       },
       terra: {
         titulo: 'NO PLANETA TERRA',
-        subtitulo: 'Queda de Destroços Pesados',
-        desc: 'Foguetes de várias toneladas em aço e titânio não fundem 100% no ar e oferecem risco ao solo e oceanos.',
-        consequencia: 'Queda de tanques pesados e destroços de titânio'
+        subtitulo: 'Queda de Peças Pesadas',
+        desc: 'Estágios de várias toneladas em aço e titânio podem resistir ao calor e atingir solo ou mar.',
+        consequencia: 'Queda de tanques e peças de titânio'
       }
     },
     acoesNormas: [
-      { badge: 'ESA 2024', titulo: 'Reentrada Guiada no Ponto Nemo', desc: 'Manobras ativas para direcionar o mergulho de satélites para o cemitério oceânico desabitado.' },
-      { badge: 'IADC', titulo: 'Passivação e Queima Final', desc: 'Esvaziamento de tanques e queima imediata de descarte do 2º estágio logo após a soltura da carga.' }
+      { badge: 'ESA 2024', titulo: 'Reentrada Guiada no Ponto Nemo', desc: 'Manobras planejadas para fazer o satélite cair com segurança em região deserta do Oceano Pacífico.' },
+      { badge: 'IADC', titulo: 'Passivação e Queima Final', desc: 'Esvaziar tanques e usar o motor do 2º estágio para tirá-lo de órbita logo após soltar a carga.' }
     ],
     velocimetro: {
       velocidadeKmS: 10.0,
@@ -420,7 +420,7 @@ export const CAMADAS_ORBITAIS = {
     radarCobertura: {
       tipo: 'eliptica',
       rotulo: 'Órbita Elíptica',
-      desc: 'Apogeu lento no norte e perigeu rasante rápido.'
+      desc: 'Fica horas sobre o ponto mais alto e passa bem rápido perto da Terra.'
     },
     impactoCotidiano: [
       { titulo: 'Comunicação Polar', desc: 'Conexão estável em rotas de voo árticas.' },
@@ -439,8 +439,8 @@ export const PINOS_HISTORICOS = [
     localNome: 'Sibéria, Rússia',
     posicao: { lat: 72.5, lon: 97.0, altKm: 789 },
     camadaId: 'leo',
-    fatoTecnico: 'Hipercolisão acidental a 11,7 km/s entre satélite operacional e carcaça inativa, gerando mais de 2.000 detritos catalogados.',
-    licaoSustentabilidade: 'Provou que satélites inativos são fontes de fragmentação irreversível que exigem alerta contínuo de conjunção.'
+    fatoTecnico: 'Batida acidental a 11,7 km/s entre um satélite em funcionamento e um antigo desativado, criando mais de 2.000 fragmentos rastreados.',
+    licaoSustentabilidade: 'Mostrou na prática que satélites abandonados causam colisões graves e exigem acompanhamento diário de aproximações.'
   },
   {
     id: 'fengyun-2007',
@@ -449,8 +449,8 @@ export const PINOS_HISTORICOS = [
     localNome: 'China Central',
     posicao: { lat: 35.0, lon: 102.0, altKm: 865 },
     camadaId: 'leo',
-    fatoTecnico: 'Destruição deliberada por projétil cinético em LEO alta, gerando mais de 3.500 fragmentos rastreáveis no radar.',
-    licaoSustentabilidade: 'Em altitudes elevadas os fragmentos permanecem em órbita por séculos, impulsionando a moratória internacional de testes ASAT.'
+    fatoTecnico: 'Destruição intencional de um satélite por míssil antissatélite (ASAT) na parte alta da órbita LEO, gerando mais de 3.500 fragmentos rastreáveis.',
+    licaoSustentabilidade: 'Nessa altura o lixo espacial fica em órbita por séculos, o que levou vários países a pedir o fim dos testes de armas ASAT.'
   },
   {
     id: 'salsa-cluster-2024',
@@ -459,8 +459,8 @@ export const PINOS_HISTORICOS = [
     localNome: 'Ponto Nemo, Pacífico Sul',
     posicao: { lat: -45.0, lon: -125.0, altKm: 120 },
     camadaId: 'heo',
-    fatoTecnico: 'Primeira reentrada guiada de satélite europeu em órbita altamente elíptica direcionada para a área de descarte oceânico.',
-    licaoSustentabilidade: 'Marco do Zero Debris Charter da ESA demonstrando a eliminação de riscos de queda de destroços em solo povoado.'
+    fatoTecnico: 'Primeira queda planejada de um satélite europeu em órbita muito elíptica, guiado para cair com segurança no oceano.',
+    licaoSustentabilidade: 'Marco da iniciativa Zero Debris da ESA, mostrando como zerar o risco de destroços caírem perto de pessoas.'
   },
   {
     id: 'inpe-brasil-1993',
@@ -469,8 +469,8 @@ export const PINOS_HISTORICOS = [
     localNome: 'Lançado da Flórida (EUA) · Operado pelo INPE (Brasil)',
     posicao: { lat: -2.3, lon: -44.4, altKm: 750 },
     camadaId: 'leo',
-    fatoTecnico: 'Fabricado no Brasil pelo INPE e lançado em 1993 por um foguete Pegasus a partir da Flórida, o SCD-1 superou em mais de 30 vezes sua vida útil projetada de 1 ano; ao lado do CBERS-4A e Amazonia-1, apoia o monitoramento ambiental brasileiro.',
-    licaoSustentabilidade: 'Demonstra a dependência direta da preservação orbital para o acompanhamento climático e combate ao desmatamento.'
+    fatoTecnico: 'Fabricado no Brasil pelo INPE e lançado em 1993 por um foguete Pegasus a partir da Flórida, o SCD-1 durou mais de 30 vezes a previsão inicial de 1 ano; ao lado do CBERS-4A e Amazonia-1, ajuda a vigiar o meio ambiente brasileiro.',
+    licaoSustentabilidade: 'Mostra como precisamos manter as órbitas limpas para continuar monitorando o clima e o desmatamento no Brasil.'
   },
   {
     id: 'cerise-1996',
@@ -479,8 +479,8 @@ export const PINOS_HISTORICOS = [
     localNome: 'Europa / Atlântico',
     posicao: { lat: 45.0, lon: 15.0, altKm: 666 },
     camadaId: 'leo',
-    fatoTecnico: 'Primeira colisão histórica confirmada entre satélite operacional e detrito catalogado de foguete Ariane.',
-    licaoSustentabilidade: 'Alerta mundial para as agências sobre o perigo de explosões espontâneas de estágios superiores abandonados.'
+    fatoTecnico: 'Primeira batida confirmada da história entre um satélite em operação e um pedaço catalogado de foguete Ariane.',
+    licaoSustentabilidade: 'Alertou as agências espaciais do mundo todo sobre o perigo de estágios de foguetes explodirem no espaço.'
   },
   {
     id: 'vanguard-1958',
@@ -489,8 +489,8 @@ export const PINOS_HISTORICOS = [
     localNome: 'Cabo Canaveral, EUA',
     posicao: { lat: 28.5, lon: -80.5, altKm: 2235 },
     camadaId: 'meo',
-    fatoTecnico: 'Objeto humano mais antigo ainda no espaço, em órbita elíptica de 654 km a 3.820 km; perdeu comunicação em 1964, mas permanecerá em órbita por séculos.',
-    licaoSustentabilidade: 'Símbolo da permanência de satélites desprovidos de mecanismos ativos de desorbitagem controlada.'
+    fatoTecnico: 'Objeto humano mais antigo ainda no espaço, em órbita elíptica de 654 km a 3.820 km; parou de responder em 1964, mas vai continuar lá por séculos.',
+    licaoSustentabilidade: 'Mostra o quanto satélites sem mecanismo para sair de órbita permanecem circulando a Terra por gerações.'
   },
   {
     id: 'navstar-gps-1978',
@@ -499,8 +499,8 @@ export const PINOS_HISTORICOS = [
     localNome: 'Corredor GNSS',
     posicao: { lat: 10.0, lon: -60.0, altKm: 20200 },
     camadaId: 'meo',
-    fatoTecnico: 'Primeiro satélite da constelação GPS colocado em órbita de 12 horas, inaugurando a era de posicionamento global e relógios atômicos espaciais.',
-    licaoSustentabilidade: 'Estabeleceu a convivência operacional em corredores nobres de navegação que hoje necessitam de órbitas-tampão de descarte.'
+    fatoTecnico: 'Primeiro satélite do sistema GPS colocado em órbita de 12 horas, abrindo caminho para os mapas e relógios de precisão que usamos hoje.',
+    licaoSustentabilidade: 'Criou os corredores de navegação mundial que hoje precisam de faixas livres para descartar satélites antigos.'
   },
   {
     id: 'galileo-resgate-2014',
@@ -509,8 +509,8 @@ export const PINOS_HISTORICOS = [
     localNome: 'Cinturões de Radiação',
     posicao: { lat: -25.0, lon: 15.0, altKm: 17000 },
     camadaId: 'meo',
-    fatoTecnico: 'Injeção anômala por falha de foguete colocou dois satélites europeus em órbita elíptica incorreta; a ESA manobrou os motores e salvou a carga útil em MEO.',
-    licaoSustentabilidade: 'Demonstrou a resiliência operacional e o perigo de estágios superiores de foguetes abandonados cruzando os cinturões de Van Allen.'
+    fatoTecnico: 'Uma falha no foguete deixou dois satélites europeus na órbita errada; engenheiros da ESA ligaram os motores próprios dos satélites e conseguiram corrigir a rota em MEO.',
+    licaoSustentabilidade: 'Mostrou como manobras bem planejadas podem salvar missões e o perigo de foguetes perdidos cruzarem as zonas de radiação.'
   },
   {
     id: 'mev1-intelsat-2020',
@@ -519,8 +519,8 @@ export const PINOS_HISTORICOS = [
     localNome: 'Anel Geoestacionário',
     posicao: { lat: 0.0, lon: -27.5, altKm: 35786 },
     camadaId: 'geo',
-    fatoTecnico: 'Primeiro acoplamento comercial em GEO (2020), estendendo a vida útil do Intelsat 901 por 5 anos. Em abril de 2025, o MEV-1 concluiu a missão, levou o satélite à órbita cemitério e desacoplou com sucesso.',
-    licaoSustentabilidade: 'Comprovou a viabilidade prática da manutenção orbital e reboque ativo de satélites sem combustível direto para a órbita cemitério.'
+    fatoTecnico: 'Primeiro encaixe comercial em órbita GEO (2020), estendendo a vida útil do Intelsat 901 por 5 anos. Em abril de 2025, o MEV-1 terminou o trabalho, levou o satélite para a órbita cemitério e se soltou com sucesso.',
+    licaoSustentabilidade: 'Provou que é possível dar manutenção no espaço e rebocar satélites sem combustível até uma faixa segura de descarte.'
   },
   {
     id: 'galaxy15-2010',
@@ -529,8 +529,8 @@ export const PINOS_HISTORICOS = [
     localNome: 'Anel Geoestacionário',
     posicao: { lat: 0.0, lon: -133.0, altKm: 35786 },
     camadaId: 'geo',
-    fatoTecnico: 'Perda total de comando terrestre com a carga útil ligada e transmitindo, derivando à deriva por meses e ameaçando dezenas de slots ativos.',
-    licaoSustentabilidade: 'Impulsionou diretrizes mundiais para desligamento obrigatório de segurança com passivação e corte automático de transmissores.'
+    fatoTecnico: 'Perdeu o contato com a Terra, mas continuou ligado e transmitindo sinais enquanto vagava pelo anel GEO por meses, ameaçando outros satélites.',
+    licaoSustentabilidade: 'Levou à criação de regras mais rígidas para que satélites desliguem seus transmissores automaticamente quando perdem controle.'
   },
   {
     id: 'molniya-1965',
@@ -539,8 +539,8 @@ export const PINOS_HISTORICOS = [
     localNome: 'Apogeu Hemisfério Norte',
     posicao: { lat: 63.4, lon: 90.0, altKm: 39500 },
     camadaId: 'heo',
-    fatoTecnico: 'Primeiro satélite a utilizar a inclinação crítica de 63,4° para manter apogeu longo sobre as altas latitudes da Sibéria e do Ártico.',
-    licaoSustentabilidade: 'Satélites e estágios descartados em órbitas elípticas cruzam LEO, MEO e GEO a cada órbita, ampliando o risco de colisão em hipervelocidade.'
+    fatoTecnico: 'Primeiro satélite a usar a inclinação especial de 63,4° para passar mais horas sobre regiões distantes ao norte, como a Sibéria e o Ártico.',
+    licaoSustentabilidade: 'Mostrou que objetos nessa rota muito alongada atravessam LEO, MEO e GEO a cada volta, aumentando o risco de batida em alta velocidade.'
   }
 ];
 

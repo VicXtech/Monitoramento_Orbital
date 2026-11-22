@@ -22,7 +22,7 @@ export const CENARIOS_PREDEFINIDOS = [
     nome: 'Crescimento Atual',
     tag: 'TENDÊNCIA',
     cor: 'var(--neon-amber, #ffaa00)',
-    descricao: 'Mantém a taxa média recente de lançamentos sem metas rígidas.',
+    descricao: 'Mantém o ritmo atual de lançamentos sem regras mais rígidas.',
     parametros: {
       lancamentosAno: 2400,
       taxaDesorbitagemPct: 65,
@@ -35,7 +35,7 @@ export const CENARIOS_PREDEFINIDOS = [
     nome: 'Megaconstelações',
     tag: 'CRÍTICO',
     cor: 'var(--neon-red, #ff0055)',
-    descricao: 'Expansão acelerada de frotas com baixa desorbitagem pós-missão.',
+    descricao: 'Muitos lançamentos novos com poucos satélites retirados ao fim do uso.',
     parametros: {
       lancamentosAno: 4500,
       taxaDesorbitagemPct: 40,
@@ -48,7 +48,7 @@ export const CENARIOS_PREDEFINIDOS = [
     nome: 'Zero Debris',
     tag: 'SUSTENTÁVEL',
     cor: 'var(--neon-green, #00ff66)',
-    descricao: 'Desorbitagem acima de 95% e remoção ativa de detritos.',
+    descricao: 'Mais de 95% dos satélites retirados ao fim do uso e limpeza de lixo.',
     parametros: {
       lancamentosAno: 1600,
       taxaDesorbitagemPct: 95,
@@ -147,11 +147,11 @@ export function simularCenario2050(params, populacaoInicial = null) {
 
   if (probabilidadeKesslerPct >= 75) {
     alertaCascata = true;
-    diagnosticoTexto = 'Saturação crítica: colisões superam a remoção natural, gerando efeito dominó.';
+    diagnosticoTexto = 'Risco crítico: colisões geram mais detritos do que a atmosfera consegue limpar.';
   } else if (probabilidadeKesslerPct >= 50) {
-    diagnosticoTexto = 'Pressão elevada: concentração exige manobras frequentes de desvio.';
+    diagnosticoTexto = 'Atenção: tráfego alto exige que satélites façam desvios frequentes.';
   } else {
-    diagnosticoTexto = 'Ambiente estável: alta desorbitagem contém o acúmulo de detritos.';
+    diagnosticoTexto = 'Cenário equilibrado: a retirada dos satélites evita o acúmulo de lixo espacial.';
   }
 
   return {

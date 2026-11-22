@@ -63,17 +63,17 @@ export function calculateOrbitalAudit(sat, params = null) {
       permanenceScore = 24;
       decayEstimate = '20 a 100 anos — Órbita Elíptica (GTO)';
       permanenceLevel = 'MÉDIO';
-      explicacaoPermanencia = 'Atrito do ar ocorre apenas no perigeu, levando décadas para decair.';
+      explicacaoPermanencia = 'Atrito do ar só ocorre no ponto mais baixo, levando décadas para cair.';
     } else if (perigee <= 650) {
       permanenceScore = 32;
       decayEstimate = 'Séculos — Órbita Elíptica';
       permanenceLevel = 'ALTO';
-      explicacaoPermanencia = 'Arrasto residual no perigeu insuficiente para desorbitar em curto prazo.';
+      explicacaoPermanencia = 'O ar no ponto mais baixo é fraco demais para derrubar o objeto rápido.';
     } else {
       permanenceScore = 40;
       decayEstimate = 'Milênios — Sem limpeza natural';
       permanenceLevel = 'CRÍTICO';
-      explicacaoPermanencia = 'Vácuo espacial sem arrasto atmosférico; permanece por milênios.';
+      explicacaoPermanencia = 'Sem ar suficiente para frear o objeto; fica no espaço por milênios.';
     }
   } else {
     if (perigee < 400) {
@@ -90,22 +90,22 @@ export function calculateOrbitalAudit(sat, params = null) {
       permanenceScore = 24;
       decayEstimate = '10 a 25 anos - Conforme IADC';
       permanenceLevel = 'MÉDIO';
-      explicacaoPermanencia = 'Decaimento lento em décadas por arrasto residual.';
+      explicacaoPermanencia = 'Cai bem devagar ao longo de décadas por ter pouco ar.';
     } else if (perigee <= 800) {
       permanenceScore = 32;
       decayEstimate = '50 a 150 anos - Excede 25 anos';
       permanenceLevel = 'ALTO';
-      explicacaoPermanencia = 'Decaimento lento em décadas por arrasto residual.';
+      explicacaoPermanencia = 'Cai bem devagar ao longo de décadas por ter pouco ar.';
     } else if (perigee <= 2000) {
       permanenceScore = 40;
       decayEstimate = 'Séculos a milênios - Sem limpeza natural';
       permanenceLevel = 'CRÍTICO';
-      explicacaoPermanencia = 'Sem ar suficiente para frear o objeto; séculos em órbita.';
+      explicacaoPermanencia = 'Sem ar suficiente para frear o objeto; pode ficar em órbita por séculos.';
     } else {
       permanenceScore = 38;
-      decayEstimate = 'Permanência indefinida acima de 10.000 anos';
+      decayEstimate = 'Mais de 10.000 anos (sem queda natural)';
       permanenceLevel = 'CRÍTICO';
-      explicacaoPermanencia = 'Vácuo espacial sem arrasto atmosférico; permanece por milênios.';
+      explicacaoPermanencia = 'Sem ar suficiente para frear o objeto; fica no espaço por milênios.';
     }
   }
 
@@ -162,7 +162,7 @@ export function calculateOrbitalAudit(sat, params = null) {
   const overallRating = classificarNivelImpacto(totalSio);
 
   // Destino esperado de fim de vida
-  let endOfLifeTarget = 'REENTRY';
+  let endOfLifeTarget;
   const ehObjetoInerte = (category === 'DEBRIS' || category === 'INACTIVE' || category === 'ROCKET_BODY');
 
   if (ehObjetoInerte) {
@@ -185,16 +185,16 @@ export function calculateOrbitalAudit(sat, params = null) {
     explicacaoPermanencia = "Perde altitude sozinho em poucos anos pelo atrito do ar.";
   }
 
-  let explicacaoTrafego = "Faixa orbital com tráfego moderado e disperso.";
+  let explicacaoTrafego = "Faixa com poucos objetos ao redor.";
   if (densityLevel === 'CRÍTICO' || densityLevel === 'ALTO') {
-    explicacaoTrafego = "Faixa orbital com densidade elevada de objetos.";
+    explicacaoTrafego = "Faixa com muitos objetos próximos.";
   }
 
   const temControle = (category === 'STATION' || category === 'ACTIVE');
-  const labelControle = temControle ? 'MANOBRÁVEL' : 'INERTE';
+  const labelControle = temControle ? 'COM CONTROLE' : 'SEM CONTROLE';
   const explicacaoControle = temControle
-    ? "Satélite ativo com propulsão para evitar colisões."
-    : "Sucata espacial sem motor; não consegue desviar.";
+    ? "Satélite ativo com motor para desviar de colisões."
+    : "Objeto sem motor; não consegue desviar de outros objetos.";
 
   const estiloPermanencia = obterEstiloPorNivel(permanenceLevel);
   const estiloDensidade = obterEstiloPorNivel(densityLevel);

@@ -162,51 +162,51 @@ export function calcularParametrosOrbitais(satOuLinha1, linha2OuData = null, dat
     // 6. Classificação de Regime Orbital
     let regimeCodigo = 'HEO';
     let regimeNome = 'Órbita Altamente Elíptica HEO';
-    let regimeDescricao = 'Trajetória com formato oval ou alongado como GTO e Molniya, alternando passagens rápidas no perigeu e permanência prolongada no apogeu.';
+    let regimeDescricao = 'Caminho oval e alongado (como GTO e Molniya): passa rápido perto da Terra e fica bastante tempo longe no ponto mais alto.';
 
     if (((periodoMinutos >= 1350 && periodoMinutos <= 1650) || (perigeuKm >= 34000 && apogeuKm <= 50000)) && excentricidade < 0.25) {
       regimeCodigo = 'GEO';
       regimeNome = 'Órbita Geoestacionária GEO';
-      regimeDescricao = 'Altitude de ~35.786 km ou anel cemitério. O satélite acompanha a rotação da Terra ou deriva no cinturão geoestacionário.';
+      regimeDescricao = 'Altura de ~35.786 km ou órbita cemitério. O satélite gira junto com a Terra ou fica guardado na faixa de descarte.';
     } else if (perigeuKm < 2000 && apogeuKm <= 2000 && excentricidade < 0.25) {
       regimeCodigo = 'LEO';
       regimeNome = 'Órbita Terrestre Baixa LEO';
-      regimeDescricao = 'Altitude inferior a 2.000 km. Região de maior concentração operacional e maior densidade de lixo espacial.';
+      regimeDescricao = 'Altura abaixo de 2.000 km. É a região mais cheia de satélites ativos e lixo espacial.';
     } else if (perigeuKm >= 2000 && apogeuKm < 35500 && excentricidade < 0.25) {
       regimeCodigo = 'MEO';
       regimeNome = 'Órbita Terrestre Média MEO';
-      regimeDescricao = 'Altitude entre 2.000 km e 35.786 km. Região estratégica utilizada por constelações de posicionamento global como GPS, Galileo e GLONASS.';
+      regimeDescricao = 'Altura entre 2.000 km e 35.786 km. Usada por constelações de navegação global como GPS, Galileo e GLONASS.';
     }
 
     // 7. Descrição Didática da Inclinação
     let classeInclinacao = 'Órbita de Média Inclinação';
     let classeRotaCurta = 'Média Inclinação';
-    let descricaoInclinacao = 'Trajetória com ângulo intermediário em relação ao equador, cobrindo latitudes médias povoadas da Terra.';
+    let descricaoInclinacao = 'Órbita inclinada que passa pelas regiões mais povoadas do planeta.';
 
     if (inclinacaoGraus >= 85 && inclinacaoGraus <= 95) {
       classeInclinacao = 'Órbita Polar';
       classeRotaCurta = 'Polar';
-      descricaoInclinacao = 'Cruza os polos Norte e Sul a cada volta, permitindo escanear a superfície do planeta inteiro conforme a Terra gira sob sua rota.';
+      descricaoInclinacao = 'Cruza os polos Norte e Sul a cada volta, cobrindo toda a Terra conforme o planeta gira.';
     } else if (inclinacaoGraus > 95 && inclinacaoGraus <= 105) {
       classeInclinacao = 'Órbita Heliossíncrona SSO';
       classeRotaCurta = 'Heliossíncrona SSO';
-      descricaoInclinacao = 'Trajetória retrógrada cujo plano mantém o mesmo ângulo em relação à luz solar, ideal para satélites de imageamento e monitoramento climático.';
+      descricaoInclinacao = 'Órbita especial que passa sempre no mesmo horário do Sol, ideal para fotografar o clima e as florestas.';
     } else if (inclinacaoGraus > 105) {
       classeInclinacao = 'Órbita Retrógrada';
       classeRotaCurta = 'Retrógrada';
-      descricaoInclinacao = 'Trajetória retrógrada que se desloca no sentido oposto ao movimento natural de rotação da Terra.';
+      descricaoInclinacao = 'Órbita em que o satélite gira no sentido contrário ao da rotação da Terra.';
     } else if (inclinacaoGraus >= 60 && inclinacaoGraus < 85) {
       classeInclinacao = 'Órbita de Alta Inclinação';
       classeRotaCurta = 'Alta Inclinação';
-      descricaoInclinacao = 'Trajetória de ângulo acentuado em relação ao equador, permitindo ampla cobertura de altas latitudes e regiões subpolares.';
+      descricaoInclinacao = 'Órbita bem inclinada que cobre regiões próximas aos polos.';
     } else if (inclinacaoGraus < 20) {
       classeInclinacao = 'Órbita Quase-Equatorial';
       classeRotaCurta = 'Quase-Equatorial';
-      descricaoInclinacao = 'Trajetória de baixo ângulo que acompanha de perto a linha do equador da Terra.';
+      descricaoInclinacao = 'Órbita com pouca inclinação, acompanhando de perto a linha do equador.';
     } else if (Math.abs(inclinacaoGraus - 51.6) < 2) {
       classeInclinacao = 'Órbita Padrão ISS';
       classeRotaCurta = 'Padrão ISS';
-      descricaoInclinacao = 'Ângulo histórico da Estação Espacial Internacional, desenhado para permitir lançamentos e acoplamentos a partir da Rússia e dos Estados Unidos.';
+      descricaoInclinacao = 'Inclinação usada pela ISS para facilitar lançamentos a partir dos EUA e da Rússia.';
     }
 
     // 8. Diagnóstico de Arrasto Atmosférico e Estimativa de Vida em Órbita

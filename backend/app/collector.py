@@ -1174,7 +1174,7 @@ class APIConector:
             if "STARLINK" in nome_up:
                 dados_a_inserir.append(InformacaoMissao(
                     objeto_id=obj.id,
-                    descricao="Satélite integrante da megaconstelação Starlink para internet de banda larga global em órbita baixa. Desenvolvido com propulsores de íons de efeito Hall para prevenção de colisões e desorbitação ativa ao fim da vida útil.",
+                    descricao="Satélite da rede Starlink para levar internet rápida em órbita baixa. Tem propulsores para desviar de colisões e sair de órbita ao fim do uso.",
                     operador="SpaceX (EUA)",
                     massa_kg=260.0,
                     imagem_url="https://upload.wikimedia.org/wikipedia/commons/thumb/c/c2/Starlink_satellite_in_orbit.jpg/640px-Starlink_satellite_in_orbit.jpg"
@@ -1185,7 +1185,7 @@ class APIConector:
             elif "ONEWEB" in nome_up:
                 dados_a_inserir.append(InformacaoMissao(
                     objeto_id=obj.id,
-                    descricao="Satélite de telecomunicações em constelação operando a cerca de 1.200 km de altitude, fornecendo conectividade de baixa latência corporativa e governamental com descarte propulsionado obrigatório.",
+                    descricao="Satélite de internet operando a cerca de 1.200 km de altura, com motor para sair de órbita ao fim da missão e não virar lixo espacial.",
                     operador="Eutelsat OneWeb (Reino Unido)",
                     massa_kg=150.0,
                     imagem_url="https://upload.wikimedia.org/wikipedia/commons/thumb/1/1a/OneWeb_satellite.jpg/640px-OneWeb_satellite.jpg"
@@ -1220,7 +1220,7 @@ class APIConector:
 
                 dados_a_inserir.append(InformacaoMissao(
                     objeto_id=obj.id,
-                    descricao=f"{familia}. Estágio propulsor inerte descartado após a injeção da carga útil (Lançamento: {ano_lancamento}). Permanece desprovido de telemetria ou propulsão ativa, representando massa orbital significativa com risco de fragmentação espontânea por pressurização residual de propelentes.",
+                    descricao=f"{familia}. Estágio de foguete deixado no espaço após o lançamento (ano: {ano_lancamento}). Não tem motor nem comunicação, podendo se partir com o tempo por restos de combustível e pressão nos tanques.",
                     operador=f"Programa Espacial / Lançador ({obj.pais})",
                     massa_kg=massa,
                     imagem_url=None
@@ -1239,7 +1239,7 @@ class APIConector:
 
                 dados_a_inserir.append(InformacaoMissao(
                     objeto_id=obj.id,
-                    descricao=f"Detrito inerte catalogado por radar de rastreamento da Space Surveillance Network. Origem: {evento} (Lançamento: {ano_lancamento}). Não possui controle de atitude ou manobra evasiva, cruzando zonas de alta densidade orbital (LEO) em velocidades superiores a 27.000 km/h.",
+                    descricao=f"Pedaço solto rastreado pelos radares de vigilância espacial. Origem: {evento} (lançamento: {ano_lancamento}). Sem motor para desviar, cruza a órbita baixa a mais de 27.000 km/h.",
                     operador=f"Nação de Registro / Origem ({obj.pais})",
                     massa_kg=None,
                     imagem_url=None
@@ -1250,7 +1250,7 @@ class APIConector:
             elif obj.categoria_id == 2:
                 dados_a_inserir.append(InformacaoMissao(
                     objeto_id=obj.id,
-                    descricao=f"Satélite científico ou operacional com missão primária encerrada (Lançamento: {ano_lancamento}). Permanece em órbita como carga inerte após esgotamento de baterias ou perda de contato de telemetria, sujeito a decaimento orbital passivo por atrito atmosférico residual.",
+                    descricao=f"Satélite que encerrou sua missão (lançamento: {ano_lancamento}). Segue em órbita sem controle após acabar a energia ou perder comunicação, descendo aos poucos com o atrito do ar.",
                     operador=f"Operador Original ({obj.pais})",
                     massa_kg=None,
                     imagem_url=None
@@ -1280,7 +1280,7 @@ class APIConector:
             elif obj.categoria_id == 1:
                 dados_a_inserir.append(InformacaoMissao(
                     objeto_id=obj.id,
-                    descricao=f"Veículo orbital ativo operando em regime regular de telecomunicações, observação da Terra ou pesquisa científica (Lançamento: {ano_lancamento}). Mantém estabilidade de atitude e gera telemetria captada por estações terrestres de rastreamento.",
+                    descricao=f"Satélite em operação realizando serviços de comunicação, observação da Terra ou ciência (lançamento: {ano_lancamento}), acompanhado por estações em terra.",
                     operador="Operador de Registro",
                     massa_kg=None,
                     imagem_url=None

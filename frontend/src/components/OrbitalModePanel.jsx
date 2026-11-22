@@ -129,12 +129,12 @@ export default function OrbitalModePanel({
 
               <div className="orbital-event-blocks-container">
                 <div className="orbital-event-block technical">
-                  <span className="event-block-label">Fato Técnico</span>
+                  <span className="event-block-label">O que Aconteceu</span>
                   <p className="event-block-text">{pinoAtual.fatoTecnico}</p>
                 </div>
 
                 <div className="orbital-event-block sustainability">
-                  <span className="event-block-label">Lição de Sustentabilidade</span>
+                  <span className="event-block-label">Por que Isso Importa</span>
                   <p className="event-block-text">{pinoAtual.licaoSustentabilidade}</p>
                 </div>
               </div>
@@ -262,7 +262,7 @@ export default function OrbitalModePanel({
                   {/* Sub-regioes Operacionais */}
                   <div className="orbital-subdivisions-section">
                     <span className="subdivisions-heading" style={{ color: camadaAtual.cor }}>
-                      <TypewriterHeading text="Sub-regiões Operacionais" triggerKey={`${camadaAtual.id}-${abaAtiva}`} delay={0} />
+                      <TypewriterHeading text="Faixas Dentro Desta Órbita" triggerKey={`${camadaAtual.id}-${abaAtiva}`} delay={0} />
                     </span>
                     <ul className="subdivisions-list">
                       {camadaAtual.subregioes?.map((sub, idx) => (
@@ -275,7 +275,7 @@ export default function OrbitalModePanel({
                           </strong>
                           <span className="subdivision-desc">{sub.desc}</span>
                           <span className="subdivision-examples">
-                            Exemplos / Tráfego Comum: {sub.trafego || sub.satelites}
+                            Exemplos: {sub.trafego || sub.satelites}
                           </span>
                         </li>
                       ))}
@@ -290,7 +290,7 @@ export default function OrbitalModePanel({
                   {/* Matriz de Diagnostico Ambiental em Grid 2x2 */}
                   <div className="orbital-env-matrix-section">
                     <span className="sustainability-heading" style={{ color: camadaAtual.cor }}>
-                      <TypewriterHeading text="Matriz de Diagnóstico Ambiental" triggerKey={`${camadaAtual.id}-${abaAtiva}`} delay={0} />
+                      <TypewriterHeading text="Principais Riscos" triggerKey={`${camadaAtual.id}-${abaAtiva}`} delay={0} />
                     </span>
                     <div className="orbital-env-matrix-grid">
                       {camadaAtual.matrizDiagnostico?.map((item) => {
@@ -326,7 +326,7 @@ export default function OrbitalModePanel({
                   {camadaAtual.matrizImpacto && (
                     <div className="orbital-impact-matrix-section">
                       <span className="sustainability-heading" style={{ color: camadaAtual.cor }}>
-                        <TypewriterHeading text="Impacto no Espaço vs Terra" triggerKey={`${camadaAtual.id}-${abaAtiva}`} delay={80} />
+                        <TypewriterHeading text="Impacto no Espaço e na Terra" triggerKey={`${camadaAtual.id}-${abaAtiva}`} delay={80} />
                       </span>
                       <div className="orbital-impact-matrix-grid">
                         <div className="orbital-impact-card space">
@@ -361,7 +361,7 @@ export default function OrbitalModePanel({
                   {camadaAtual.acoesNormas && (
                     <div className="orbital-actions-normas-section">
                       <span className="sustainability-heading" style={{ color: camadaAtual.cor }}>
-                        <TypewriterHeading text="Ações & Normas de Mitigação" triggerKey={`${camadaAtual.id}-${abaAtiva}`} delay={160} />
+                        <TypewriterHeading text="Regras e Soluções" triggerKey={`${camadaAtual.id}-${abaAtiva}`} delay={160} />
                       </span>
                       <div className="orbital-actions-list">
                         {camadaAtual.acoesNormas.map((norma, idx) => (
@@ -391,7 +391,7 @@ export default function OrbitalModePanel({
                   {/* Pinos Historicos */}
                   <div className="orbital-layer-linked-events">
                     <span className="linked-events-title" style={{ color: camadaAtual.cor }}>
-                      <TypewriterHeading text="Pinos Históricos Nesta Camada" triggerKey={`${camadaAtual.id}-${abaAtiva}`} delay={0} />
+                      <TypewriterHeading text="Acontecimentos Históricos" triggerKey={`${camadaAtual.id}-${abaAtiva}`} delay={0} />
                     </span>
                     <div className="linked-events-grid">
                       {pinosExibidos.length === 0 ? (

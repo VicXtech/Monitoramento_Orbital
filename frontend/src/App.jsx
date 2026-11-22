@@ -61,36 +61,36 @@ const MODULOS_RECURSOS = [
     num: '01',
     label: 'Rastreamento 3D',
     title: 'RASTREAMENTO 3D',
-    badge: 'CONSOLE',
+    badge: 'MAPA 3D',
     icon: Orbit,
-    desc: 'Visualização interativa da Terra em três dimensões com propagação orbital via modelo físico SGP4. Permite filtrar objetos por tipo operacional como ativos, inativos, detritos, corpos de foguete e estações espaciais, localizar qualquer alvo por código NORAD ou nome oficial, e controlar a aceleração do tempo entre 1x e 300x para acompanhar trajetórias e órbitas em tempo real.'
+    desc: 'Veja a Terra em 3D com a posição real dos objetos calculada pelo modelo SGP4. Você pode filtrar por tipo (satélites ativos, inativos, foguetes, detritos e estações), buscar pelo nome ou código NORAD e acelerar o tempo de 1x até 300x para ver o caminho de cada órbita.'
   },
   {
     id: 'dossie',
     num: '02',
-    label: 'Dossiê e Auditoria',
-    title: 'DOSSIÊ E AUDITORIA',
+    label: 'Detalhes e Auditoria',
+    title: 'DETALHES E AUDITORIA',
     badge: '3 ABAS',
     icon: Activity,
-    desc: 'Painel analítico detalhado do satélite selecionado dividido em três áreas estruturadas: telemetria em tempo real com altitude, velocidade, inclinação, apogeu e perigeu; ficha técnica de engenharia com país de origem, veículo e data de lançamento; e auditoria com estimativa de decaimento atmosférico, vida útil e risco ambiental.'
+    desc: 'Ao clicar em qualquer objeto, abre um painel com três abas: Telemetria (altitude, velocidade e inclinação ao vivo), Registro (país, data e local de lançamento) e Auditoria (tempo estimado de queda e nota de impacto ambiental).'
   },
   {
     id: 'orbital',
     num: '03',
     label: 'Modo Orbital',
     title: 'MODO ORBITAL',
-    badge: 'SIMULADORES',
+    badge: 'CAMADAS',
     icon: Layers,
-    desc: 'Ambiente imersivo para exploração das quatro principais camadas ao redor da Terra: LEO, MEO, GEO e HEO. Inclui simuladores integrados para comparar velocidades orbitais e períodos de revolução, analisar zonas de cobertura geográfica sobre a superfície e calcular a latência de transmissão de sinal entre a órbita e a Terra.'
+    desc: 'Explore as quatro principais faixas ao redor da Terra: LEO, MEO, GEO e HEO. Compare velocidades, veja como cada órbita cobre o planeta e conheça fatos marcantes da história espacial.'
   },
   {
     id: 'missoes',
     num: '04',
     label: 'Missões',
     title: 'MISSÕES',
-    badge: 'DIDÁTICO',
+    badge: 'DESAFIOS',
     icon: Target,
-    desc: 'Trilhas educativas interativas com desafios práticos conduzidos diretamente no globo 3D. Guia o usuário na identificação de detritos de colisões históricas, localização de constelações de comunicação e inspeção de estações orbitais, integrando conceitos fundamentais de mecânica celeste e tráfego espacial.'
+    desc: 'Desafios rápidos e práticos diretamente no globo 3D. Você procura detritos famosos, estações espaciais e satélites brasileiros enquanto aprende como o tráfego espacial funciona.'
   }
 ];
 import { obterPinoHistorico, CAMADAS_ORBITAIS } from './data/orbitalModeData';
@@ -390,19 +390,19 @@ const SOBRE_PLATAFORMA_SECOES = [
     title: 'MISSÃO',
     text: (
       <>
-        A <span className="brand-logo-text"><span className="brand-logo-white">Orbital</span><span className="brand-logo-cyan">ED</span></span> foi criada para desmistificar a mecânica celeste para estudantes, professores e entusiastas. A plataforma substitui coordenadas numéricas abstratas por representações espaciais em 3D intuitivas, tornando o aprendizado visual e conscientizando sobre o tráfego de satélites e a sustentabilidade orbital.
+        A <span className="brand-logo-text"><span className="brand-logo-white">Orbital</span><span className="brand-logo-cyan">ED</span></span> foi criada para facilitar o entendimento sobre o espaço para estudantes, professores e curiosos. Em vez de números difíceis, a plataforma mostra tudo em um globo 3D interativo, ajudando a entender o movimento dos satélites e o problema do lixo espacial.
       </>
     )
   },
   {
     id: 'engenharia',
-    title: 'ENGENHARIA',
-    text: 'Ele opera de forma instantânea via web, sem necessidade de plugins ou cadastros, combinando renderização 3D em WebGL com alta precisão geográfica. Toda a física orbital é processada diretamente no dispositivo do usuário, garantindo cálculo de posições em tempo real com máxima fluidez e sem gargalos de servidor.'
+    title: 'COMO FUNCIONA',
+    text: 'Funciona direto no navegador, sem instalar nada e sem criar conta. O movimento de cada satélite é calculado em tempo real no seu próprio dispositivo, garantindo uma navegação rápida e suave.'
   },
   {
     id: 'fontes',
     title: 'FONTES',
-    text: 'Os dados são coletados diretamente da API pública do CelesTrak (elementos orbitais GP/TLE e catálogo SATCAT, originados da rede de vigilância espacial dos EUA / Space-Track), garantindo transparência científica com informações públicas.'
+    text: 'Os dados vêm direto do CelesTrak, um catálogo público com informações diárias de órbitas (TLE e SATCAT) fornecidas pela rede de monitoramento espacial dos EUA, garantindo transparência com dados abertos.'
   }
 ];
 
@@ -3145,12 +3145,12 @@ function App() {
 
               <div className="cinema-hero-center">
                 <h1 className="cinema-hero-title">
-                  EXPLORAÇÃO ORBITAL E<br />
-                  IMPACTO AMBIENTAL PLANETÁRIO
+                  OBJETOS EM ÓRBITA E<br />
+                  IMPACTO AMBIENTAL
                 </h1>
 
                 <p className="cinema-hero-subtitle">
-                  Exploração interativa e didática dos objetos em órbita terrestre utilizando dados públicos
+                  Veja em 3D os satélites e o lixo espacial ao redor da Terra usando dados públicos reais
                 </p>
 
                 <div className="cinema-btn-container">
@@ -3194,7 +3194,7 @@ function App() {
                       {secaoVisorExibida === 1 && "SOBRE A PLATAFORMA"}
                       {secaoVisorExibida === 2 && "RECURSOS DO SISTEMA"}
                       {secaoVisorExibida === 3 && "SUSTENTABILIDADE ESPACIAL"}
-                      {secaoVisorExibida === 4 && "GLOSSÁRIO ASTRODINÂMICO DIDÁTICO"}
+                      {secaoVisorExibida === 4 && "GLOSSÁRIO ESPACIAL"}
                     </h2>
                   </div>
 
@@ -3210,20 +3210,20 @@ function App() {
                         {/* Barra Inferior com Métricas Chave do Projeto: Imediatamente visível sem fade-in */}
                         <div className="tactical-about-metrics-bar">
                           <div className="about-metric-item">
-                            <span className="about-metric-val">31.800+</span>
-                            <span className="about-metric-lbl">Catálogo Ativo</span>
-                            <span className="about-metric-sub">Objetos rastreados no banco</span>
+                            <span className="about-metric-val">31.400+</span>
+                            <span className="about-metric-lbl">Catálogo no Banco</span>
+                            <span className="about-metric-sub">Objetos salvos para busca</span>
                           </div>
                           <div className="about-metric-divider"></div>
                           <div className="about-metric-item">
                             <span className="about-metric-val">3.000 / 10.000</span>
-                            <span className="about-metric-lbl">Amostragem 3D</span>
-                            <span className="about-metric-sub">Modos Tático e Expandido</span>
+                            <span className="about-metric-lbl">Objetos no Globo</span>
+                            <span className="about-metric-sub">Modos Leve e Completo</span>
                           </div>
                           <div className="about-metric-divider"></div>
                           <div className="about-metric-item">
                             <span className="about-metric-val">4 Órbitas</span>
-                            <span className="about-metric-lbl">Camadas e Marcos</span>
+                            <span className="about-metric-lbl">Camadas e História</span>
                             <span className="about-metric-sub">LEO, MEO, GEO e HEO</span>
                           </div>
                           <div className="about-metric-divider"></div>
@@ -3425,41 +3425,41 @@ function App() {
                               </div>
                             </div>
                             <div className="impact-card-row">
-                              <span className="impact-row-tag">CAUSA ORBITAL</span>
+                              <span className="impact-row-tag">O QUE ACONTECE</span>
                               <p className="impact-row-text">
-                                Fragmentos a 27.000 km/h geram efeito cascata da Síndrome de Kessler na órbita baixa.
+                                Pedaços de lixo espacial a 27.000 km/h batem em outros objetos e criam ainda mais fragmentos — a chamada Síndrome de Kessler.
                               </p>
                             </div>
                             <div className="impact-row-divider" />
                             <div className="impact-card-row">
-                              <span className="impact-row-tag">IMPACTO NO FUTURO</span>
+                              <span className="impact-row-tag">EFEITO NA TERRA</span>
                               <p className="impact-row-text">
-                                Inutilização de rotas que paralisa o sincronismo GPS em redes elétricas, bancos e aviação, cessando o alerta precoce de desastres climáticos.
+                                Órbitas podem ficar perigosas demais para usar, afetando o GPS, redes elétricas, bancos, aviação e previsões do tempo.
                               </p>
                             </div>
                           </div>
 
-                          {/* CARD 2: POLUIÇÃO NA ESTRATOSFERA */}
+                          {/* CARD 2: POLUIÇÃO NA ALTA ATMOSFERA */}
                           <div className="sustainability-impact-card impact-card-chemical">
                             <div className="impact-card-head">
                               <div className="impact-head-left">
                                 <Wind size={16} className="impact-icon icon-chemical" />
                                 <h4 className="impact-card-title">
-                                  <CyberTypewriter text="POLUIÇÃO NA ESTRATOSFERA" active={secaoVisorExibida === 3} delay={60} speed={25} />
+                                  <CyberTypewriter text="POLUIÇÃO NA ALTA ATMOSFERA" active={secaoVisorExibida === 3} delay={60} speed={25} />
                                 </h4>
                               </div>
                             </div>
                             <div className="impact-card-row">
-                              <span className="impact-row-tag">CAUSA ORBITAL</span>
+                              <span className="impact-row-tag">O QUE ACONTECE</span>
                               <p className="impact-row-text">
-                                Queima diária de megaconstelações despeja nanopartículas de óxido de alumínio e lítio na estratosfera.
+                                Satélites que queimam ao cair liberam poeira muito fina de alumínio e lítio nas camadas altas do ar.
                               </p>
                             </div>
                             <div className="impact-row-divider" />
                             <div className="impact-card-row">
-                              <span className="impact-row-tag">IMPACTO NO FUTURO</span>
+                              <span className="impact-row-tag">EFEITO NA TERRA</span>
                               <p className="impact-row-text">
-                                Catalisador químico que destrói o ozônio estratosférico, altera o albedo terrestre e aumenta a radiação UV sobre a saúde humana e lavouras.
+                                Essa poeira pode acelerar a destruição da camada de ozônio, alterar o reflexo da luz solar na Terra e aumentar a radiação UV.
                               </p>
                             </div>
                           </div>
@@ -3475,16 +3475,16 @@ function App() {
                               </div>
                             </div>
                             <div className="impact-card-row">
-                              <span className="impact-row-tag">CAUSA ORBITAL</span>
+                              <span className="impact-row-tag">O QUE ACONTECE</span>
                               <p className="impact-row-text">
-                                Tanques de titânio, baterias e ligas de aço de grande porte resistem ao calor da reentrada.
+                                Peças muito resistentes, como tanques de titânio e estruturas de aço, nem sempre derretem totalmente na queda.
                               </p>
                             </div>
                             <div className="impact-row-divider" />
                             <div className="impact-card-row">
-                              <span className="impact-row-tag">IMPACTO NO FUTURO</span>
+                              <span className="impact-row-tag">EFEITO NA TERRA</span>
                               <p className="impact-row-text">
-                                Milhares de reentradas anuais cruzam rotas de aviação comercial e caem de forma imprevisível sobre zonas povoadas e oceanos.
+                                Restos de foguetes e satélites sem controle cruzam rotas de aviões e podem cair em locais imprevisíveis sobre oceanos e áreas povoadas.
                               </p>
                             </div>
                           </div>
@@ -3500,16 +3500,16 @@ function App() {
                               </div>
                             </div>
                             <div className="impact-card-row">
-                              <span className="impact-row-tag">CAUSA ORBITAL</span>
+                              <span className="impact-row-tag">O QUE ACONTECE</span>
                               <p className="impact-row-text">
-                                Vaporização contínua de satélites cria uma camada metálica artificial na mesosfera.
+                                A queima frequente de satélites cria uma camada fina de poeira metálica na alta atmosfera.
                               </p>
                             </div>
                             <div className="impact-row-divider" />
                             <div className="impact-card-row">
-                              <span className="impact-row-tag">IMPACTO NO FUTURO</span>
+                              <span className="impact-row-tag">EFEITO NA TERRA</span>
                               <p className="impact-row-text">
-                                Pesquisas recentes investigam se essa poeira metálica pode alterar a ionosfera e, em hipótese ainda em debate científico, interferir no campo magnético terrestre.
+                                Cientistas investigam se essa poeira pode alterar a ionosfera e, em uma hipótese ainda em debate, afetar o campo magnético da Terra.
                               </p>
                             </div>
                           </div>
@@ -3577,29 +3577,29 @@ function App() {
                               {/* BLOCO 2 (CENTRO): CAIXA SUTIL 1 A 10 CM */}
                               <div className="uncataloged-strip-col col-box">
                                 <span className="uncataloged-box-title">1 a 10 cm ~1.500.000</span>
-                                <p className="uncataloged-box-text">Letalidade total em impacto; impossível manobrar.</p>
+                                <p className="uncataloged-box-text">Pode destruir um satélite na hora e é pequeno demais para desviar.</p>
                               </div>
 
                               {/* BLOCO 3 (DIREITA): CAIXA SUTIL 1 MM A 1 CM */}
                               <div className="uncataloged-strip-col col-box">
                                 <span className="uncataloged-box-title">1 mm a 1 cm ~230.000.000</span>
-                                <p className="uncataloged-box-text">Perfuração contínua de painéis solares e ópticas.</p>
+                                <p className="uncataloged-box-text">Pode furar painéis solares e danificar câmeras e sensores.</p>
                               </div>
                             </div>
 
                             {/* NOTA CONCEITUAL CENTRALIZADA SOBRE A ESCALA DOS DETRITOS */}
                             <p className="census-uncataloged-note">
-                              Os catálogos públicos rastreiam apenas objetos maiores que 10 cm. O verdadeiro risco reside na nuvem invisível de estilhaços de pintura, escória de combustível sólido e micro-colisões a 28.000 km/h
+                              Os radares públicos só conseguem rastrear objetos maiores que 10 cm. O maior perigo está nos milhões de estilhaços invisíveis — como lascas de tinta e restos de combustível — viajando a até 28.000 km/h.
                             </p>
                           </div>
 
-                          {/* COLUNA DIREITA (35%): MEDIDAS DE MITIGAÇÃO */}
+                          {/* COLUNA DIREITA (35%): REGRAS E SOLUÇÕES */}
                           <div className="sustainability-mitigation-card">
                             <div className="mitigation-card-header">
                               <div className="mitigation-header-left">
                                 <ShieldCheck size={16} className="mitigation-header-icon" />
                                 <h4 className="mitigation-card-title">
-                                  <CyberTypewriter text="MEDIDAS DE MITIGAÇÃO" active={secaoVisorExibida === 3} delay={300} speed={25} />
+                                  <CyberTypewriter text="REGRAS E SOLUÇÕES" active={secaoVisorExibida === 3} delay={300} speed={25} />
                                 </h4>
                               </div>
                             </div>
@@ -3611,7 +3611,7 @@ function App() {
                                   <span className="mitigation-name">Regra de 5 Anos</span>
                                 </div>
                                 <p className="mitigation-desc">
-                                  Desorbitação obrigatória em até 5 anos após o fim da vida útil.
+                                  Obrigação de retirar o satélite de órbita em até 5 anos após o fim do uso.
                                 </p>
                               </div>
 
@@ -3621,7 +3621,7 @@ function App() {
                                   <span className="mitigation-name">Passivação de Energia</span>
                                 </div>
                                 <p className="mitigation-desc">
-                                  Esvaziamento de tanques e descarga de baterias para evitar explosões em órbita.
+                                  Esvaziar tanques de combustível e descarregar baterias para evitar explosões no espaço.
                                 </p>
                               </div>
 
@@ -3631,7 +3631,7 @@ function App() {
                                   <span className="mitigation-name">Remoção Ativa</span>
                                 </div>
                                 <p className="mitigation-desc">
-                                  Captura robótica de sucatas críticas para limpeza das rotas mais congestionadas.
+                                  Usar robôs espaciais para capturar e retirar grandes sucatas das rotas mais cheias.
                                 </p>
                               </div>
 
@@ -3641,7 +3641,7 @@ function App() {
                                   <span className="mitigation-name">Materiais Seguros</span>
                                 </div>
                                 <p className="mitigation-desc">
-                                  Substituição de ligas metálicas tóxicas para reduzir emissões na reentrada.
+                                  Trocar metais poluentes por materiais que queimam de forma mais limpa ao voltar para a Terra.
                                 </p>
                               </div>
                             </div>
@@ -3772,7 +3772,7 @@ function App() {
                   type="button"
                   className={`hud-tool-btn ${modalTutorialAberto ? 'active' : ''}`}
                   onClick={handleAbrirTutorial}
-                  title="Abrir Guia Rápido do Operador"
+                  title="Abrir Guia Rápido"
                 >
                   <Compass size={15} className="hud-tool-icon" />
                   <span>GUIA</span>
@@ -3882,17 +3882,17 @@ function App() {
                       type="button"
                       className={`density-toggle-btn ${densidadeCatalogo === 'tatica' ? 'active' : ''}`}
                       onClick={() => handleAlternarDensidade('tatica')}
-                      title="Amostra Tática: 3.000 objetos calibrados na proporção oficial da ESA"
+                      title="Mostra 3.000 objetos na proporção real das órbitas"
                     >
-                      <span>TÁTICA 3.000</span>
+                      <span>LEVE · 3.000</span>
                     </button>
                     <button
                       type="button"
                       className={`density-toggle-btn ${densidadeCatalogo === 'completo' ? 'active' : ''}`}
                       onClick={() => handleAlternarDensidade('completo')}
-                      title="Amostra Expandida: 10.000 objetos distribuídos na proporção oficial da ESA"
+                      title="Mostra 10.000 objetos na proporção real das órbitas"
                     >
-                      <span>EXPANDIDA 10.000</span>
+                      <span>COMPLETA · 10.000</span>
                     </button>
                   </div>
 
@@ -3901,10 +3901,10 @@ function App() {
                     className={`resample-btn ${recarregandoAmostra ? 'loading' : ''}`}
                     onClick={handleRecarregarAmostra}
                     disabled={loading || recarregandoAmostra}
-                    title="Sortear nova amostragem proporcional de objetos"
+                    title="Sortear novos objetos na proporção real das órbitas"
                   >
                     <RotateCw size={13} className={`resample-icon ${recarregandoAmostra ? 'spin-anim' : ''}`} />
-                    <span>{recarregandoAmostra ? 'SORTEANDO OBJETOS...' : 'RECARREGAR AMOSTRAGEM'}</span>
+                    <span>{recarregandoAmostra ? 'SORTEANDO OBJETOS...' : 'TROCAR OBJETOS'}</span>
                   </button>
                 </div>
 
@@ -4181,7 +4181,7 @@ function App() {
                 >
                   <ChevronRight size={16} />
                 </button>
-                <h2 className="panel-title">Diagnóstico Orbital</h2>
+                <h2 className="panel-title">Detalhes do Objeto</h2>
                 {satSelecionado ? (
                   <button
                     type="button"
@@ -4207,7 +4207,7 @@ function App() {
                         <div>
                           <div className="decay-warning-badge">OBJETO FORA DE ÓRBITA</div>
                           <div className="decay-warning-text">
-                            Reentrou na atmosfera terrestre em <strong>{formatarDataBrasileira(satSelecionado.data_decaimento)}</strong>. Removido da telemetria de voo 3D.
+                            Reentrou na atmosfera da Terra em <strong>{formatarDataBrasileira(satSelecionado.data_decaimento)}</strong> e não está mais em órbita.
                           </div>
                         </div>
                       </div>
@@ -4246,7 +4246,7 @@ function App() {
                   <div className="empty-details">
                     <Globe size={48} className="empty-details-icon" style={{ color: 'var(--neon-cyan)' }} />
                     <p>
-                      Aguardando seleção de objeto orbital...
+                      Clique em qualquer objeto no globo para ver os detalhes...
                       <span className="cursor-blink"></span>
                     </p>
                   </div>
@@ -4275,10 +4275,10 @@ function App() {
               type="button"
               className="hud-trigger-float-btn right-trigger"
               onClick={() => handleAlternarPainelDireito(true)}
-              title="Abrir Diagnóstico do Satélite"
+              title="Abrir Detalhes do Objeto"
             >
               <Compass size={16} />
-              <span className="trigger-label">Diagnóstico Orbital</span>
+              <span className="trigger-label">Detalhes do Objeto</span>
               <ChevronLeft size={14} className="trigger-arrow" />
             </button>
           )}
@@ -4295,7 +4295,7 @@ function App() {
                 <div className="modal-header">
                   <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
                     <Compass size={20} style={{ color: 'var(--neon-cyan)' }} />
-                    <h3>GUIA RÁPIDO DO OPERADOR</h3>
+                    <h3>GUIA RÁPIDO</h3>
                   </div>
                   <button
                     type="button"
@@ -4309,7 +4309,7 @@ function App() {
 
                 <div className="modal-body-scrollable tutorial-body">
                   <p className="tutorial-intro-lead">
-                    Bem-vindo ao <span className="brand-logo-text"><span className="brand-logo-white">Orbital</span><span className="brand-logo-cyan">ED</span></span>. Conheça os comandos principais para explorar, rastrear e analisar os objetos ao redor da Terra em tempo real:
+                    Bem-vindo ao <span className="brand-logo-text"><span className="brand-logo-white">Orbital</span><span className="brand-logo-cyan">ED</span></span>. Veja os comandos principais para explorar e acompanhar os objetos ao redor da Terra em tempo real:
                   </p>
 
                   <div className="tutorial-steps-grid">
@@ -4322,33 +4322,33 @@ function App() {
                       <div className="step-points-list compact-list">
                         <div className="step-point-item">
                           <kbd className="tutorial-kbd cyan">Clique + Arrastar</kbd>
-                          <span className="step-point-text">Girar o globo</span>
+                          <span className="step-point-text">Girar a Terra</span>
                         </div>
                         <div className="step-point-item">
-                          <kbd className="tutorial-kbd cyan">Scroll do Mouse</kbd>
-                          <span className="step-point-text">Zoom in / out</span>
+                          <kbd className="tutorial-kbd cyan">Roda do Mouse</kbd>
+                          <span className="step-point-text">Aproximar ou afastar</span>
                         </div>
                         <div className="step-point-item">
-                          <kbd className="tutorial-kbd cyan">Passar o Cursor</kbd>
-                          <span className="step-point-text">Revelar traçado orbital</span>
+                          <kbd className="tutorial-kbd cyan">Passar o Mouse</kbd>
+                          <span className="step-point-text">Mostrar caminho da órbita</span>
                         </div>
                       </div>
                     </div>
 
-                    {/* 2. Rastreamento */}
+                    {/* 2. Detalhes */}
                     <div className="tutorial-step-card">
                       <div className="step-icon-box">
                         <Crosshair size={22} className="step-icon green" />
                       </div>
-                      <h4 className="step-title">2. Rastreamento</h4>
+                      <h4 className="step-title">2. Detalhes</h4>
                       <div className="step-points-list">
                         <div className="step-point-item">
                           <kbd className="tutorial-kbd green">Clique no Objeto</kbd>
-                          <span className="step-point-text">Fixa câmera e abre telemetria</span>
+                          <span className="step-point-text">Foca a câmera e mostra os dados</span>
                         </div>
                         <div className="step-point-item">
                           <kbd className="tutorial-kbd green">Painel Direito</kbd>
-                          <span className="step-point-text">Dossiê com diversas informações</span>
+                          <span className="step-point-text">Velocidade, altura, história e risco</span>
                         </div>
                       </div>
                     </div>
@@ -4361,30 +4361,30 @@ function App() {
                       <h4 className="step-title">3. Busca e Filtros</h4>
                       <div className="step-points-list">
                         <div className="step-point-item">
-                          <kbd className="tutorial-kbd amber">Pesquisa Direta</kbd>
-                          <span className="step-point-text">Localize satélites ou estações por nome ou NORAD</span>
+                          <kbd className="tutorial-kbd amber">Barra de Busca</kbd>
+                          <span className="step-point-text">Encontre objetos pelo nome ou código NORAD</span>
                         </div>
                         <div className="step-point-item">
                           <kbd className="tutorial-kbd amber">Painel Esquerdo</kbd>
-                          <span className="step-point-text">Filtragem por tipo de objeto</span>
+                          <span className="step-point-text">Filtrar por tipo ou camada</span>
                         </div>
                       </div>
                     </div>
 
-                    {/* 4. Módulos Educativos */}
+                    {/* 4. Aprender Mais */}
                     <div className="tutorial-step-card">
                       <div className="step-icon-box">
                         <BookOpen size={22} className="step-icon purple" />
                       </div>
-                      <h4 className="step-title">4. Módulos Educativos</h4>
+                      <h4 className="step-title">4. Aprender Mais</h4>
                       <div className="step-points-list">
                         <div className="step-point-item">
                           <kbd className="tutorial-kbd purple">Modo Orbital</kbd>
-                          <span className="step-point-text">Informações da órbita, acontecimentos e sustentabilidade</span>
+                          <span className="step-point-text">Entenda as 4 camadas, história e lixo espacial</span>
                         </div>
                         <div className="step-point-item">
-                          <kbd className="tutorial-kbd purple">Glossário Didático</kbd>
-                          <span className="step-point-text">Explicações simplificadas sobre a física espacial</span>
+                          <kbd className="tutorial-kbd purple">Glossário</kbd>
+                          <span className="step-point-text">Significado simples das siglas e termos espaciais</span>
                         </div>
                       </div>
                     </div>
@@ -4417,7 +4417,7 @@ function App() {
                 <div className="modal-header">
                   <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
                     <BookOpen size={20} style={{ color: 'var(--neon-cyan)' }} />
-                    <h3>GLOSSÁRIO TÉCNICO DE ASTRODINÂMICA</h3>
+                    <h3>GLOSSÁRIO ESPACIAL</h3>
                   </div>
                   <button
                     type="button"
