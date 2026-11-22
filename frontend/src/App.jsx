@@ -29,6 +29,7 @@ import * as satellite from 'satellite.js';
 import './App.css';
 import { calcularParametrosOrbitais, gerarPontosOrbita, classificarRegimeOrbital, obterSatrec } from './utils/orbitalPhysics';
 import { lerCacheLocal, salvarCacheLocal } from './utils/catalogCache';
+import { expandirObjetosRadar } from './utils/radarDecoder';
 import { obterFichaFactual, GLOSSARIO_ORBITAL } from './data/orbitalEncyclopedia';
 import ErrorBoundary from './components/ErrorBoundary';
 import {
@@ -171,6 +172,7 @@ function formatarRelogioSimuladoUtc(timestampMs) {
 
 // Configuração do host da API (aponta para o backend local ou de produção)
 const API_URL = import.meta.env.VITE_API_URL || 'http://localhost:8000';
+const SNAPSHOT_BASE_URL = (import.meta.env.VITE_SNAPSHOT_BASE_URL || '').replace(/\/+$/, '');
 
 // Cores semanticas por categoria
 const CORES_CATEGORIAS = {
@@ -1290,7 +1292,18 @@ function App() {
       }
 
       try {
-        const resStats = await fetch(`${API_URL}/api/estatisticas`);
+        let resStats = null;
+        if (SNAPSHOT_BASE_URL) {
+          try {
+            const resSnap = await fetch(`${SNAPSHOT_BASE_URL}/estatisticas.json`);
+            if (resSnap.ok) resStats = resSnap;
+          } catch {
+            // Fallback para a API principal
+          }
+        }
+        if (!resStats) {
+          resStats = await fetch(`${API_URL}/api/estatisticas`);
+        }
         if (resStats.ok) {
           const dataStats = await resStats.json();
           if (!cancelado) {
@@ -1353,12 +1366,13 @@ function App() {
       if (usarCachePersistente) {
         const emCacheIdb = await lerCacheLocal(chaveIdb);
         if (controller.signal.aborted) return;
-        if (emCacheIdb?.data && Array.isArray(emCacheIdb.data) && emCacheIdb.data.length > 0) {
-          cacheDensidadeRef.current.set(cacheKey, emCacheIdb.data);
+        const dadosIdb = emCacheIdb?.data ? expandirObjetosRadar(emCacheIdb.data) : [];
+        if (dadosIdb.length > 0) {
+          cacheDensidadeRef.current.set(cacheKey, dadosIdb);
           if (densidadeCatalogo === 'completo' && !cacheDensidadeRef.current.has(`${cacheBaseKey}_tatica`)) {
-            cacheDensidadeRef.current.set(`${cacheBaseKey}_tatica`, emCacheIdb.data.slice(0, 3000));
+            cacheDensidadeRef.current.set(`${cacheBaseKey}_tatica`, dadosIdb.slice(0, 3000));
           }
-          setObjetos(emCacheIdb.data);
+          setObjetos(dadosIdb);
           setLoading(false);
           setRecarregandoAmostra(false);
           if (emCacheIdb.isFresh) return;
@@ -1376,31 +1390,42 @@ function App() {
 
       try {
         const limite = densidadeCatalogo === 'tatica' ? 3000 : 10000;
-        let url = `${API_URL}/api/objetos?limit=${limite}&seed=${amostraSeed || 0}`;
-        if (regimeAtivo) {
-          url += `&regime=${regimeAtivo}`;
-        }
-        if (ativas.length > 0) {
-          url += `&categoria_ids=${ativas.join(',')}`;
-        } else {
-          url += `&categoria_ids=none`;
-        }
+        const paramsUrl = `limit=${limite}&seed=${amostraSeed || 0}${regimeAtivo ? `&regime=${regimeAtivo}` : ''}&categoria_ids=${ativas.length > 0 ? ativas.join(',') : 'none'}`;
 
         const tInicio = performance.now();
-        const resObjs = await fetch(url, { signal: controller.signal });
+        let resObjs = null;
+
+        if (SNAPSHOT_BASE_URL && amostraSeed === 0 && !regimeAtivo && ativasKey === '1,2,3,4,5') {
+          try {
+            const snapNome = densidadeCatalogo === 'tatica' ? 'radar-tatica.json' : 'radar-completo.json';
+            const resSnap = await fetch(`${SNAPSHOT_BASE_URL}/${snapNome}`, { signal: controller.signal });
+            if (resSnap.ok) resObjs = resSnap;
+          } catch (snapErr) {
+            if (snapErr?.name === 'AbortError') throw snapErr;
+          }
+        }
+
+        if (!resObjs) {
+          resObjs = await fetch(`${API_URL}/api/objetos/radar?${paramsUrl}`, { signal: controller.signal });
+          if (resObjs.status === 404) {
+            resObjs = await fetch(`${API_URL}/api/objetos?${paramsUrl}`, { signal: controller.signal });
+          }
+        }
+
         const tFim = performance.now();
         const latencia = Math.round(tFim - tInicio);
         metricasPerformanceRef.current.latenciaApiMs = latencia;
         if (resObjs.ok && !controller.signal.aborted) {
-          const dataObjs = await resObjs.json();
+          const payloadBruto = await resObjs.json();
           if (controller.signal.aborted) return;
+          const dataObjs = expandirObjetosRadar(payloadBruto);
           cacheDensidadeRef.current.set(cacheKey, dataObjs);
           if (densidadeCatalogo === 'completo' && !cacheDensidadeRef.current.has(`${cacheBaseKey}_tatica`)) {
             cacheDensidadeRef.current.set(`${cacheBaseKey}_tatica`, dataObjs.slice(0, 3000));
           }
           setObjetos(dataObjs);
-          if (usarCachePersistente && Array.isArray(dataObjs) && dataObjs.length > 0) {
-            salvarCacheLocal(chaveIdb, dataObjs);
+          if (usarCachePersistente && dataObjs.length > 0) {
+            salvarCacheLocal(chaveIdb, payloadBruto);
           }
         }
       } catch (err) {
@@ -2714,7 +2739,7 @@ function App() {
       if (nomeUpper.startsWith('ISS (') && sat.norad_id !== '25544') return;
       if (nomeUpper.startsWith('CSS (') && sat.norad_id !== '48274') return;
 
-      if (sat.ultimo_tle) {
+      if (sat.ultimo_tle || sat.omm) {
         if (catId === 4) {
           if (sat.norad_id === '25544' || sat.norad_id === '48274') {
             counts[4]++;
@@ -2748,8 +2773,8 @@ function App() {
       if (nomeUpper.startsWith('ISS (') && sat.norad_id !== '25544') return;
       if (nomeUpper.startsWith('CSS (') && sat.norad_id !== '48274') return;
 
-      if (categoriasAtivas[catId] && sat.ultimo_tle && sat.ultimo_tle.linha1 && sat.ultimo_tle.linha2) {
-        const regime = sat.regime || classificarRegimeOrbital(sat.ultimo_tle.linha1, sat.ultimo_tle.linha2);
+      if (categoriasAtivas[catId] && ((sat.ultimo_tle && sat.ultimo_tle.linha1 && sat.ultimo_tle.linha2) || sat.omm)) {
+        const regime = sat.regime || classificarRegimeOrbital(sat);
         if (regime === 'LEO') regimes.leo++;
         else if (regime === 'MEO') regimes.meo++;
         else if (regime === 'GEO') regimes.geo++;

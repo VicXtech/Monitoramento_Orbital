@@ -31,6 +31,9 @@ class ObjetoOrbital(Base):
     estacao_pai_norad = Column(String(50), nullable=True, index=True)
     regime = Column(String(10), nullable=True, index=True)
     dados_omm = Column(JSON, nullable=True)
+    ultimo_tle_linha1 = Column(CHAR(69), nullable=True)
+    ultimo_tle_linha2 = Column(CHAR(69), nullable=True)
+    ultimo_tle_epoch = Column(DateTime, nullable=True)
 
     categoria = relationship("CategoriaObjeto", back_populates="objetos")
     historico_tle = relationship("TLEHistorico", back_populates="objeto", cascade="all, delete-orphan")

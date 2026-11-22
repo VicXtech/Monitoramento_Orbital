@@ -22,6 +22,9 @@ CREATE TABLE IF NOT EXISTS objeto_orbital (
     estacao_pai_norad VARCHAR(50),
     regime VARCHAR(10),
     dados_omm JSONB,
+    ultimo_tle_linha1 CHAR(69),
+    ultimo_tle_linha2 CHAR(69),
+    ultimo_tle_epoch TIMESTAMP WITH TIME ZONE,
     CONSTRAINT fk_categoria FOREIGN KEY (categoria_id) REFERENCES categoria_objeto(id) ON DELETE RESTRICT
 );
 
@@ -58,6 +61,9 @@ CREATE INDEX IF NOT EXISTS idx_objeto_orbital_estacao_pai ON objeto_orbital(esta
 CREATE INDEX IF NOT EXISTS idx_objeto_orbital_regime ON objeto_orbital(regime);
 CREATE INDEX IF NOT EXISTS idx_informacao_missao_objeto_id ON informacao_missao(objeto_id);
 CREATE INDEX IF NOT EXISTS idx_tle_historico_objeto_epoch ON tle_historico(objeto_id, epoch DESC);
+CREATE INDEX IF NOT EXISTS idx_tle_historico_objeto_id_desc ON tle_historico(objeto_id, id DESC);
+CREATE INDEX IF NOT EXISTS idx_tle_historico_data_captura ON tle_historico(data_captura);
+CREATE INDEX IF NOT EXISTS idx_objeto_orbital_radar_ativo ON objeto_orbital(regime, categoria_id) WHERE data_decaimento IS NULL AND (codigo_status IS NULL OR codigo_status <> 'D') AND estacao_pai_norad IS NULL;
 
 -- Insere categorias padrão
 INSERT INTO categoria_objeto (id, nome, descricao, cor_visualizacao) VALUES

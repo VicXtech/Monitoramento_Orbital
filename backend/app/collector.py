@@ -433,7 +433,10 @@ class APIConector:
                     "categoria_id": cat_id_final,
                     "estacao_pai_norad": estacao_pai,
                     "regime": regime_final,
-                    "dados_omm": item
+                    "dados_omm": item,
+                    "ultimo_tle_linha1": None,
+                    "ultimo_tle_linha2": None,
+                    "ultimo_tle_epoch": None
                 })
 
         # Fluxo 2: Fallback para formato texto TLE legado
@@ -486,7 +489,10 @@ class APIConector:
                         "categoria_id": cat_id_final,
                         "estacao_pai_norad": estacao_pai,
                         "regime": regime_final,
-                        "dados_omm": None
+                        "dados_omm": None,
+                        "ultimo_tle_linha1": linha1,
+                        "ultimo_tle_linha2": linha2,
+                        "ultimo_tle_epoch": epoch_dt
                     })
 
                     tle_dados_temporarios.append({
@@ -520,7 +526,10 @@ class APIConector:
                 "categoria_id": stmt.excluded.categoria_id,
                 "estacao_pai_norad": stmt.excluded.estacao_pai_norad,
                 "regime": stmt.excluded.regime,
-                "dados_omm": stmt.excluded.dados_omm
+                "dados_omm": stmt.excluded.dados_omm,
+                "ultimo_tle_linha1": func.coalesce(stmt.excluded.ultimo_tle_linha1, ObjetoOrbital.ultimo_tle_linha1),
+                "ultimo_tle_linha2": func.coalesce(stmt.excluded.ultimo_tle_linha2, ObjetoOrbital.ultimo_tle_linha2),
+                "ultimo_tle_epoch": func.coalesce(stmt.excluded.ultimo_tle_epoch, ObjetoOrbital.ultimo_tle_epoch)
             }
         ).returning(ObjetoOrbital.id, ObjetoOrbital.norad_id)
 
@@ -636,12 +645,23 @@ class APIConector:
             logger.warning(f"Aviso ao consultar SATCAT para {params}: {e}")
             return
 
+        norads_unicos = list({
+            str(r.get("NORAD_CAT_ID", "")).strip()
+            for r in registros
+            if str(r.get("NORAD_CAT_ID", "")).strip()
+        })
+        por_norad = {}
+        for i in range(0, len(norads_unicos), 500):
+            lote_norads = norads_unicos[i:i + 500]
+            for encontrado in db.query(ObjetoOrbital).filter(ObjetoOrbital.norad_id.in_(lote_norads)).all():
+                por_norad[encontrado.norad_id] = encontrado
+
         atualizados = 0
         for r in registros:
             norad = str(r.get("NORAD_CAT_ID", "")).strip()
             if not norad:
                 continue
-            obj = db.query(ObjetoOrbital).filter(ObjetoOrbital.norad_id == norad).first()
+            obj = por_norad.get(norad)
             if not obj:
                 continue
 
@@ -756,11 +776,23 @@ class APIConector:
         db.commit()
 
         # Demais categorias
-        todos_objetos = db.query(ObjetoOrbital).all()
-        ids_com_missao = set(r[0] for r in db.query(InformacaoMissao.objeto_id).all())
+        objetos_sem_missao = (
+            db.query(
+                ObjetoOrbital.id,
+                ObjetoOrbital.nome,
+                ObjetoOrbital.norad_id,
+                ObjetoOrbital.pais,
+                ObjetoOrbital.categoria_id,
+                ObjetoOrbital.data_lancamento,
+            )
+            .outerjoin(InformacaoMissao, ObjetoOrbital.id == InformacaoMissao.objeto_id)
+            .filter(InformacaoMissao.id.is_(None))
+            .all()
+        )
+        ids_com_missao = set()
         dados_a_inserir = []
 
-        for obj in todos_objetos:
+        for obj in objetos_sem_missao:
             if obj.id in ids_com_missao:
                 continue
 
