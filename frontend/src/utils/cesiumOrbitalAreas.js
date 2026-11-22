@@ -308,14 +308,26 @@ export function posicionarCameraModoOrbital(viewer, camadaId = 'leo', duracao = 
   viewer.trackedEntity = undefined;
 
   const escala = (camadaId && ESCALA_CAMERA_POR_CAMADA[camadaId]) || 1.0;
+  const larguraTela = typeof window !== 'undefined' ? window.innerWidth : 1280;
+  const isLayoutVertical = larguraTela < 1100;
+  const fatorZoom = isLayoutVertical ? (larguraTela <= 600 ? 1.38 : 1.18) : 1.0;
+  const escalaFinal = escala * fatorZoom;
 
-  // Enquadra a Terra no quadrante esquerdo com leve ajuste de zoom conforme a camada
+  const destino = isLayoutVertical
+    ? new window.Cesium.Cartesian3(
+        52070000 * escalaFinal,
+        0,
+        34275000 * escalaFinal
+      )
+    : new window.Cesium.Cartesian3(
+        42000000 * escala,
+        18000000 * escala,
+        44000000 * escala
+      );
+
+  // Enquadra a Terra conforme orientacao da tela
   viewer.camera.flyTo({
-    destination: new window.Cesium.Cartesian3(
-      42000000 * escala,
-      18000000 * escala,
-      44000000 * escala
-    ),
+    destination: destino,
     orientation: {
       direction: new window.Cesium.Cartesian3(-0.694658, 0.0, -0.719340),
       up: new window.Cesium.Cartesian3(-0.719340, 0.0, 0.694658)

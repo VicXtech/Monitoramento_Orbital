@@ -4052,7 +4052,8 @@
   border-radius: 2px;
   width: 100%;
   max-width: 860px;
-  max-height: 85vh;
+  max-height: 88vh;
+  max-height: 88dvh;
   display: flex;
   flex-direction: column;
   overflow: hidden;
@@ -5148,6 +5149,23 @@
   }
 }
 
+@media (max-width: 1024px) {
+  .tutorial-steps-grid {
+    grid-template-columns: repeat(2, 1fr);
+    gap: 12px;
+    row-gap: 28px;
+    margin-top: 20px;
+  }
+
+  .step-title {
+    white-space: normal;
+  }
+
+  .tutorial-kbd {
+    white-space: normal;
+  }
+}
+
 @media (max-width: 900px) {
   .cinema-navbar {
     height: auto;
@@ -5465,16 +5483,6 @@
     right: 2px;
   }
 
-  .orbital-engineering-grid {
-    grid-template-columns: 1fr;
-    gap: 10px;
-  }
-
-  .subdivisions-list {
-    grid-template-columns: 1fr;
-    gap: 6px;
-  }
-
   .sustainability-hub-modal-card {
     width: 100%;
     min-height: auto;
@@ -5502,6 +5510,27 @@
     flex: 0 0 auto;
     min-width: 80px;
     padding: 6px 8px;
+  }
+
+  .hud-modal-card {
+    max-height: 92dvh;
+  }
+
+  .modal-header {
+    padding: 12px 14px;
+  }
+
+  .modal-header h3 {
+    font-size: 13px;
+  }
+
+  .modal-body-scrollable {
+    padding: 14px;
+  }
+
+  .tutorial-body {
+    padding: 16px 14px 14px;
+    gap: 14px;
   }
 
   .tutorial-steps-grid {
@@ -5552,6 +5581,17 @@
   .tactical-about-single-card {
     height: auto;
     min-height: 0;
+  }
+}
+
+@media (max-height: 740px) {
+  .hud-modal-card {
+    max-height: 92dvh;
+  }
+
+  .tutorial-body {
+    padding: 16px 20px 14px;
+    gap: 12px;
   }
 }
 
@@ -10761,11 +10801,10 @@
    PAINEL DO MODO ORBITAL
    ========================================== */
 .orbital-mode-stage-container {
-  position: absolute;
-  top: 72px;
-  bottom: 16px;
-  left: 0;
-  right: 0;
+  position: relative;
+  flex: 1 1 0;
+  min-height: 0;
+  width: 100%;
   display: flex;
   pointer-events: none;
   z-index: 100;
@@ -10778,6 +10817,8 @@
 
 .orbital-mode-stage-right {
   flex: 1.1;
+  min-width: 0;
+  min-height: 0;
   display: flex;
   flex-direction: column;
   justify-content: center;
@@ -10850,8 +10891,8 @@
   align-items: center;
   gap: 12px;
   padding: 14px 16px;
-  width: 520px;
-  max-width: 95vw;
+  width: min(520px, 100%);
+  max-width: 100%;
   background: var(--bg-panel-elevated);
   backdrop-filter: blur(16px);
   border: 1px solid var(--border-structural);
@@ -10879,9 +10920,9 @@
 
 .orbital-mode-panel-frame {
   position: relative;
-  width: 540px;
-  max-width: 95vw;
-  max-height: calc(100vh - 104px);
+  width: min(540px, 100%);
+  max-width: 100%;
+  max-height: 100%;
   background: var(--bg-panel-elevated);
   backdrop-filter: blur(16px);
   border: 1px solid var(--border-structural);
@@ -10954,25 +10995,6 @@
   display: flex;
   flex-direction: column;
   gap: 10px;
-}
-
-@media (max-width: 900px) {
-  .orbital-mode-stage-container {
-    flex-direction: column;
-    justify-content: flex-end;
-  }
-  .orbital-mode-stage-left {
-    display: none;
-  }
-  .orbital-mode-stage-right {
-    flex: 1;
-    align-items: flex-end;
-    padding: 10px;
-  }
-  .orbital-mode-panel-frame {
-    width: 100%;
-    max-height: 55vh;
-  }
 }
 
 /* Visao de Evento Historico */
@@ -12007,6 +12029,111 @@
   color: var(--text-secondary);
   line-height: 1.4;
   margin: 0 0 0 11px;
+}
+
+@media (max-width: 1099px) {
+  .orbital-mode-stage-container {
+    flex-direction: column;
+    justify-content: flex-end;
+  }
+
+  .orbital-mode-stage-left {
+    display: none;
+  }
+
+  .orbital-mode-stage-right {
+    flex: 0 1 auto;
+    width: 100%;
+    max-height: 58%;
+    justify-content: flex-end;
+    align-items: stretch;
+    padding: 6px 0 0 0;
+    min-height: 0;
+  }
+
+  .orbital-mode-panel-frame {
+    width: 100%;
+    max-width: 100%;
+    max-height: 54dvh;
+  }
+
+  .orbital-mode-floating-text-wrap {
+    width: 100%;
+    max-width: 100%;
+  }
+}
+
+@media (max-width: 640px) {
+  .orbital-mode-panel-frame {
+    max-height: 56dvh;
+  }
+
+  .orbital-mode-body {
+    padding: 10px 10px 20px 10px;
+    gap: 8px;
+  }
+
+  .orbital-visor-header {
+    padding: 8px 10px;
+  }
+
+  .orbital-top-kpi-grid {
+    grid-template-columns: repeat(2, 1fr);
+    gap: 6px;
+  }
+
+  .orbital-engineering-grid {
+    grid-template-columns: 1fr;
+    gap: 10px;
+  }
+
+  .subdivisions-list {
+    grid-template-columns: 1fr;
+    gap: 6px;
+  }
+
+  .orbital-env-matrix-grid {
+    grid-template-columns: 1fr;
+    gap: 8px;
+  }
+
+  .orbital-impact-matrix-grid {
+    grid-template-columns: 1fr;
+    gap: 8px;
+  }
+
+  .orbital-actions-list {
+    grid-template-columns: 1fr;
+    gap: 8px;
+  }
+
+  .orbital-segmented-tab-btn {
+    font-size: 9.5px;
+    padding: 6px 4px;
+    letter-spacing: 0.02em;
+    white-space: normal;
+    text-align: center;
+    line-height: 1.2;
+  }
+
+  .orbital-layer-dock {
+    padding: 6px 8px;
+    gap: 4px;
+  }
+
+  .orbital-dock-btn {
+    padding: 5px 2px;
+  }
+
+  .orbital-event-actions {
+    flex-direction: column;
+  }
+}
+
+@media (max-width: 420px) {
+  .dock-layer-name {
+    display: none;
+  }
 }
 
 /* ===================================================
