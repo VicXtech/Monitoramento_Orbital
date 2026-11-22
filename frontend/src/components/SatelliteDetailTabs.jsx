@@ -114,6 +114,55 @@ function obterAgrupamentoOrbital(sat) {
   return 'Lançamento orbital independente';
 }
 
+// Isola atualizacoes periodicas de desempenho neste card
+function PerformanceMetricsCard({ obterMetricasPerformance, metricasIniciais }) {
+  const [metricasLive, setMetricasLive] = useState(() => (
+    obterMetricasPerformance ? obterMetricasPerformance() : metricasIniciais
+  ));
+
+  useEffect(() => {
+    if (!obterMetricasPerformance) return undefined;
+
+    const timer = setInterval(() => {
+      setMetricasLive(obterMetricasPerformance());
+    }, 500);
+
+    return () => clearInterval(timer);
+  }, [obterMetricasPerformance]);
+
+  const metricas = obterMetricasPerformance ? metricasLive : metricasIniciais;
+  if (!metricas) return null;
+
+  return (
+    <div className="engine-performance-card">
+      <div className="engine-performance-grid">
+        <div className="performance-metric-box">
+          <span className="perf-label">Taxa de Quadros</span>
+          <span className="perf-val">{metricas.fps} FPS</span>
+        </div>
+        <div className="performance-metric-box">
+          <span className="perf-label">Cálculo SGP4</span>
+          <span className="perf-val">
+            {metricas.tempoCalculoMs > 0 ? `${metricas.tempoCalculoMs} ms` : '< 1 ms'}
+          </span>
+        </div>
+        <div className="performance-metric-box">
+          <span className="perf-label">Resposta da API</span>
+          <span className="perf-val">
+            {metricas.latenciaApiMs > 0 ? `${metricas.latenciaApiMs} ms` : '--'}
+          </span>
+        </div>
+        <div className="performance-metric-box">
+          <span className="perf-label">Memória JS</span>
+          <span className="perf-val">
+            {metricas.memoriaMb ? `${metricas.memoriaMb} MB` : 'N/D'}
+          </span>
+        </div>
+      </div>
+    </div>
+  );
+}
+
 // Painel de diagnostico orbital em 3 abas
 export default function SatelliteDetailTabs({
   satSelecionado,
@@ -126,6 +175,7 @@ export default function SatelliteDetailTabs({
   handleSelecionarSat,
   onFocarObjeto,
   metricasPerformance,
+  obterMetricasPerformance,
   obterDataSimulada,
   multiplicadorTempo = 1,
   onMudarAba
@@ -602,39 +652,17 @@ export default function SatelliteDetailTabs({
             )}
 
             {/* PERFORMANCE DO MOTOR EM TEMPO REAL */}
-            {metricasPerformance && (
+            {(obterMetricasPerformance || metricasPerformance) && (
               <>
                 <TypewriterSectionTitle
                   text="Performance"
                   delay={160}
                   key={`${satSelecionado?.norad_id}-performance`}
                 />
-                <div className="engine-performance-card">
-                  <div className="engine-performance-grid">
-                    <div className="performance-metric-box">
-                      <span className="perf-label">Taxa de Quadros</span>
-                      <span className="perf-val">{metricasPerformance.fps} FPS</span>
-                    </div>
-                    <div className="performance-metric-box">
-                      <span className="perf-label">Cálculo SGP4</span>
-                      <span className="perf-val">
-                        {metricasPerformance.tempoCalculoMs > 0 ? `${metricasPerformance.tempoCalculoMs} ms` : '< 1 ms'}
-                      </span>
-                    </div>
-                    <div className="performance-metric-box">
-                      <span className="perf-label">Resposta da API</span>
-                      <span className="perf-val">
-                        {metricasPerformance.latenciaApiMs > 0 ? `${metricasPerformance.latenciaApiMs} ms` : '--'}
-                      </span>
-                    </div>
-                    <div className="performance-metric-box">
-                      <span className="perf-label">Memória JS</span>
-                      <span className="perf-val">
-                        {metricasPerformance.memoriaMb ? `${metricasPerformance.memoriaMb} MB` : 'N/D'}
-                      </span>
-                    </div>
-                  </div>
-                </div>
+                <PerformanceMetricsCard
+                  obterMetricasPerformance={obterMetricasPerformance}
+                  metricasIniciais={metricasPerformance}
+                />
               </>
             )}
           </div>

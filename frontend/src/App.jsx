@@ -1,4 +1,4 @@
-import { useState, useEffect, useRef, useMemo, useCallback, useLayoutEffect, Fragment } from 'react';
+import { useState, useEffect, useRef, useMemo, useCallback, useLayoutEffect, Fragment, lazy, Suspense } from 'react';
 import {
   Globe,
   Search,
@@ -29,11 +29,7 @@ import * as satellite from 'satellite.js';
 import './App.css';
 import { calcularParametrosOrbitais, gerarPontosOrbita, classificarRegimeOrbital, obterSatrec } from './utils/orbitalPhysics';
 import { obterFichaFactual, GLOSSARIO_ORBITAL } from './data/orbitalEncyclopedia';
-import SatelliteDetailTabs from './components/SatelliteDetailTabs';
-import ScenarioSimulatorModal from './components/ScenarioSimulatorModal';
 import ErrorBoundary from './components/ErrorBoundary';
-import OrbitalMissionHub from './components/OrbitalMissionHub';
-import OrbitalModePanel, { OrbitalLayerDock } from './components/OrbitalModePanel';
 import {
   criarGeometriasAreas3D,
   removerGeometriasAreas3D,
@@ -43,6 +39,12 @@ import {
   destacarCamadaOrbital,
   destacarPinoHistorico
 } from './utils/cesiumOrbitalAreas';
+
+const SatelliteDetailTabs = lazy(() => import('./components/SatelliteDetailTabs'));
+const ScenarioSimulatorModal = lazy(() => import('./components/ScenarioSimulatorModal'));
+const OrbitalMissionHub = lazy(() => import('./components/OrbitalMissionHub'));
+const OrbitalModePanel = lazy(() => import('./components/OrbitalModePanel'));
+const OrbitalLayerDock = lazy(() => import('./components/OrbitalLayerDock'));
 
 // Definição dos módulos da seção de recursos
 const MODULOS_RECURSOS = [
@@ -98,10 +100,31 @@ import somPainelLateral from './assets/sons/painel-lateral.mp3';
 import somTopPainel from './assets/sons/top-painel.mp3';
 import somRecarregarAmostragem from './assets/sons/recarregar-amostragem.mp3';
 
-// Utilitário de reprodução ágil de áudio com clone e tratamento de permissão do navegador
+const audioCache = new Map();
+const EFEITOS_SONOROS_PRELOAD = [
+  somAbreSlide,
+  somTrocaSlide,
+  somIniciar,
+  somFadeOut,
+  somFadeIn,
+  somConsoleButtons,
+  somVoltar,
+  somPainelLateral,
+  somTopPainel,
+  somRecarregarAmostragem
+];
+
+// Reproduz efeito sonoro reutilizando instancia em cache
 function tocarEfeitoSonoro(audioSrc, volume = 0.5) {
   try {
-    const audio = new Audio(audioSrc);
+    let base = audioCache.get(audioSrc);
+    if (!base) {
+      base = new Audio(audioSrc);
+      base.preload = 'auto';
+      audioCache.set(audioSrc, base);
+    }
+
+    const audio = (base.paused || base.ended) ? base : base.cloneNode();
     audio.volume = Math.max(0, Math.min(1, volume));
     audio.currentTime = 0;
     const playPromise = audio.play();
@@ -143,24 +166,6 @@ function formatarRelogioSimuladoUtc(timestampMs) {
   const minutos = String(data.getUTCMinutes()).padStart(2, '0');
   const segundos = String(data.getUTCSeconds()).padStart(2, '0');
   return `${dia} ${mes} ${ano} • ${horas}:${minutos}:${segundos} UTC`;
-}
-
-// Pré-carregamento dos áudios para resposta tátil instantânea
-if (typeof window !== 'undefined' && typeof Audio !== 'undefined') {
-  try {
-    new Audio(somAbreSlide).load();
-    new Audio(somTrocaSlide).load();
-    new Audio(somIniciar).load();
-    new Audio(somFadeOut).load();
-    new Audio(somFadeIn).load();
-    new Audio(somConsoleButtons).load();
-    new Audio(somVoltar).load();
-    new Audio(somPainelLateral).load();
-    new Audio(somTopPainel).load();
-    new Audio(somRecarregarAmostragem).load();
-  } catch {
-    // Ignora restrições de autoplay do navegador
-  }
 }
 
 // Configuração do host da API (aponta para o backend local ou de produção)
@@ -408,14 +413,16 @@ function App() {
   const globoEmRotacaoOciosaRef = useRef(true);
   const ultimaAtualizacaoRotaRef = useRef(0);
 
-  // Metricas de Performance em Tempo Real (FPS, SGP4, API, Memoria)
-  const [metricasPerformance, setMetricasPerformance] = useState({
+  // Metricas de desempenho armazenadas em ref para evitar re-renders globais
+  const metricasPerformanceRef = useRef({
     fps: 60,
     tempoCalculoMs: 0,
     totalObjetosWorker: 0,
     latenciaApiMs: 0,
     memoriaMb: null
   });
+  const obterMetricasPerformance = useCallback(() => ({ ...metricasPerformanceRef.current }), []);
+  const obterDataSimulada = useCallback(() => new Date(simulatedTimeMsRef.current), []);
   const fpsFrameContadorRef = useRef(0);
   const fpsUltimoTimestampRef = useRef(performance.now());
 
@@ -442,6 +449,40 @@ function App() {
   }, [telaAtiva]);
   const [transicaoCyber, setTransicaoCyber] = useState(null); // 'para-simulador' | 'para-inicio' | null
 
+  const modoOrbitalPrefetchedRef = useRef(false);
+  const prefetcharModoOrbital = useCallback(() => {
+    if (modoOrbitalPrefetchedRef.current) return;
+    modoOrbitalPrefetchedRef.current = true;
+    import('./components/OrbitalModePanel');
+    import('./components/OrbitalLayerDock');
+  }, []);
+
+  // Pre-carrega o painel de detalhes em segundo plano ao entrar no simulador
+  useEffect(() => {
+    if (telaAtiva !== 'simulador') return undefined;
+
+    let idleId = null;
+    let timeoutId = null;
+    const precarregarDetalhes = () => {
+      import('./components/SatelliteDetailTabs');
+    };
+
+    if (typeof window.requestIdleCallback === 'function') {
+      idleId = window.requestIdleCallback(precarregarDetalhes, { timeout: 1000 });
+    } else {
+      timeoutId = setTimeout(precarregarDetalhes, 600);
+    }
+
+    return () => {
+      if (idleId !== null && typeof window.cancelIdleCallback === 'function') {
+        window.cancelIdleCallback(idleId);
+      }
+      if (timeoutId !== null) {
+        clearTimeout(timeoutId);
+      }
+    };
+  }, [telaAtiva]);
+
   // Inicialização e gerenciamento do Web Worker SGP4
   useEffect(() => {
     try {
@@ -453,11 +494,8 @@ function App() {
         if (tipo === 'POSICOES' && posicoes && window.Cesium) {
           workerOcupadoRef.current = false;
           if (typeof tempoCalculoMs === 'number') {
-            setMetricasPerformance(prev => ({
-              ...prev,
-              tempoCalculoMs,
-              totalObjetosWorker: totalSatelites || prev.totalObjetosWorker
-            }));
+            metricasPerformanceRef.current.tempoCalculoMs = tempoCalculoMs;
+            metricasPerformanceRef.current.totalObjetosWorker = totalSatelites || metricasPerformanceRef.current.totalObjetosWorker;
           }
           const indices = satelitesIndicesRef.current;
           const total = indices.length;
@@ -483,13 +521,6 @@ function App() {
               entry.point.position = novoPos;
             }
           }
-
-          // Atualiza a trilha orbital do satélite selecionado a cada segundo
-          const satAtivo = satSelecionadoRef.current;
-          const v = viewerRef.current;
-          if (satAtivo && (satAtivo.ultimo_tle || satAtivo.omm) && v && !v.isDestroyed() && !satHoverIdRef.current) {
-            desenharTrilhaOrbital(v, satAtivo);
-          }
         }
       };
 
@@ -512,13 +543,62 @@ function App() {
   const musicaRef = useRef(null);
   const musicaMutadaRef = useRef(false);
 
+  // Pre-carrega efeitos sonoros em segundo plano apos a inicializacao
   useEffect(() => {
-    const audio = new Audio(somTemaPrincipal);
+    if (typeof window === 'undefined' || typeof Audio === 'undefined') return undefined;
+
+    let idleId = null;
+    let timeoutId = null;
+
+    const carregarEfeitosEmSegundoPlano = () => {
+      EFEITOS_SONOROS_PRELOAD.forEach((src) => {
+        if (!audioCache.has(src)) {
+          const audio = new Audio();
+          audio.preload = 'auto';
+          audio.src = src;
+          audioCache.set(src, audio);
+        }
+      });
+    };
+
+    if (typeof window.requestIdleCallback === 'function') {
+      idleId = window.requestIdleCallback(carregarEfeitosEmSegundoPlano, { timeout: 3000 });
+    } else {
+      timeoutId = setTimeout(carregarEfeitosEmSegundoPlano, 2500);
+    }
+
+    return () => {
+      if (idleId !== null && typeof window.cancelIdleCallback === 'function') {
+        window.cancelIdleCallback(idleId);
+      }
+      if (timeoutId !== null) {
+        clearTimeout(timeoutId);
+      }
+    };
+  }, []);
+
+  useEffect(() => {
+    const audio = new Audio();
+    audio.preload = 'none';
     audio.loop = true;
     audio.volume = 0.5;
+    audio.src = somTemaPrincipal;
     musicaRef.current = audio;
 
     const eventosAtivacao = ['click', 'pointerdown', 'mousedown', 'touchstart', 'keydown'];
+    let autoplayTimer = null;
+    let autoplayIdleId = null;
+
+    const cancelarAgendamentoAutoplay = () => {
+      if (autoplayTimer !== null) {
+        clearTimeout(autoplayTimer);
+        autoplayTimer = null;
+      }
+      if (autoplayIdleId !== null && typeof window.cancelIdleCallback === 'function') {
+        window.cancelIdleCallback(autoplayIdleId);
+        autoplayIdleId = null;
+      }
+    };
 
     const removerListeners = () => {
       eventosAtivacao.forEach(evento => {
@@ -529,9 +609,11 @@ function App() {
 
     // Inicia a reprodução na primeira interação física em fase de captura (evita consumo por Cesium)
     function desbloquearAutoplay() {
+      cancelarAgendamentoAutoplay();
       if (musicaMutadaRef.current) return;
       const a = musicaRef.current;
       if (a && a.paused) {
+        a.preload = 'auto';
         a.muted = false;
         a.play().then(() => {
           removerListeners();
@@ -541,21 +623,34 @@ function App() {
       }
     }
 
-    // Tentativa inicial imediata (funciona caso o navegador já tenha política de engajamento favorável)
-    const playPromise = audio.play();
-    if (playPromise !== undefined) {
-      playPromise.then(() => {
-        // Autoplay aceito de imediato pelo navegador
-      }).catch(() => {
-        // Autoplay bloqueado pelo navegador até primeira interação: registra listeners globais de captura
-        eventosAtivacao.forEach(evento => {
-          window.addEventListener(evento, desbloquearAutoplay, { capture: true, passive: true });
-          document.addEventListener(evento, desbloquearAutoplay, { capture: true, passive: true });
+    eventosAtivacao.forEach(evento => {
+      window.addEventListener(evento, desbloquearAutoplay, { capture: true, passive: true });
+      document.addEventListener(evento, desbloquearAutoplay, { capture: true, passive: true });
+    });
+
+    const tentarAutoplayInicial = () => {
+      if (musicaMutadaRef.current) return;
+      const a = musicaRef.current;
+      if (!a || !a.paused) return;
+      a.preload = 'auto';
+      const playPromise = a.play();
+      if (playPromise !== undefined) {
+        playPromise.then(() => {
+          removerListeners();
+        }).catch(() => {
+          // Aguarda interacao do usuario pelos listeners globais
         });
-      });
+      }
+    };
+
+    if (typeof window.requestIdleCallback === 'function') {
+      autoplayIdleId = window.requestIdleCallback(tentarAutoplayInicial, { timeout: 1800 });
+    } else {
+      autoplayTimer = setTimeout(tentarAutoplayInicial, 1800);
     }
 
     return () => {
+      cancelarAgendamentoAutoplay();
       removerListeners();
       if (musicaRef.current) {
         musicaRef.current.pause();
@@ -571,6 +666,7 @@ function App() {
     // Se estiver mutado ou se estiver pausado (ex: bloqueio inicial de autoplay do navegador),
     // o primeiro clique do usuário inicia a música imediatamente sem exigir mutar/desmutar
     if (musicaMutada || audio.paused) {
+      audio.preload = 'auto';
       audio.muted = false;
       audio.volume = 0.5;
       const playPromise = audio.play();
@@ -1165,7 +1261,7 @@ function App() {
         const resObjs = await fetch(url);
         const tFim = performance.now();
         const latencia = Math.round(tFim - tInicio);
-        setMetricasPerformance(prev => ({ ...prev, latenciaApiMs: latencia }));
+        metricasPerformanceRef.current.latenciaApiMs = latencia;
         if (resObjs.ok) {
           const dataObjs = await resObjs.json();
           cacheDensidadeRef.current.set(cacheKey, dataObjs);
@@ -1655,7 +1751,10 @@ function App() {
     viewerInstance.scene.globe.enableLighting = true;
     viewerInstance.scene.globe.showAtmosphere = true;
     viewerInstance.scene.globe.atmosphereLightIntensity = 1.3;
-    viewerInstance.scene.globe.depthTestAgainstTerrain = true;
+    viewerInstance.scene.globe.depthTestAgainstTerrain = false;
+    viewerInstance.scene.globe.tileCacheSize = 200;
+    viewerInstance.scene.globe.preloadAncestors = true;
+    viewerInstance.scene.globe.preloadSiblings = false;
     viewerInstance.resolutionScale = Math.min(window.devicePixelRatio || 1.0, 1.5);
 
     // Configurações da câmera: trava a rotação e o foco no centro do planeta
@@ -1716,25 +1815,67 @@ function App() {
       up: viewerInstance.camera.up.clone()
     };
 
-    // Manipulador de Clique no Globo (Seleção) e interrupção do giro ocioso ao interagir com o mouse
+    // Manipulador de clique no globo e controle de arraste de camera
     const clickHandler = new window.Cesium.ScreenSpaceEventHandler(viewerInstance.scene.canvas);
-    const pararGiroOcioso = () => {
+    const tooltipEl = document.getElementById('hud-tooltip');
+    let isArrastandoCamera = false;
+
+    const iniciarInteracaoCamera = () => {
       globoEmRotacaoOciosaRef.current = false;
+      isArrastandoCamera = true;
+      if (tooltipEl) tooltipEl.style.display = 'none';
     };
-    clickHandler.setInputAction(pararGiroOcioso, window.Cesium.ScreenSpaceEventType.LEFT_DOWN);
-    clickHandler.setInputAction(pararGiroOcioso, window.Cesium.ScreenSpaceEventType.RIGHT_DOWN);
-    clickHandler.setInputAction(pararGiroOcioso, window.Cesium.ScreenSpaceEventType.MIDDLE_DOWN);
-    clickHandler.setInputAction(pararGiroOcioso, window.Cesium.ScreenSpaceEventType.WHEEL);
-    clickHandler.setInputAction(pararGiroOcioso, window.Cesium.ScreenSpaceEventType.PINCH_START);
+
+    const encerrarArrasteCamera = () => {
+      isArrastandoCamera = false;
+    };
+
+    const extrairSateliteDoPick = (item) => {
+      if (!item) return null;
+      const noradId = typeof item.id === 'string' ? item.id : (item.primitive?.id || null);
+      return noradId ? (pointsRef.current.get(String(noradId)) || null) : null;
+    };
+
+    // Identifica satelite em passagem unica com fallback curto para sobreposicoes
+    const identificarSateliteNoPonto = (posicao, tamanhoCaixa = 9) => {
+      const picked = viewerInstance.scene.pick(posicao, tamanhoCaixa, tamanhoCaixa);
+      if (!window.Cesium.defined(picked)) return null;
+
+      const satDireto = extrairSateliteDoPick(picked);
+      if (satDireto) return satDireto;
+
+      const lista = viewerInstance.scene.drillPick(posicao, 4, tamanhoCaixa, tamanhoCaixa);
+      if (lista && lista.length > 0) {
+        for (let i = 0; i < lista.length; i++) {
+          const satLista = extrairSateliteDoPick(lista[i]);
+          if (satLista) return satLista;
+        }
+      }
+      return null;
+    };
+
+    clickHandler.setInputAction(iniciarInteracaoCamera, window.Cesium.ScreenSpaceEventType.LEFT_DOWN);
+    clickHandler.setInputAction(iniciarInteracaoCamera, window.Cesium.ScreenSpaceEventType.RIGHT_DOWN);
+    clickHandler.setInputAction(iniciarInteracaoCamera, window.Cesium.ScreenSpaceEventType.MIDDLE_DOWN);
+    clickHandler.setInputAction(encerrarArrasteCamera, window.Cesium.ScreenSpaceEventType.LEFT_UP);
+    clickHandler.setInputAction(encerrarArrasteCamera, window.Cesium.ScreenSpaceEventType.RIGHT_UP);
+    clickHandler.setInputAction(encerrarArrasteCamera, window.Cesium.ScreenSpaceEventType.MIDDLE_UP);
+    clickHandler.setInputAction(() => {
+      globoEmRotacaoOciosaRef.current = false;
+    }, window.Cesium.ScreenSpaceEventType.WHEEL);
+    clickHandler.setInputAction(() => {
+      globoEmRotacaoOciosaRef.current = false;
+    }, window.Cesium.ScreenSpaceEventType.PINCH_START);
+    window.addEventListener('blur', encerrarArrasteCamera);
 
     clickHandler.setInputAction((click) => {
       if (telaAtivaRef.current !== 'simulador') return;
 
       // Interação 3D específica do MODO ORBITAL FIGURATIVO
       if (modoOrbitalAtivoRef.current) {
-        let pickedObject = viewerInstance.scene.pick(click.position);
+        let pickedObject = viewerInstance.scene.pick(click.position, 7, 7);
         if (!window.Cesium.defined(pickedObject)) {
-          const drillList = viewerInstance.scene.drillPick(click.position);
+          const drillList = viewerInstance.scene.drillPick(click.position, 4);
           if (drillList && drillList.length > 0) pickedObject = drillList[0];
         }
 
@@ -1764,46 +1905,7 @@ function App() {
         return;
       }
 
-      // 1. Tentar pegar o objeto via drillPick no pixel exato
-      let satEntryClique = null;
-      const pickedList = viewerInstance.scene.drillPick(click.position);
-      if (pickedList && pickedList.length > 0) {
-        for (let i = 0; i < pickedList.length; i++) {
-          const item = pickedList[i];
-          const noradId = typeof item.id === 'string' ? item.id : (item.primitive?.id || null);
-          if (noradId && pointsRef.current.has(String(noradId))) {
-            satEntryClique = pointsRef.current.get(String(noradId));
-            break;
-          }
-        }
-      }
-
-      // 2. Tolerância sutil de até 4px via drillPick na GPU
-      if (!satEntryClique) {
-        const offsets = [
-          [-2, 0], [2, 0], [0, -2], [0, 2],
-          [-3, -3], [3, -3], [-3, 3], [3, 3],
-          [-4, 0], [4, 0], [0, -4], [0, 4]
-        ];
-        for (let i = 0; i < offsets.length; i++) {
-          const p = new window.Cesium.Cartesian2(
-            click.position.x + offsets[i][0],
-            click.position.y + offsets[i][1]
-          );
-          const vizList = viewerInstance.scene.drillPick(p);
-          if (vizList && vizList.length > 0) {
-            for (let j = 0; j < vizList.length; j++) {
-              const item = vizList[j];
-              const noradId = typeof item.id === 'string' ? item.id : (item.primitive?.id || null);
-              if (noradId && pointsRef.current.has(String(noradId))) {
-                satEntryClique = pointsRef.current.get(String(noradId));
-                break;
-              }
-            }
-          }
-          if (satEntryClique) break;
-        }
-      }
+      const satEntryClique = identificarSateliteNoPonto(click.position, 9);
 
       if (satEntryClique) {
         handleSelecionarSat(satEntryClique.sat, true, true);
@@ -1813,24 +1915,44 @@ function App() {
       }
     }, window.Cesium.ScreenSpaceEventType.LEFT_CLICK);
 
-    // Manipulador de Hover do Mouse (Gera trilha orbital dinamicamente sob o cursor)
+    // Manipulador de hover com throttle e cache de tooltip
     let lastHoveredEntity = null;
     let lastHoveredEventoEntity = null;
+    let ultimoCheckHoverMs = 0;
+    let ultimoConteudoTooltipMs = 0;
+    let ultimoTooltipModoOrbitalChave = null;
     const hoverHandler = new window.Cesium.ScreenSpaceEventHandler(viewerInstance.scene.canvas);
-    const tooltipEl = document.getElementById('hud-tooltip');
 
     hoverHandler.setInputAction((movement) => {
       if (telaAtivaRef.current !== 'simulador') {
         viewerInstance.scene.canvas.style.cursor = 'default';
+        ultimoTooltipModoOrbitalChave = null;
         if (tooltipEl) tooltipEl.style.display = 'none';
         return;
       }
 
+      if (isArrastandoCamera) {
+        if (tooltipEl && tooltipEl.style.display !== 'none') {
+          tooltipEl.style.display = 'none';
+        }
+        return;
+      }
+
+      if (tooltipEl && tooltipEl.style.display === 'block') {
+        const offsetX = modoOrbitalAtivoRef.current ? 14 : 15;
+        tooltipEl.style.left = `${movement.endPosition.x + offsetX}px`;
+        tooltipEl.style.top = `${movement.endPosition.y + offsetX}px`;
+      }
+
+      const agoraHover = performance.now();
+      if (agoraHover - ultimoCheckHoverMs < 50) return;
+      ultimoCheckHoverMs = agoraHover;
+
       // Interação 3D sob o cursor no MODO ORBITAL FIGURATIVO
       if (modoOrbitalAtivoRef.current) {
-        let pickedObject = viewerInstance.scene.pick(movement.endPosition);
+        let pickedObject = viewerInstance.scene.pick(movement.endPosition, 7, 7);
         if (!window.Cesium.defined(pickedObject)) {
-          const drillList = viewerInstance.scene.drillPick(movement.endPosition);
+          const drillList = viewerInstance.scene.drillPick(movement.endPosition, 4);
           if (drillList && drillList.length > 0) pickedObject = drillList[0];
         }
 
@@ -1846,17 +1968,21 @@ function App() {
               const pinoData = pickedObject.id.properties.pinoData?.getValue();
 
               if (tooltipEl && pinoData) {
-                tooltipEl.innerHTML = `
-                  <div class="tooltip-header" style="border-color: rgba(224, 82, 82, 0.4); padding-bottom: 4px; margin-bottom: 4px;">
-                    <span class="tooltip-name" style="color:#E05252; font-size: 10px; font-weight:700;">[${pinoData.ano}] ${pinoData.localNome}</span>
-                  </div>
-                  <div style="font-size: 12px; font-weight: 600; color: #F1F5F9; letter-spacing: 0.4px;">
-                    ${pinoData.nome}
-                  </div>
-                  <div style="font-size: 10px; color: var(--text-secondary); margin-top: 2px;">
-                    Altitude: ${pinoData.posicao.altKm} km
-                  </div>
-                `;
+                const chaveTooltip = `pino:${pinoData.id}`;
+                if (ultimoTooltipModoOrbitalChave !== chaveTooltip) {
+                  ultimoTooltipModoOrbitalChave = chaveTooltip;
+                  tooltipEl.innerHTML = `
+                    <div class="tooltip-header" style="border-color: rgba(224, 82, 82, 0.4); padding-bottom: 4px; margin-bottom: 4px;">
+                      <span class="tooltip-name" style="color:#E05252; font-size: 10px; font-weight:700;">[${pinoData.ano}] ${pinoData.localNome}</span>
+                    </div>
+                    <div style="font-size: 12px; font-weight: 600; color: #F1F5F9; letter-spacing: 0.4px;">
+                      ${pinoData.nome}
+                    </div>
+                    <div style="font-size: 10px; color: var(--text-secondary); margin-top: 2px;">
+                      Altitude: ${pinoData.posicao.altKm} km
+                    </div>
+                  `;
+                }
                 tooltipEl.style.display = 'block';
                 tooltipEl.style.left = `${movement.endPosition.x + 14}px`;
                 tooltipEl.style.top = `${movement.endPosition.y + 14}px`;
@@ -1873,14 +1999,18 @@ function App() {
         if (novaCamadaHover && !novoPinoHover) {
           const infoCamada = CAMADAS_ORBITAIS[novaCamadaHover];
           if (tooltipEl && infoCamada) {
-            tooltipEl.innerHTML = `
-              <div class="tooltip-header" style="border-color: ${infoCamada.cor}66; padding-bottom: 4px; margin-bottom: 4px;">
-                <span class="tooltip-name" style="color:${infoCamada.cor}; font-size: 10px; font-weight:800;">${infoCamada.sigla}</span>
-              </div>
-              <div style="font-size: 12px; font-weight: 700; color: #ffffff;">
-                ${infoCamada.nome}
-              </div>
-            `;
+            const chaveTooltip = `camada:${novaCamadaHover}`;
+            if (ultimoTooltipModoOrbitalChave !== chaveTooltip) {
+              ultimoTooltipModoOrbitalChave = chaveTooltip;
+              tooltipEl.innerHTML = `
+                <div class="tooltip-header" style="border-color: ${infoCamada.cor}66; padding-bottom: 4px; margin-bottom: 4px;">
+                  <span class="tooltip-name" style="color:${infoCamada.cor}; font-size: 10px; font-weight:800;">${infoCamada.sigla}</span>
+                </div>
+                <div style="font-size: 12px; font-weight: 700; color: #ffffff;">
+                  ${infoCamada.nome}
+                </div>
+              `;
+            }
             tooltipEl.style.display = 'block';
             tooltipEl.style.left = `${movement.endPosition.x + 14}px`;
             tooltipEl.style.top = `${movement.endPosition.y + 14}px`;
@@ -1901,30 +2031,21 @@ function App() {
         if (novoPinoHover || novaCamadaHover) {
           viewerInstance.scene.canvas.style.cursor = 'pointer';
         } else {
+          ultimoTooltipModoOrbitalChave = null;
           viewerInstance.scene.canvas.style.cursor = 'default';
           if (tooltipEl) tooltipEl.style.display = 'none';
         }
         return;
       }
 
-      let satEntryHover = null;
-      const pickedListHover = viewerInstance.scene.drillPick(movement.endPosition);
-      if (pickedListHover && pickedListHover.length > 0) {
-        for (let i = 0; i < pickedListHover.length; i++) {
-          const item = pickedListHover[i];
-          const noradId = typeof item.id === 'string' ? item.id : (item.primitive?.id || null);
-          if (noradId && pointsRef.current.has(String(noradId))) {
-            satEntryHover = pointsRef.current.get(String(noradId));
-            break;
-          }
-        }
-      }
+      const satEntryHover = identificarSateliteNoPonto(movement.endPosition, 7);
 
       if (satEntryHover) {
         const { point: hoveredPoint, sat: satData } = satEntryHover;
         viewerInstance.scene.canvas.style.cursor = 'pointer';
+        const mudouSatelite = lastHoveredEntity !== hoveredPoint;
 
-        if (lastHoveredEntity !== hoveredPoint) {
+        if (mudouSatelite) {
           // Restaurar estilo anterior
           if (lastHoveredEntity) {
             try {
@@ -1960,69 +2081,72 @@ function App() {
           }
         }
 
-        // Construir Tooltip Didatico Completo no DOM sem innerHTML
+        // Reconstroi o tooltip ao trocar de satelite ou a cada segundo
         if (tooltipEl && satData) {
-          const catId = Number(satData.categoria_id);
-          const corCat = CORES_CATEGORIAS[catId] || '#34D399';
+          if (mudouSatelite || (agoraHover - ultimoConteudoTooltipMs >= 1000)) {
+            ultimoConteudoTooltipMs = agoraHover;
+            const catId = Number(satData.categoria_id);
+            const corCat = CORES_CATEGORIAS[catId] || '#34D399';
 
-          // Calcular parametros astrodinamicos em tempo real para o tooltip
-          let paramsHover = null;
-          if (satData.ultimo_tle) {
-            paramsHover = calcularParametrosOrbitais(
-              satData.ultimo_tle.linha1,
-              satData.ultimo_tle.linha2,
-              new Date(simulatedTimeMsRef.current)
-            );
+            // Calcular parametros astrodinamicos em tempo real para o tooltip
+            let paramsHover = null;
+            if (satData.ultimo_tle) {
+              paramsHover = calcularParametrosOrbitais(
+                satData.ultimo_tle.linha1,
+                satData.ultimo_tle.linha2,
+                new Date(simulatedTimeMsRef.current)
+              );
+            }
+
+            tooltipEl.textContent = '';
+
+            // Cabecalho
+            const headerDiv = document.createElement('div');
+            headerDiv.className = 'tooltip-header';
+
+            const dotSpan = document.createElement('span');
+            dotSpan.className = 'tooltip-dot';
+            dotSpan.style.backgroundColor = corCat;
+
+            const nameSpan = document.createElement('span');
+            nameSpan.className = 'tooltip-name';
+            nameSpan.textContent = satData.nome;
+
+            headerDiv.appendChild(dotSpan);
+            headerDiv.appendChild(nameSpan);
+
+            // Corpo com telemetria
+            const bodyDiv = document.createElement('div');
+            bodyDiv.className = 'tooltip-body';
+
+            const criarLinha = (rotulo, valor, corDestaque = null) => {
+              const linha = document.createElement('div');
+              linha.className = 'tooltip-line';
+              const labelSpan = document.createElement('span');
+              labelSpan.className = 'tooltip-label';
+              labelSpan.textContent = rotulo;
+              const valSpan = document.createElement('span');
+              valSpan.className = 'tooltip-value';
+              if (corDestaque) valSpan.style.color = corDestaque;
+              valSpan.textContent = valor;
+              linha.appendChild(labelSpan);
+              linha.appendChild(valSpan);
+              return linha;
+            };
+
+            bodyDiv.appendChild(criarLinha('NORAD ID: ', `#${satData.norad_id}`));
+            bodyDiv.appendChild(criarLinha('PAÍS: ', satData.pais || 'Desconhecido'));
+            bodyDiv.appendChild(criarLinha('CATEGORIA: ', satData.categoria?.nome || 'Satélite', corCat));
+
+            if (paramsHover) {
+              bodyDiv.appendChild(criarLinha('ALTITUDE: ', `${paramsHover.altitudeInstantaneaKm.toLocaleString('pt-BR')} km · ${paramsHover.regimeCodigo}`, '#38BDF8'));
+              bodyDiv.appendChild(criarLinha('VELOCIDADE: ', `${paramsHover.velocidadeKmH.toLocaleString('pt-BR')} km/h`));
+              bodyDiv.appendChild(criarLinha('PERÍODO: ', `${paramsHover.periodoMinutos} min / volta`));
+            }
+
+            tooltipEl.appendChild(headerDiv);
+            tooltipEl.appendChild(bodyDiv);
           }
-
-          tooltipEl.textContent = '';
-
-          // Cabecalho
-          const headerDiv = document.createElement('div');
-          headerDiv.className = 'tooltip-header';
-
-          const dotSpan = document.createElement('span');
-          dotSpan.className = 'tooltip-dot';
-          dotSpan.style.backgroundColor = corCat;
-
-          const nameSpan = document.createElement('span');
-          nameSpan.className = 'tooltip-name';
-          nameSpan.textContent = satData.nome;
-
-          headerDiv.appendChild(dotSpan);
-          headerDiv.appendChild(nameSpan);
-
-          // Corpo com telemetria
-          const bodyDiv = document.createElement('div');
-          bodyDiv.className = 'tooltip-body';
-
-          const criarLinha = (rotulo, valor, corDestaque = null) => {
-            const linha = document.createElement('div');
-            linha.className = 'tooltip-line';
-            const labelSpan = document.createElement('span');
-            labelSpan.className = 'tooltip-label';
-            labelSpan.textContent = rotulo;
-            const valSpan = document.createElement('span');
-            valSpan.className = 'tooltip-value';
-            if (corDestaque) valSpan.style.color = corDestaque;
-            valSpan.textContent = valor;
-            linha.appendChild(labelSpan);
-            linha.appendChild(valSpan);
-            return linha;
-          };
-
-          bodyDiv.appendChild(criarLinha('NORAD ID: ', `#${satData.norad_id}`));
-          bodyDiv.appendChild(criarLinha('PAÍS: ', satData.pais || 'Desconhecido'));
-          bodyDiv.appendChild(criarLinha('CATEGORIA: ', satData.categoria?.nome || 'Satélite', corCat));
-
-          if (paramsHover) {
-            bodyDiv.appendChild(criarLinha('ALTITUDE: ', `${paramsHover.altitudeInstantaneaKm.toLocaleString('pt-BR')} km · ${paramsHover.regimeCodigo}`, '#38BDF8'));
-            bodyDiv.appendChild(criarLinha('VELOCIDADE: ', `${paramsHover.velocidadeKmH.toLocaleString('pt-BR')} km/h`));
-            bodyDiv.appendChild(criarLinha('PERÍODO: ', `${paramsHover.periodoMinutos} min / volta`));
-          }
-
-          tooltipEl.appendChild(headerDiv);
-          tooltipEl.appendChild(bodyDiv);
 
           tooltipEl.style.display = 'block';
           tooltipEl.style.left = `${movement.endPosition.x + 15}px`;
@@ -2030,6 +2154,7 @@ function App() {
         }
 
       } else {
+        ultimoConteudoTooltipMs = 0;
         viewerInstance.scene.canvas.style.cursor = 'default';
 
         if (lastHoveredEntity) {
@@ -2134,7 +2259,7 @@ function App() {
               entry.point.position = posAtual;
 
               // Atualiza a linha de rota sincronizada com a posição simulada
-              const intervaloRotaMs = multAtual > 1 ? 250 : 1000;
+              const intervaloRotaMs = multAtual > 1 ? 500 : 2500;
               if (!satHoverIdRef.current && multAtual > 0 && agoraRender - ultimaAtualizacaoRotaRef.current >= intervaloRotaMs) {
                 ultimaAtualizacaoRotaRef.current = agoraRender;
                 desenharTrilhaOrbital(viewerRef.current, satAtivo);
@@ -2201,16 +2326,14 @@ function App() {
         }
 
         if (satSelecionadoRef.current) {
-          setMetricasPerformance(prev => ({
-            ...prev,
-            fps: Math.min(144, Math.max(1, fpsAtual)),
-            memoriaMb: memoriaJs
-          }));
+          metricasPerformanceRef.current.fps = Math.min(144, Math.max(1, fpsAtual));
+          metricasPerformanceRef.current.memoriaMb = memoriaJs;
         }
       }
     });
 
     return () => {
+      window.removeEventListener('blur', encerrarArrasteCamera);
       removerPreRender();
       clickHandler.destroy();
       hoverHandler.destroy();
@@ -3284,6 +3407,8 @@ function App() {
                   type="button"
                   className="hud-tool-btn"
                   onClick={handleAlternarModoOrbital}
+                  onMouseEnter={prefetcharModoOrbital}
+                  onFocus={prefetcharModoOrbital}
                   title={modoOrbitalAtivo ? "Retornar para o Console" : "Entrar no Modo Orbital"}
                 >
                   <Orbit size={15} className="hud-tool-icon" />
@@ -3745,21 +3870,23 @@ function App() {
                     )}
 
                     {/* DIAGNÓSTICO ORBITAL EM 3 ABAS ENXUTAS */}
-                    <SatelliteDetailTabs
-                      satSelecionado={satSelecionado}
-                      parametrosOrbitaisSat={parametrosOrbitaisSat}
-                      fichaFactual={fichaFactual}
-                      formatarDataBrasileira={formatarDataBrasileira}
-                      CORES_CATEGORIAS={CORES_CATEGORIAS}
-                      modulosEstacao={modulosEstacao}
-                      carregandoModulos={carregandoModulos}
-                      handleSelecionarSat={handleSelecionarSat}
-                      onFocarObjeto={() => centralizarCameraNoObjeto(satSelecionado)}
-                      metricasPerformance={metricasPerformance}
-                      obterDataSimulada={() => new Date(simulatedTimeMsRef.current)}
-                      multiplicadorTempo={multiplicadorTempo}
-                      onMudarAba={(aba) => setAbaDetalheAtiva(aba)}
-                    />
+                    <Suspense fallback={null}>
+                      <SatelliteDetailTabs
+                        satSelecionado={satSelecionado}
+                        parametrosOrbitaisSat={parametrosOrbitaisSat}
+                        fichaFactual={fichaFactual}
+                        formatarDataBrasileira={formatarDataBrasileira}
+                        CORES_CATEGORIAS={CORES_CATEGORIAS}
+                        modulosEstacao={modulosEstacao}
+                        carregandoModulos={carregandoModulos}
+                        handleSelecionarSat={handleSelecionarSat}
+                        onFocarObjeto={() => centralizarCameraNoObjeto(satSelecionado)}
+                        obterMetricasPerformance={obterMetricasPerformance}
+                        obterDataSimulada={obterDataSimulada}
+                        multiplicadorTempo={multiplicadorTempo}
+                        onMudarAba={(aba) => setAbaDetalheAtiva(aba)}
+                      />
+                    </Suspense>
 
                   </div>
                 ) : (
@@ -3976,35 +4103,43 @@ function App() {
           )}
 
           {/* MODAL DO SIMULADOR DE CENÁRIOS "E SE...?" (PASSO 3.2) */}
-          <ErrorBoundary nomeModulo="Simulador de Cenários 2050">
-            <ScenarioSimulatorModal
-              aberto={modalCenariosAberto}
-              onFechar={handleFecharModais}
-              onTocarSom={(tipo) => {
-                if (tipo === 'iniciar') tocarEfeitoSonoro(somIniciar, 0.65);
-                else if (tipo === 'slide') tocarEfeitoSonoro(somTrocaSlide, 0.55);
-              }}
-            />
-          </ErrorBoundary>
+          {modalCenariosAberto && (
+            <ErrorBoundary nomeModulo="Simulador de Cenários 2050">
+              <Suspense fallback={null}>
+                <ScenarioSimulatorModal
+                  aberto={modalCenariosAberto}
+                  onFechar={handleFecharModais}
+                  onTocarSom={(tipo) => {
+                    if (tipo === 'iniciar') tocarEfeitoSonoro(somIniciar, 0.65);
+                    else if (tipo === 'slide') tocarEfeitoSonoro(somTrocaSlide, 0.55);
+                  }}
+                />
+              </Suspense>
+            </ErrorBoundary>
+          )}
 
           {/* MISSÕES TÁTICAS PERIÓDICAS NO CENTRO INFERIOR (MODO LIVRE) */}
-          <OrbitalMissionHub
-            ativo={telaAtiva === 'simulador'}
-            satSelecionado={satSelecionado}
-            parametrosOrbitaisSat={parametrosOrbitaisSat}
-            pausado={modalTutorialAberto || modalGlossarioAberto || modalCenariosAberto}
-            multiplicadorTempo={multiplicadorTempo}
-            densidadeCatalogo={densidadeCatalogo}
-            regimeAtivo={regimeAtivo}
-            abaDetalheAtiva={abaDetalheAtiva}
-            modoOrbitalAtivo={modoOrbitalAtivo}
-            pinoOrbitalAtivo={pinoOrbitalAtivo}
-            painelEsquerdoAberto={painelEsquerdoAberto}
-            onInvestigarObjeto={handleInvestigarObjeto}
-            onAplicarFiltroCategorias={handleAplicarFiltroCategorias}
-            onLocalizarGeo={handleLocalizarGeo}
-            onTocarSom={handleTocarSomHub}
-          />
+          {telaAtiva === 'simulador' && (
+            <Suspense fallback={null}>
+              <OrbitalMissionHub
+                ativo={telaAtiva === 'simulador'}
+                satSelecionado={satSelecionado}
+                parametrosOrbitaisSat={parametrosOrbitaisSat}
+                pausado={modalTutorialAberto || modalGlossarioAberto || modalCenariosAberto}
+                multiplicadorTempo={multiplicadorTempo}
+                densidadeCatalogo={densidadeCatalogo}
+                regimeAtivo={regimeAtivo}
+                abaDetalheAtiva={abaDetalheAtiva}
+                modoOrbitalAtivo={modoOrbitalAtivo}
+                pinoOrbitalAtivo={pinoOrbitalAtivo}
+                painelEsquerdoAberto={painelEsquerdoAberto}
+                onInvestigarObjeto={handleInvestigarObjeto}
+                onAplicarFiltroCategorias={handleAplicarFiltroCategorias}
+                onLocalizarGeo={handleLocalizarGeo}
+                onTocarSom={handleTocarSomHub}
+              />
+            </Suspense>
+          )}
 
           {/* ELEMENTO EXCLUSIVO DO MODO ORBITAL (CONTAINER FLEX-BOX BALANCADO OPOSTO AO PLANETA) */}
           {modoOrbitalAtivo && telaAtiva === 'simulador' && (
@@ -4014,10 +4149,12 @@ function App() {
                 {/* SELETOR RAPIDO E TEXTO FLUTUANTE QUANDO NENHUM PONTO ESTIVER SELECIONADO */}
                 {!camadaOrbitalAtiva && !pinoOrbitalAtivo && (
                   <div className="orbital-mode-floating-text-wrap">
-                    <OrbitalLayerDock
-                      camadaAtivaId={null}
-                      onSelecionarCamada={handleSelecionarCamadaOrbital}
-                    />
+                    <Suspense fallback={null}>
+                      <OrbitalLayerDock
+                        camadaAtivaId={null}
+                        onSelecionarCamada={handleSelecionarCamadaOrbital}
+                      />
+                    </Suspense>
                     <p className="orbital-mode-floating-text">
                       Toque nas faixas e pontos para inspecionar as informações
                     </p>
@@ -4026,18 +4163,20 @@ function App() {
 
                 {/* PAINEL QUE APARECE AO TOCAR EM ALGUMA FAIXA OU PONTO */}
                 {(camadaOrbitalAtiva || pinoOrbitalAtivo) && (
-                  <OrbitalModePanel
-                    camadaSelecionadaId={camadaOrbitalAtiva}
-                    pinoSelecionadoId={pinoOrbitalAtivo}
-                    onSelecionarCamada={handleSelecionarCamadaOrbital}
-                    onSelecionarPino={handleSelecionarPinoOrbital}
-                    onFechar={handleResetarModoOrbital}
-                    onTocarSom={(tipo) => {
-                      if (tipo === 'slide') tocarEfeitoSonoro(somTrocaSlide, 0.45);
-                      else if (tipo === 'iniciar') tocarEfeitoSonoro(somIniciar, 0.7);
-                      else if (tipo === 'fechar') tocarEfeitoSonoro(somAbreSlide, 0.55);
-                    }}
-                  />
+                  <Suspense fallback={null}>
+                    <OrbitalModePanel
+                      camadaSelecionadaId={camadaOrbitalAtiva}
+                      pinoSelecionadoId={pinoOrbitalAtivo}
+                      onSelecionarCamada={handleSelecionarCamadaOrbital}
+                      onSelecionarPino={handleSelecionarPinoOrbital}
+                      onFechar={handleResetarModoOrbital}
+                      onTocarSom={(tipo) => {
+                        if (tipo === 'slide') tocarEfeitoSonoro(somTrocaSlide, 0.45);
+                        else if (tipo === 'iniciar') tocarEfeitoSonoro(somIniciar, 0.7);
+                        else if (tipo === 'fechar') tocarEfeitoSonoro(somAbreSlide, 0.55);
+                      }}
+                    />
+                  </Suspense>
                 )}
               </div>
             </div>

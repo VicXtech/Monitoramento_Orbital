@@ -4,9 +4,6 @@
     <meta charset="UTF-8" />
     <link rel="icon" type="image/svg+xml" href="/favicon.svg?v=2" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <meta http-equiv="Cache-Control" content="no-cache, no-store, must-revalidate" />
-    <meta http-equiv="Pragma" content="no-cache" />
-    <meta http-equiv="Expires" content="0" />
     <title>OrbitalED</title>
     
     <!-- Preconnect para serviços externos críticos -->
@@ -16,6 +13,7 @@
     <link rel="dns-prefetch" href="https://cesium.com">
     <link rel="preconnect" href="https://services.arcgisonline.com">
     <link rel="dns-prefetch" href="https://services.arcgisonline.com">
+    <link rel="preload" as="script" href="https://cesium.com/downloads/cesiumjs/releases/1.115/Build/Cesium/Cesium.js">
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600&family=JetBrains+Mono:wght@400;500;600&family=Space+Grotesk:wght@600;700&display=swap" rel="stylesheet">
     <link href="https://fonts.googleapis.com/css2?family=Bruno+Ace+SC&text=OrbitalED%20&display=swap" rel="stylesheet">
 
@@ -23,7 +21,7 @@
     <link href="https://cesium.com/downloads/cesiumjs/releases/1.115/Build/Cesium/Widgets/widgets.css" rel="stylesheet">
     
     <!-- Script do CesiumJS via CDN oficial (Versão 1.115) -->
-    <script src="https://cesium.com/downloads/cesiumjs/releases/1.115/Build/Cesium/Cesium.js"></script>
+    <script defer src="https://cesium.com/downloads/cesiumjs/releases/1.115/Build/Cesium/Cesium.js"></script>
   </head>
   <body>
     <div id="root"></div>

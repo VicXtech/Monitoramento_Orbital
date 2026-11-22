@@ -9,21 +9,15 @@ export default defineConfig({
   },
   build: {
     target: 'esnext',
-    rollupOptions: {
+    rolldownOptions: {
       output: {
-        manualChunks(id) {
-          if (id.includes('node_modules/react') || id.includes('node_modules/scheduler')) {
-            return 'vendor-react';
-          }
-          if (id.includes('node_modules/satellite.js')) {
-            return 'vendor-satellite';
-          }
-          if (id.includes('node_modules/lucide-react')) {
-            return 'vendor-icons';
-          }
-          if (id.includes('node_modules/motion')) {
-            return 'vendor-motion';
-          }
+        codeSplitting: {
+          groups: [
+            { name: 'vendor-react', test: /node_modules[\\/](react|react-dom|scheduler)[\\/]/, priority: 30 },
+            { name: 'vendor-satellite', test: /node_modules[\\/]satellite\.js[\\/]/, priority: 20 },
+            { name: 'vendor-icons', test: /node_modules[\\/]lucide-react[\\/]/, priority: 20 },
+            { name: 'vendor-motion', test: /node_modules[\\/](motion|motion-dom|motion-utils|framer-motion)[\\/]/, priority: 10 }
+          ]
         }
       }
     }
