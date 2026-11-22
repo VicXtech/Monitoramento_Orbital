@@ -1,5 +1,5 @@
 const DB_NAME = 'orbital_catalog_cache';
-const DB_VERSION = 1;
+const DB_VERSION = 2;
 const STORE_NAME = 'entries';
 const TTL_FRESCO_MS = 6 * 60 * 60 * 1000;
 const TTL_STALE_MS = 48 * 60 * 60 * 1000;
@@ -22,10 +22,11 @@ function abrirBanco() {
 
       request.onupgradeneeded = () => {
         const db = request.result;
-        if (!db.objectStoreNames.contains(STORE_NAME)) {
-          const store = db.createObjectStore(STORE_NAME, { keyPath: 'key' });
-          store.createIndex('savedAt', 'savedAt', { unique: false });
+        if (db.objectStoreNames.contains(STORE_NAME)) {
+          db.deleteObjectStore(STORE_NAME);
         }
+        const store = db.createObjectStore(STORE_NAME, { keyPath: 'key' });
+        store.createIndex('savedAt', 'savedAt', { unique: false });
       };
 
       request.onsuccess = () => {

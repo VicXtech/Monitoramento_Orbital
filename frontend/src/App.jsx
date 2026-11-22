@@ -177,7 +177,7 @@ function formatarRelogioSimuladoUtc(timestampMs) {
 }
 
 // Configuração do host da API (aponta para o backend local ou de produção)
-const API_URL = import.meta.env.VITE_API_URL || 'http://localhost:8000';
+const API_URL = import.meta.env.VITE_API_URL || (typeof window !== 'undefined' && window.location?.hostname ? `http://${window.location.hostname}:8000` : 'http://localhost:8000');
 const SNAPSHOT_BASE_URL = (import.meta.env.VITE_SNAPSHOT_BASE_URL || '').replace(/\/+$/, '');
 
 // Cores semanticas por categoria
@@ -1360,7 +1360,7 @@ function App() {
   useEffect(() => {
     let cancelado = false;
     const carregarEstatisticas = async () => {
-      const chaveStats = `stats:${API_URL}`;
+      const chaveStats = `stats:v2:${API_URL}`;
       const emCache = await lerCacheLocal(chaveStats);
       if (emCache?.data && !cancelado) {
         setEstatisticas(emCache.data);
@@ -1368,24 +1368,29 @@ function App() {
       }
 
       try {
-        let resStats = null;
+        let dataStats = null;
         if (SNAPSHOT_BASE_URL) {
           try {
-            const resSnap = await fetch(`${SNAPSHOT_BASE_URL}/estatisticas.json`);
-            if (resSnap.ok) resStats = resSnap;
+            const resSnap = await fetch(`${SNAPSHOT_BASE_URL}/estatisticas.json?v=2`);
+            if (resSnap.ok) {
+              const snapJson = await resSnap.json();
+              if (typeof snapJson?.distribuicao_paises?.[0]?.detritos === 'number') {
+                dataStats = snapJson;
+              }
+            }
           } catch {
             // Fallback para a API principal
           }
         }
-        if (!resStats) {
-          resStats = await fetch(`${API_URL}/api/estatisticas`);
-        }
-        if (resStats.ok) {
-          const dataStats = await resStats.json();
-          if (!cancelado) {
-            setEstatisticas(dataStats);
-            salvarCacheLocal(chaveStats, dataStats);
+        if (!dataStats) {
+          const resStats = await fetch(`${API_URL}/api/estatisticas`);
+          if (resStats.ok) {
+            dataStats = await resStats.json();
           }
+        }
+        if (dataStats && !cancelado) {
+          setEstatisticas(dataStats);
+          salvarCacheLocal(chaveStats, dataStats);
         }
       } catch (err) {
         if (!cancelado) {
@@ -1436,7 +1441,7 @@ function App() {
       }
 
       const usarCachePersistente = amostraSeed === 0;
-      const chaveIdb = `objs:${API_URL}:${cacheKey}`;
+      const chaveIdb = `objs:v2:${API_URL}:${cacheKey}`;
       let temStaleLocal = false;
 
       if (usarCachePersistente) {
@@ -1474,7 +1479,7 @@ function App() {
         if (SNAPSHOT_BASE_URL && amostraSeed === 0 && !regimeAtivo && ativasKey === '1,2,3,4,5') {
           try {
             const snapNome = densidadeCatalogo === 'tatica' ? 'radar-tatica.json' : 'radar-completo.json';
-            const resSnap = await fetch(`${SNAPSHOT_BASE_URL}/${snapNome}`, { signal: controller.signal });
+            const resSnap = await fetch(`${SNAPSHOT_BASE_URL}/${snapNome}?v=2`, { signal: controller.signal });
             if (resSnap.ok) resObjs = resSnap;
           } catch (snapErr) {
             if (snapErr?.name === 'AbortError') throw snapErr;
