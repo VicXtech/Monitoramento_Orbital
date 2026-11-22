@@ -899,6 +899,10 @@ function App() {
     // Sistema 100% auto-adaptativo: calcula a altura exata necessária a partir do DOM real
     // sem tabelas estáticas de altura, adaptando-se instantaneamente a qualquer alteração de conteúdo
     const calcularAltura = () => {
+      if (window.innerWidth <= LIMITE_LAYOUT_MOVEL_PX) {
+        setVisorHeight(null);
+        return;
+      }
       if (!visorInnerRef.current) return;
       const innerEl = visorInnerRef.current;
       const headerEl = innerEl.querySelector('.tactical-visor-header');
@@ -922,10 +926,9 @@ function App() {
       // Soma dinâmica real dos elementos computados no navegador + margem de segurança de 6px contra rounding subpixel
       const alturaExata = Math.ceil(headerH + headerMargin + contentH + bodyPadding + innerPadding + 6);
 
-      const isMobile = window.innerWidth <= 900;
-      // Delimitador de segurança externa: impede que o container colida com a barra superior (72px)
-      const delimitadorTopo = isMobile ? 84 : 108;
-      const delimitadorBase = isMobile ? 24 : 36;
+      const isBaixaAltura = window.innerHeight <= 740;
+      const delimitadorTopo = isBaixaAltura ? 84 : 108;
+      const delimitadorBase = isBaixaAltura ? 20 : 36;
       const maxPermitido = Math.max(300, window.innerHeight - (delimitadorTopo + delimitadorBase));
       const finalH = Math.min(alturaExata, maxPermitido);
 
@@ -3018,6 +3021,8 @@ function App() {
       {(telaAtiva === 'inicio' || transicaoCyber) && (
         <div
           className={`welcome-screen ${
+            secaoAtiva > 0 ? 'visor-aberto' : ''
+          } ${
             transicaoCyber === 'para-simulador'
               ? 'fade-out-cyber'
               : transicaoCyber === 'para-inicio'
@@ -3504,35 +3509,37 @@ function App() {
                               <span className="tactical-table-source">CATÁLOGO SPACE-TRACK / NASA ODPO</span>
                             </div>
 
-                            {/* TABELA FACTUAL COM 100% DE LARGURA */}
-                            <table className="tactical-table">
-                              <thead>
-                                <tr>
-                                  <th className="th-nation">ORIGEM</th>
-                                  <th className="th-debris"><span className="th-dot dot-debris"></span>DETRITOS</th>
-                                  <th className="th-inactive"><span className="th-dot dot-inactive"></span>INATIVOS</th>
-                                  <th className="th-active"><span className="th-dot dot-active"></span>ATIVOS</th>
-                                </tr>
-                              </thead>
-                              <tbody>
-                                {dadosCensoPaises.map((item, idx) => (
-                                  <tr key={idx}>
-                                    <td className="nation-cell">
-                                      <span>{item.pais}</span>
-                                    </td>
-                                    <td className={`cell-num-debris ${item.detritos === 0 ? 'cell-num-zero' : ''}`}>
-                                      {item.detritos.toLocaleString('pt-BR')}
-                                    </td>
-                                    <td className="cell-num-inactive">
-                                      {item.inativos.toLocaleString('pt-BR')}
-                                    </td>
-                                    <td className={`cell-num-active ${item.ativos > 5000 ? 'cell-num-highlight' : ''}`}>
-                                      {item.ativos.toLocaleString('pt-BR')}
-                                    </td>
+                            {/* Tabela factual com rolagem horizontal em telas estreitas */}
+                            <div className="tactical-table-scroll">
+                              <table className="tactical-table">
+                                <thead>
+                                  <tr>
+                                    <th className="th-nation">ORIGEM</th>
+                                    <th className="th-debris"><span className="th-dot dot-debris"></span>DETRITOS</th>
+                                    <th className="th-inactive"><span className="th-dot dot-inactive"></span>INATIVOS</th>
+                                    <th className="th-active"><span className="th-dot dot-active"></span>ATIVOS</th>
                                   </tr>
-                                ))}
-                              </tbody>
-                            </table>
+                                </thead>
+                                <tbody>
+                                  {dadosCensoPaises.map((item, idx) => (
+                                    <tr key={idx}>
+                                      <td className="nation-cell">
+                                        <span>{item.pais}</span>
+                                      </td>
+                                      <td className={`cell-num-debris ${item.detritos === 0 ? 'cell-num-zero' : ''}`}>
+                                        {item.detritos.toLocaleString('pt-BR')}
+                                      </td>
+                                      <td className="cell-num-inactive">
+                                        {item.inativos.toLocaleString('pt-BR')}
+                                      </td>
+                                      <td className={`cell-num-active ${item.ativos > 5000 ? 'cell-num-highlight' : ''}`}>
+                                        {item.ativos.toLocaleString('pt-BR')}
+                                      </td>
+                                    </tr>
+                                  ))}
+                                </tbody>
+                              </table>
+                            </div>
 
                             {/* FAIXA HORIZONTAL INFERIOR: FRAGMENTOS NÃO CATALOGADOS */}
                             <div className="census-uncataloged-strip">

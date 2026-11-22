@@ -3388,6 +3388,12 @@
   font-size: 9px;
 }
 
+.tactical-table-scroll {
+  width: 100%;
+  overflow-x: auto;
+  -webkit-overflow-scrolling: touch;
+}
+
 .tactical-table {
   width: 100%;
   border-collapse: collapse;
@@ -5110,19 +5116,27 @@
   }
 }
 
-@media (max-width: 1050px) {
+@media (max-width: 1149px) {
   .cinema-navbar {
     padding: 0 24px;
+    gap: 16px;
   }
 
   .cinema-nav-center {
-    gap: 12px;
+    position: static;
+    left: auto;
+    transform: none;
+    flex: 1;
+    justify-content: center;
+    gap: 10px;
+    min-width: 0;
   }
 
   .cinema-nav-link {
     font-size: 11px;
-    letter-spacing: 0.08em;
-    padding: 5px 10px;
+    letter-spacing: 0.07em;
+    padding: 5px 9px;
+    white-space: nowrap;
   }
 
   .tactical-visor-inner {
@@ -5134,24 +5148,60 @@
   }
 }
 
-@media (max-width: 820px) {
+@media (max-width: 900px) {
   .cinema-navbar {
-    height: 64px;
-    padding: 0 16px;
+    height: auto;
+    padding: max(10px, env(safe-area-inset-top)) 14px 0;
+    display: grid;
+    grid-template-columns: 1fr auto;
+    grid-template-rows: auto auto;
+    align-items: center;
+    row-gap: 8px;
+  }
+
+  .cinema-nav-left {
+    grid-column: 1;
+    grid-row: 1;
+  }
+
+  .cinema-nav-right {
+    grid-column: 2;
+    grid-row: 1;
   }
 
   .cinema-brand {
-    font-size: 17px;
+    font-size: 18px;
   }
 
   .cinema-nav-center {
-    gap: 8px;
+    display: flex !important;
+    position: static;
+    left: auto;
+    transform: none;
+    grid-column: 1 / -1;
+    grid-row: 2;
+    width: calc(100% + 28px);
+    margin-left: -14px;
+    padding: 6px 14px 8px;
+    border-top: 1px solid var(--border-subtle);
+    justify-content: flex-start;
+    gap: 6px;
+    overflow-x: auto;
+    -webkit-overflow-scrolling: touch;
+    scrollbar-width: none;
+    box-sizing: border-box;
+  }
+
+  .cinema-nav-center::-webkit-scrollbar {
+    display: none;
   }
 
   .cinema-nav-link {
-    font-size: 10px;
+    flex: 0 0 auto;
+    white-space: nowrap;
+    font-size: 10.5px;
     letter-spacing: 0.06em;
-    padding: 4px 8px;
+    padding: 6px 10px;
   }
 
   .cinema-action-btn {
@@ -5166,6 +5216,10 @@
     padding: 6px;
   }
 
+  .welcome-screen.visor-aberto .cinema-side-nav {
+    display: none;
+  }
+
   .cinema-side-nav.prev {
     left: 8px;
   }
@@ -5175,7 +5229,7 @@
   }
 
   .cinema-hero-view {
-    padding: 24px 16px;
+    padding: calc(108px + env(safe-area-inset-top)) 36px max(20px, env(safe-area-inset-bottom));
   }
 
   .cinema-hero-title {
@@ -5219,22 +5273,34 @@
   }
 
   .cinema-tactical-view {
-    padding: 76px 12px 20px;
+    padding: calc(108px + env(safe-area-inset-top)) 12px max(14px, env(safe-area-inset-bottom));
+    align-items: stretch;
   }
 
   .tactical-visor-frame {
-    height: auto;
-    max-height: calc(100vh - 105px);
+    height: auto !important;
+    max-height: 100%;
+    min-height: 0;
+    margin: 0;
     padding: 0;
   }
 
   .tactical-visor-inner {
-    padding: 0 16px 18px 16px;
+    padding: 0 14px 14px 14px;
   }
 
   .tactical-visor-header {
-    padding: 18px 0;
-    margin-bottom: 14px;
+    padding: 14px 0;
+    margin-bottom: 10px;
+  }
+
+  .tactical-tag-title {
+    font-size: 14px;
+    letter-spacing: 0.08em;
+  }
+
+  .tactical-visor-body {
+    padding: 4px 2px 10px 2px;
   }
 
   .tactical-about-container {
@@ -5243,9 +5309,16 @@
 
   .tactical-about-single-card {
     height: auto;
-    min-height: 420px;
-    padding: 18px 16px;
-    gap: 14px;
+    min-height: 0;
+    padding: 16px 14px;
+    gap: 12px;
+  }
+
+  .tactical-table-header,
+  .tactical-stack-header,
+  .tactical-term-header {
+    flex-wrap: wrap;
+    gap: 6px;
   }
 
   .about-single-title {
@@ -5337,23 +5410,22 @@
 }
 
 @media (max-width: 600px) {
-  .cinema-navbar {
-    height: 58px;
-    padding: 0 12px;
-  }
-
   .cinema-brand {
-    font-size: 15px;
+    font-size: 16px;
     letter-spacing: 0.08em;
   }
 
-  .cinema-nav-center {
+  .cinema-cross {
     display: none;
   }
 
   .cinema-action-btn {
     padding: 7px 12px;
     font-size: 9.5px;
+  }
+
+  .cinema-hero-view {
+    padding: calc(104px + env(safe-area-inset-top)) 28px max(18px, env(safe-area-inset-bottom));
   }
 
   .cinema-hero-title {
@@ -5439,8 +5511,47 @@
     margin-top: 20px;
   }
 
+  .tactical-table {
+    min-width: 340px;
+  }
+
+  .tactical-table th,
+  .tactical-table td {
+    padding: 8px 10px;
+    font-size: 11px;
+  }
+
+  .tactical-about-metrics-bar {
+    gap: 10px;
+    padding: 10px;
+  }
+
+  .about-metric-val {
+    font-size: 15px;
+  }
+
   .s-stat-badge {
     margin-left: 0;
+  }
+}
+
+@media (max-height: 740px) and (min-width: 901px) {
+  .cinema-tactical-view {
+    padding: 84px 32px 20px;
+  }
+
+  .tactical-visor-frame {
+    max-height: calc(100dvh - 104px);
+  }
+
+  .tactical-visor-header {
+    padding: 14px 0;
+    margin-bottom: 10px;
+  }
+
+  .tactical-about-single-card {
+    height: auto;
+    min-height: 0;
   }
 }
 
