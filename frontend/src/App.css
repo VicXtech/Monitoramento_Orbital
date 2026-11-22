@@ -1,6 +1,7 @@
 .app-container {
-  width: 100vw;
+  width: 100%;
   height: 100vh;
+  height: 100dvh;
   position: relative;
   overflow: hidden;
   background-color: var(--bg-dark);
@@ -37,7 +38,7 @@
   display: flex;
   flex-direction: column;
   justify-content: space-between;
-  padding: 16px;
+  padding: max(16px, env(safe-area-inset-top)) max(16px, env(safe-area-inset-right)) max(16px, env(safe-area-inset-bottom)) max(16px, env(safe-area-inset-left));
   box-sizing: border-box;
 }
 
@@ -56,18 +57,22 @@
 .hud-header {
   position: relative;
   width: 100%;
-  display: flex;
-  justify-content: space-between;
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto minmax(0, 1fr);
   align-items: center;
+  column-gap: 12px;
+  flex-shrink: 0;
   margin-bottom: 12px;
   z-index: 10;
   animation: slideInTop 0.8s cubic-bezier(0.16, 1, 0.3, 1) forwards;
 }
 
 .brand-section {
+  grid-column: 1;
+  justify-self: start;
   width: 22.5rem;
-  max-width: 22.5rem;
-  min-width: 22.5rem;
+  max-width: 100%;
+  min-width: 0;
   height: 52px;
   background: var(--bg-panel);
   -webkit-backdrop-filter: blur(12px);
@@ -122,10 +127,12 @@
 /* Campo de busca */
 .search-section {
   position: relative;
+  grid-column: 3;
+  justify-self: end;
   width: 22.5rem;
-  max-width: 22.5rem;
-  min-width: 22.5rem;
-  margin-left: auto;
+  max-width: 100%;
+  min-width: 0;
+  margin-left: 0;
   z-index: 10;
   box-sizing: border-box;
 }
@@ -221,9 +228,9 @@
   display: flex;
   justify-content: space-between;
   align-items: stretch;
-  flex-grow: 1;
+  flex: 1 1 0;
   width: 100%;
-  height: calc(100% - 52px);
+  height: auto;
   min-height: 0;
   pointer-events: none;
 }
@@ -1328,6 +1335,7 @@
   border-radius: 2px;
   box-shadow: 0 8px 24px rgba(0, 0, 0, 0.65);
   min-width: 220px;
+  max-width: min(300px, calc(100vw - 24px));
   font-family: var(--font-sans);
   color: var(--text-primary);
   transition: opacity 0.15s ease, transform 0.15s ease;
@@ -1812,8 +1820,9 @@
   position: absolute;
   top: 0;
   left: 0;
-  width: 100vw;
+  width: 100%;
   height: 100vh;
+  height: 100dvh;
   z-index: 1000;
   background: radial-gradient(circle at center, rgba(7, 10, 15, 0.45) 0%, rgba(7, 10, 15, 0.78) 100%);
   overflow: hidden;
@@ -3878,10 +3887,12 @@
    PAINEL CENTRAL DE FERRAMENTAS NO CABECALHO
    ========================================== */
 .hud-tools-panel {
-  position: absolute;
-  top: 0;
-  left: 50%;
-  transform: translateX(-50%);
+  position: relative;
+  grid-column: 2;
+  justify-self: center;
+  top: auto;
+  left: auto;
+  transform: none;
   display: inline-flex;
   align-items: center;
   justify-content: center;
@@ -4000,8 +4011,9 @@
   position: fixed;
   top: 0;
   left: 0;
-  width: 100vw;
+  width: 100%;
   height: 100vh;
+  height: 100dvh;
   background: rgba(7, 10, 15, 0.78);
   backdrop-filter: blur(8px);
   z-index: 2000;
@@ -5075,20 +5087,7 @@
 /* ==========================================
    RESPONSIVIDADE UNIVERSAL
    ========================================== */
-@media (max-width: 1150px) {
-  .brand-section {
-    width: auto;
-    min-width: 0;
-    max-width: 280px;
-    padding: 0 12px;
-  }
-
-  .search-section {
-    width: auto;
-    min-width: 0;
-    max-width: 260px;
-  }
-
+@media (min-width: 901px) and (max-width: 1150px) {
   .orbital-mission-hub-panel {
     left: 50% !important;
     transform: translateX(-50%) !important;
@@ -5172,33 +5171,6 @@
   .cinema-side-nav svg {
     width: 32px;
     height: 32px;
-  }
-
-  .brand-section {
-    width: auto;
-    min-width: 0;
-    max-width: 220px;
-    height: 46px;
-    padding: 0 10px;
-  }
-
-  .brand-title {
-    font-size: 18px;
-  }
-
-  .search-section {
-    width: auto;
-    min-width: 0;
-    max-width: 200px;
-  }
-
-  .search-bar-container {
-    height: 46px;
-    padding: 0 10px;
-  }
-
-  .search-input {
-    font-size: 11px;
   }
 
   .sustainability-hub-modal-card {
@@ -5347,17 +5319,6 @@
     padding: 20px 16px 16px;
     gap: 16px;
   }
-
-  .hud-tools-section {
-    gap: 8px;
-    padding: 7px 16px;
-  }
-
-  .hud-tool-btn {
-    padding: 7px 12px;
-    font-size: 10px;
-    gap: 7px;
-  }
 }
 
 @media (max-width: 600px) {
@@ -5402,33 +5363,6 @@
 
   .hud-modal-backdrop {
     padding: 10px;
-  }
-
-  .hud-header {
-    flex-direction: column;
-    align-items: stretch;
-    gap: 8px;
-    margin-bottom: 8px;
-  }
-
-  .brand-section {
-    width: 100% !important;
-    max-width: 100% !important;
-    min-width: 0 !important;
-    height: 44px;
-    padding: 0 12px;
-  }
-
-  .search-section {
-    width: 100% !important;
-    max-width: 100% !important;
-    min-width: 0 !important;
-    margin-left: 0 !important;
-  }
-
-  .search-bar-container {
-    height: 44px;
-    width: 100%;
   }
 
   .cinema-side-nav svg {
@@ -5494,31 +5428,169 @@
     margin-top: 20px;
   }
 
-  .hud-tools-panel {
-    position: relative;
-    left: auto;
-    transform: none;
-    clip-path: none;
-    border: 1px solid var(--border-structural);
-    border-radius: 2px;
-    background: var(--bg-panel);
-    width: 100%;
-    margin-top: 0;
+  .s-stat-badge {
+    margin-left: 0;
+  }
+}
+
+/* Cabecalho do simulador responsivo por faixas */
+@media (max-width: 1279px) {
+  .hud-header {
+    column-gap: 10px;
   }
 
-  .hud-trapezoid-svg {
-    display: none;
+  .brand-section {
+    width: 100%;
+    max-width: 19rem;
+    height: 48px;
+    padding: 0 12px;
+  }
+
+  .brand-title {
+    font-size: 20px;
+  }
+
+  .search-section {
+    width: 100%;
+    max-width: 19rem;
+  }
+
+  .search-bar-container {
+    height: 48px;
+    padding: 0 12px;
   }
 
   .hud-tools-section {
-    padding: 8px 10px;
-    flex-wrap: wrap;
-    justify-content: center;
+    gap: 6px;
+    padding: 6px 8px;
+  }
+
+  .hud-tool-btn {
+    padding: 7px 10px;
+    font-size: 10.5px;
+    gap: 6px;
+  }
+}
+
+@media (max-width: 900px) {
+  .hud-overlay {
+    padding: max(10px, env(safe-area-inset-top)) max(10px, env(safe-area-inset-right)) max(10px, env(safe-area-inset-bottom)) max(10px, env(safe-area-inset-left));
+  }
+
+  .hud-header {
+    grid-template-columns: auto minmax(0, 1fr);
+    grid-template-rows: auto auto;
+    row-gap: 8px;
+    column-gap: 8px;
+    margin-bottom: 8px;
+  }
+
+  .brand-section {
+    grid-column: 1;
+    grid-row: 1;
+    width: auto;
+    max-width: none;
+    height: 44px;
+    padding: 0 10px;
+    gap: 10px;
+  }
+
+  .hud-header.orbital-mode-active .brand-section {
+    grid-column: 1 / -1;
     width: 100%;
   }
 
-  .s-stat-badge {
-    margin-left: 0;
+  .brand-title {
+    font-size: 17px;
+  }
+
+  .brand-section .cinema-sound-btn {
+    width: 32px;
+    height: 32px;
+  }
+
+  .search-section {
+    grid-column: 2;
+    grid-row: 1;
+    width: 100%;
+    max-width: none;
+    justify-self: stretch;
+  }
+
+  .search-bar-container {
+    height: 44px;
+    padding: 0 10px;
+  }
+
+  .search-input {
+    font-size: 12px;
+  }
+
+  .hud-tools-panel {
+    grid-column: 1 / -1;
+    grid-row: 2;
+    width: 100%;
+    justify-self: stretch;
+  }
+
+  .hud-tools-section {
+    width: 100%;
+    display: grid;
+    grid-template-columns: repeat(4, minmax(0, 1fr));
+    gap: 6px;
+    padding: 6px;
+    box-sizing: border-box;
+  }
+
+  .hud-tool-btn {
+    width: 100%;
+    justify-content: center;
+    padding: 7px 6px;
+    font-size: 10px;
+    gap: 6px;
+    min-width: 0;
+  }
+}
+
+@media (max-width: 480px) {
+  .brand-title {
+    font-size: 15px;
+  }
+
+  .brand-section {
+    padding: 0 8px;
+    gap: 8px;
+    height: 42px;
+  }
+
+  .search-bar-container {
+    height: 42px;
+    padding: 0 8px;
+  }
+
+  .search-icon {
+    margin-right: 6px;
+    flex-shrink: 0;
+  }
+
+  .search-input {
+    font-size: 11px;
+  }
+
+  .hud-tools-section {
+    gap: 4px;
+    padding: 5px;
+  }
+
+  .hud-tool-btn {
+    flex-direction: column;
+    gap: 3px;
+    padding: 6px 3px;
+    font-size: 9px;
+    letter-spacing: 0.03em;
+    white-space: normal;
+    text-align: center;
+    line-height: 1.15;
   }
 }
 
@@ -10077,8 +10149,10 @@
 
 @media (max-width: 900px) {
   .orbital-mission-hub-panel {
-    left: 16px !important;
-    right: 16px;
+    left: 12px !important;
+    right: 12px;
+    bottom: max(12px, env(safe-area-inset-bottom));
+    transform: none !important;
     width: auto;
     max-width: none;
   }

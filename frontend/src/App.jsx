@@ -2202,8 +2202,39 @@ function App() {
     let ultimoConteudoTooltipMs = 0;
     let ultimoTooltipModoOrbitalChave = null;
     const hoverHandler = new window.Cesium.ScreenSpaceEventHandler(viewerInstance.scene.canvas);
+    const isDispositivoToque = typeof window.matchMedia === 'function' && window.matchMedia('(hover: none) and (pointer: coarse)').matches;
+
+    // Mantem o tooltip dentro dos limites visiveis da tela
+    const posicionarTooltipNaTela = (el, posX, posY, offset = 15) => {
+      if (!el) return;
+      const larguraTela = window.innerWidth || 1280;
+      const alturaTela = window.innerHeight || 720;
+      const larguraTip = el.offsetWidth || 230;
+      const alturaTip = el.offsetHeight || 120;
+      const margem = 12;
+
+      let left = posX + offset;
+      let top = posY + offset;
+
+      if (left + larguraTip + margem > larguraTela) {
+        left = posX - larguraTip - offset;
+      }
+      if (top + alturaTip + margem > alturaTela) {
+        top = posY - alturaTip - offset;
+      }
+
+      const maxLeft = Math.max(margem, larguraTela - larguraTip - margem);
+      const maxTop = Math.max(margem, alturaTela - alturaTip - margem);
+      el.style.left = `${Math.round(Math.max(margem, Math.min(left, maxLeft)))}px`;
+      el.style.top = `${Math.round(Math.max(margem, Math.min(top, maxTop)))}px`;
+    };
 
     hoverHandler.setInputAction((movement) => {
+      if (isDispositivoToque) {
+        if (tooltipEl) tooltipEl.style.display = 'none';
+        return;
+      }
+
       if (telaAtivaRef.current !== 'simulador') {
         viewerInstance.scene.canvas.style.cursor = 'default';
         ultimoTooltipModoOrbitalChave = null;
@@ -2220,8 +2251,7 @@ function App() {
 
       if (tooltipEl && tooltipEl.style.display === 'block') {
         const offsetX = modoOrbitalAtivoRef.current ? 14 : 15;
-        tooltipEl.style.left = `${movement.endPosition.x + offsetX}px`;
-        tooltipEl.style.top = `${movement.endPosition.y + offsetX}px`;
+        posicionarTooltipNaTela(tooltipEl, movement.endPosition.x, movement.endPosition.y, offsetX);
       }
 
       const agoraHover = performance.now();
@@ -2264,8 +2294,7 @@ function App() {
                   `;
                 }
                 tooltipEl.style.display = 'block';
-                tooltipEl.style.left = `${movement.endPosition.x + 14}px`;
-                tooltipEl.style.top = `${movement.endPosition.y + 14}px`;
+                posicionarTooltipNaTela(tooltipEl, movement.endPosition.x, movement.endPosition.y, 14);
               }
             } else if (pickedObject.id.properties.areaId) {
               novaCamadaHover = pickedObject.id.properties.areaId.getValue();
@@ -2292,8 +2321,7 @@ function App() {
               `;
             }
             tooltipEl.style.display = 'block';
-            tooltipEl.style.left = `${movement.endPosition.x + 14}px`;
-            tooltipEl.style.top = `${movement.endPosition.y + 14}px`;
+            posicionarTooltipNaTela(tooltipEl, movement.endPosition.x, movement.endPosition.y, 14);
           }
         }
 
@@ -2430,8 +2458,7 @@ function App() {
           }
 
           tooltipEl.style.display = 'block';
-          tooltipEl.style.left = `${movement.endPosition.x + 15}px`;
-          tooltipEl.style.top = `${movement.endPosition.y + 15}px`;
+          posicionarTooltipNaTela(tooltipEl, movement.endPosition.x, movement.endPosition.y, 15);
         }
 
       } else {
@@ -3611,7 +3638,7 @@ function App() {
         <div className={`hud-overlay ${transicaoCyber === 'para-inicio' ? 'fade-out-hud' : ''}`}>
 
           {/* BARRA SUPERIOR (HEADER) */}
-          <header className="hud-header">
+          <header className={`hud-header ${modoOrbitalAtivo ? 'orbital-mode-active' : ''}`}>
             <div className="brand-section">
               <h1 className="brand-title">
                 Orbital<span>ED</span>
