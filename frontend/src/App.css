@@ -3883,6 +3883,10 @@
   opacity: 1;
 }
 
+.hud-trigger-float-btn .trigger-label {
+  display: none;
+}
+
 /* ==========================================
    PAINEL CENTRAL DE FERRAMENTAS NO CABECALHO
    ========================================== */
@@ -5087,11 +5091,22 @@
 /* ==========================================
    RESPONSIVIDADE UNIVERSAL
    ========================================== */
-@media (min-width: 901px) and (max-width: 1150px) {
-  .orbital-mission-hub-panel {
-    left: 50% !important;
-    transform: translateX(-50%) !important;
-    width: min(440px, calc(100vw - 32px));
+@media (min-width: 901px) and (max-width: 1199px) {
+  .hud-panel {
+    width: clamp(290px, 34vw, 340px);
+  }
+
+  .orbital-mission-hub-panel.docked-left-panel {
+    left: calc(clamp(290px, 34vw, 340px) + 20px) !important;
+    transform: none !important;
+    width: min(400px, calc(100vw - clamp(290px, 34vw, 340px) - 36px));
+  }
+
+  .orbital-mission-hub-panel.docked-screen-edge,
+  .orbital-mission-hub-panel.in-orbital-mode {
+    left: 20px !important;
+    transform: none !important;
+    width: min(420px, calc(100vw - 40px));
   }
 }
 
@@ -5417,10 +5432,6 @@
     padding: 6px 8px;
   }
 
-  .hud-panel {
-    width: calc(100vw - 20px) !important;
-  }
-
   .tutorial-steps-grid {
     grid-template-columns: 1fr;
     gap: 12px;
@@ -5550,6 +5561,104 @@
     gap: 6px;
     min-width: 0;
   }
+
+  .hud-panel {
+    position: fixed;
+    top: auto;
+    bottom: 0;
+    left: 0;
+    right: 0;
+    width: 100% !important;
+    max-width: 100% !important;
+    min-width: 0;
+    height: min(72dvh, calc(100dvh - 124px));
+    max-height: 72dvh;
+    border-radius: 8px 8px 0 0;
+    border-left: none;
+    border-right: none;
+    border-bottom: none;
+    border-top: 1px solid var(--border-structural);
+    padding-bottom: env(safe-area-inset-bottom);
+    z-index: 1050;
+    transition: transform 0.32s cubic-bezier(0.16, 1, 0.3, 1), opacity 0.25s ease, visibility 0.25s ease;
+  }
+
+  .hud-panel.left-panel,
+  .hud-panel.right-panel {
+    left: 0;
+    right: 0;
+    border-left: none;
+    border-right: none;
+    border-bottom: none;
+  }
+
+  .hud-panel.left-panel.collapsed,
+  .hud-panel.right-panel.collapsed {
+    transform: translateY(105%) !important;
+  }
+
+  .hud-panel .panel-content {
+    min-height: 0;
+    padding: 14px 16px;
+  }
+
+  .hud-panel.right-panel .panel-content {
+    padding: 12px 16px;
+  }
+
+  .hud-panel.left-panel .panel-header .hud-toggle-btn-inline svg {
+    transform: rotate(-90deg);
+  }
+
+  .hud-panel.right-panel .panel-header .hud-toggle-btn-inline:not(.panel-close-btn) svg {
+    transform: rotate(90deg);
+  }
+
+  .hud-trigger-float-btn {
+    top: auto !important;
+    bottom: max(10px, env(safe-area-inset-bottom)) !important;
+    transform: none !important;
+    animation: none !important;
+    width: auto;
+    height: 44px;
+    padding: 0 12px;
+    flex-direction: row;
+    justify-content: center;
+    gap: 8px;
+    border: 1px solid var(--border-structural);
+    border-radius: 2px;
+    color: var(--text-primary);
+  }
+
+  .hud-trigger-float-btn.left-trigger {
+    left: max(10px, env(safe-area-inset-left));
+    right: calc(50% + 4px);
+  }
+
+  .hud-trigger-float-btn.right-trigger {
+    right: max(10px, env(safe-area-inset-right));
+    left: calc(50% + 4px);
+  }
+
+  .hud-trigger-float-btn .trigger-arrow {
+    display: none;
+  }
+
+  .hud-trigger-float-btn .trigger-label {
+    display: inline;
+    font-family: var(--font-display);
+    font-size: 11px;
+    font-weight: 600;
+    letter-spacing: 0.04em;
+    text-transform: uppercase;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+  }
+
+  .hud-overlay.panel-open-any .hud-trigger-float-btn {
+    display: none;
+  }
 }
 
 @media (max-width: 480px) {
@@ -5591,6 +5700,53 @@
     white-space: normal;
     text-align: center;
     line-height: 1.15;
+  }
+
+  .hud-trigger-float-btn {
+    height: 42px;
+    padding: 0 8px;
+    gap: 6px;
+  }
+
+  .hud-trigger-float-btn .trigger-label {
+    font-size: 10px;
+  }
+
+  .time-control-header {
+    flex-wrap: wrap;
+    row-gap: 4px;
+  }
+
+  .time-clock-display {
+    font-size: 10px;
+  }
+
+  .density-toggle-btn {
+    font-size: 10px;
+    padding: 8px 6px;
+  }
+
+  .regime-bar-info {
+    min-width: 0;
+    gap: 6px;
+  }
+
+  .regime-name {
+    overflow: hidden;
+    text-overflow: ellipsis;
+  }
+
+  .fiche-grid > *,
+  .telemetry-metrics-grid > * {
+    min-width: 0;
+  }
+
+  .normative-destinations-grid {
+    gap: 4px;
+  }
+
+  .destination-box {
+    padding: 8px 4px;
   }
 }
 
@@ -10151,10 +10307,39 @@
   .orbital-mission-hub-panel {
     left: 12px !important;
     right: 12px;
-    bottom: max(12px, env(safe-area-inset-bottom));
+    bottom: calc(max(10px, env(safe-area-inset-bottom)) + 54px);
     transform: none !important;
     width: auto;
     max-width: none;
+    transition: opacity 0.22s ease, transform 0.22s ease;
+  }
+
+  .orbital-mission-hub-panel.in-orbital-mode {
+    bottom: max(12px, env(safe-area-inset-bottom));
+  }
+
+  .orbital-mission-hub-panel.panel-drawer-open {
+    opacity: 0;
+    pointer-events: none;
+    transform: translateY(16px) !important;
+  }
+}
+
+@media (max-width: 600px) {
+  .orbital-mission-hub-panel .hub-top-bar {
+    padding: 6px 10px 3px;
+  }
+
+  .orbital-mission-hub-panel .hub-main-body {
+    padding: 3px 10px 8px;
+  }
+
+  .orbital-mission-hub-panel .hub-item-title {
+    font-size: 12px;
+  }
+
+  .orbital-mission-hub-panel .hub-item-desc {
+    font-size: 10.5px;
   }
 }
 

@@ -294,6 +294,16 @@ const POSICAO_ORBITAL_PADRAO = {
   roll: 0.0
 };
 
+const LIMITE_PAINEL_UNICO_PX = 1200;
+const LIMITE_LAYOUT_MOVEL_PX = 900;
+
+// Determina o comportamento dos paineis laterais pela largura da tela
+function obterModoLayoutPaineis(largura) {
+  if (largura <= LIMITE_LAYOUT_MOVEL_PX) return 'movel';
+  if (largura < LIMITE_PAINEL_UNICO_PX) return 'unico';
+  return 'amplo';
+}
+
 // Componente de efeito cibernético de digitação tática com cursor terminal (para títulos)
 function CyberTypewriter({ text, active, delay = 0, speed = 42, cursorColor = 'cyan' }) {
   const [displayed, setDisplayed] = useState('');
@@ -1039,12 +1049,17 @@ function App() {
       point.show = isAtiva;
     });
 
-    // Restaura exibicao dos paineis laterais se estiver no desktop
-    if (window.innerWidth >= 950) {
+    // Restaura exibicao dos paineis conforme largura atual da tela
+    const modoLayout = obterModoLayoutPaineis(window.innerWidth);
+    modoLayoutPaineisRef.current = modoLayout;
+    if (modoLayout === 'amplo') {
       setPainelEsquerdoAberto(true);
       setPainelDireitoAberto(true);
-    } else {
+    } else if (modoLayout === 'unico') {
       setPainelEsquerdoAberto(true);
+      setPainelDireitoAberto(false);
+    } else {
+      setPainelEsquerdoAberto(false);
       setPainelDireitoAberto(false);
     }
 
@@ -1202,7 +1217,7 @@ function App() {
   const handleAlternarPainelEsquerdo = (abrir) => {
     tocarEfeitoSonoro(somPainelLateral, 0.65);
     setPainelEsquerdoAberto(abrir);
-    if (abrir && window.innerWidth < 950) {
+    if (abrir && window.innerWidth < LIMITE_PAINEL_UNICO_PX) {
       setPainelDireitoAberto(false);
     }
   };
@@ -1210,13 +1225,13 @@ function App() {
   const handleAlternarPainelDireito = (abrir) => {
     tocarEfeitoSonoro(somPainelLateral, 0.65);
     setPainelDireitoAberto(abrir);
-    if (abrir && window.innerWidth < 950) {
+    if (abrir && window.innerWidth < LIMITE_PAINEL_UNICO_PX) {
       setPainelEsquerdoAberto(false);
     }
   };
 
-  // Referência para controlar redimensionamento de painéis
-  const eraCompactoRef = useRef(window.innerWidth < 950);
+  // Referencia para controlar transicoes de layout dos paineis no resize
+  const modoLayoutPaineisRef = useRef(obterModoLayoutPaineis(window.innerWidth));
 
   // Estados de dados da API
   const [objetos, setObjetos] = useState([]);
@@ -1284,29 +1299,36 @@ function App() {
   useEffect(() => {
     if (telaAtiva !== 'simulador') return;
 
-    const eCompactoInicial = window.innerWidth < 950;
-    eraCompactoRef.current = eCompactoInicial;
-
     const timer = setTimeout(() => {
-      if (eCompactoInicial) {
-        setPainelDireitoAberto(false);
-        setPainelEsquerdoAberto(true);
-      } else {
+      if (modoOrbitalAtivoRef.current) return;
+      const modoAtual = obterModoLayoutPaineis(window.innerWidth);
+      modoLayoutPaineisRef.current = modoAtual;
+      if (modoAtual === 'amplo') {
         setPainelEsquerdoAberto(true);
         setPainelDireitoAberto(true);
+      } else if (modoAtual === 'unico') {
+        setPainelEsquerdoAberto(true);
+        setPainelDireitoAberto(false);
+      } else {
+        setPainelEsquerdoAberto(false);
+        setPainelDireitoAberto(false);
       }
     }, 100);
 
     const handleResizePaineis = () => {
-      const eCompacto = window.innerWidth < 950;
-      if (eCompacto !== eraCompactoRef.current) {
-        eraCompactoRef.current = eCompacto;
-        if (eCompacto) {
+      if (modoOrbitalAtivoRef.current) return;
+      const novoModo = obterModoLayoutPaineis(window.innerWidth);
+      if (novoModo !== modoLayoutPaineisRef.current) {
+        modoLayoutPaineisRef.current = novoModo;
+        if (novoModo === 'amplo') {
+          setPainelEsquerdoAberto(true);
+          setPainelDireitoAberto(true);
+        } else if (novoModo === 'unico') {
           setPainelDireitoAberto(false);
           setPainelEsquerdoAberto(true);
         } else {
-          setPainelEsquerdoAberto(true);
-          setPainelDireitoAberto(true);
+          setPainelEsquerdoAberto(false);
+          setPainelDireitoAberto(false);
         }
       }
     };
@@ -1754,7 +1776,7 @@ function App() {
     setAbaDetalheAtiva('telemetria');
     setPainelDireitoAberto(true);
 
-    if (window.innerWidth < 950) {
+    if (window.innerWidth < LIMITE_PAINEL_UNICO_PX) {
       setPainelEsquerdoAberto(false);
     }
 
@@ -1820,8 +1842,11 @@ function App() {
     setAbaDetalheAtiva('telemetria');
     limparTrilhaOrbital(v);
 
-    // Em telas compactas, fecha o painel de telemetria e restaura o painel de dados
-    if (window.innerWidth < 950) {
+    // Ajusta estado dos paineis apos desfocar conforme largura da tela
+    if (window.innerWidth <= LIMITE_LAYOUT_MOVEL_PX) {
+      setPainelDireitoAberto(false);
+      setPainelEsquerdoAberto(false);
+    } else if (window.innerWidth < LIMITE_PAINEL_UNICO_PX) {
       setPainelDireitoAberto(false);
       setPainelEsquerdoAberto(true);
     }
@@ -3635,7 +3660,7 @@ function App() {
 
       {/* CONSOLE INTERATIVO DO SIMULADOR (HUD OVERLAY) */}
       {(telaAtiva === 'simulador' || transicaoCyber === 'para-inicio') && (
-        <div className={`hud-overlay ${transicaoCyber === 'para-inicio' ? 'fade-out-hud' : ''}`}>
+        <div className={`hud-overlay ${transicaoCyber === 'para-inicio' ? 'fade-out-hud' : ''} ${(painelEsquerdoAberto || painelDireitoAberto) ? 'panel-open-any' : ''}`}>
 
           {/* BARRA SUPERIOR (HEADER) */}
           <header className={`hud-header ${modoOrbitalAtivo ? 'orbital-mode-active' : ''}`}>
@@ -4209,6 +4234,7 @@ function App() {
               title="Abrir Métricas de Órbita"
             >
               <Database size={16} />
+              <span className="trigger-label">Métricas de Órbita</span>
               <ChevronRight size={14} className="trigger-arrow" />
             </button>
           )}
@@ -4221,6 +4247,7 @@ function App() {
               title="Abrir Diagnóstico do Satélite"
             >
               <Compass size={16} />
+              <span className="trigger-label">Diagnóstico Orbital</span>
               <ChevronLeft size={14} className="trigger-arrow" />
             </button>
           )}
@@ -4430,6 +4457,7 @@ function App() {
                 modoOrbitalAtivo={modoOrbitalAtivo}
                 pinoOrbitalAtivo={pinoOrbitalAtivo}
                 painelEsquerdoAberto={painelEsquerdoAberto}
+                painelDireitoAberto={painelDireitoAberto}
                 onInvestigarObjeto={handleInvestigarObjeto}
                 onAplicarFiltroCategorias={handleAplicarFiltroCategorias}
                 onLocalizarGeo={handleLocalizarGeo}

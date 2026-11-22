@@ -13,6 +13,7 @@ export default function OrbitalMissionHub({
   modoOrbitalAtivo = false,
   pinoOrbitalAtivo = null,
   painelEsquerdoAberto = true,
+  painelDireitoAberto = false,
   onTocarSom
 }) {
   const [historicoIds, setHistoricoIds] = useState([]);
@@ -214,7 +215,7 @@ export default function OrbitalMissionHub({
 
   return (
     <div
-      className={`orbital-mission-hub-panel status-${estadoFase.toLowerCase()} ${modoOrbitalAtivo ? 'in-orbital-mode' : (painelEsquerdoAberto ? 'docked-left-panel' : 'docked-screen-edge')}`}
+      className={`orbital-mission-hub-panel status-${estadoFase.toLowerCase()} ${modoOrbitalAtivo ? 'in-orbital-mode' : (painelEsquerdoAberto ? 'docked-left-panel' : 'docked-screen-edge')} ${(painelEsquerdoAberto || painelDireitoAberto) ? 'panel-drawer-open' : ''}`}
       role="region"
       aria-label="Missão Tática"
       onClick={(e) => e.stopPropagation()}
