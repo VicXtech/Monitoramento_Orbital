@@ -28,6 +28,7 @@ import {
 import * as satellite from 'satellite.js';
 import './App.css';
 import { calcularParametrosOrbitais, gerarPontosOrbita, classificarRegimeOrbital, obterSatrec } from './utils/orbitalPhysics';
+import { lerCacheLocal, salvarCacheLocal } from './utils/catalogCache';
 import { obterFichaFactual, GLOSSARIO_ORBITAL } from './data/orbitalEncyclopedia';
 import ErrorBoundary from './components/ErrorBoundary';
 import {
@@ -180,6 +181,25 @@ const CORES_CATEGORIAS = {
   5: '#9D72FF'  // Corpo de Foguete
 };
 
+const cacheEstilosCesium = new Map();
+let escalaEstacaoCache = null;
+let escalaPadraoCache = null;
+
+// Reutiliza escala por distancia para reduzir alocacoes na GPU
+function obterEscalaDistanciaCesium(isEstacaoPrincipal) {
+  if (typeof window === 'undefined' || !window.Cesium) return undefined;
+  if (isEstacaoPrincipal) {
+    if (!escalaEstacaoCache) {
+      escalaEstacaoCache = new window.Cesium.NearFarScalar(1.5e6, 1.25, 8.0e7, 0.65);
+    }
+    return escalaEstacaoCache;
+  }
+  if (!escalaPadraoCache) {
+    escalaPadraoCache = new window.Cesium.NearFarScalar(1.5e6, 1.2, 8.0e7, 0.35);
+  }
+  return escalaPadraoCache;
+}
+
 /**
  * Retorna os parametros de estilizacao de ponto no Cesium
  */
@@ -192,63 +212,68 @@ function obterEstiloPontoCesium(catId, modo = 'padrao', noradId = null) {
   }
 
   const isEstacaoPrincipal = String(noradId) === '25544' || String(noradId) === '48274';
+  const chaveCache = isEstacaoPrincipal ? 'estacao_principal' : `${modo}_${catId}`;
+  if (cacheEstilosCesium.has(chaveCache)) {
+    return cacheEstilosCesium.get(chaveCache);
+  }
+
+  let estilo;
   if (isEstacaoPrincipal) {
-    return {
+    estilo = {
       pixelSize: 10,
       color: window.Cesium.Color.fromCssColorString('#38BDF8'),
       outlineColor: window.Cesium.Color.WHITE,
       outlineWidth: 1.5
     };
-  }
-
-  if (modo === 'sustentabilidade') {
+  } else if (modo === 'sustentabilidade') {
     if (catId === 3) {
-      return {
+      estilo = {
         pixelSize: 9,
         color: window.Cesium.Color.fromCssColorString('#E05252'),
         outlineColor: window.Cesium.Color.WHITE,
         outlineWidth: 1.5
       };
-    }
-    if (catId === 5) {
-      return {
+    } else if (catId === 5) {
+      estilo = {
         pixelSize: 8,
         color: window.Cesium.Color.fromCssColorString('#9D72FF'),
         outlineColor: window.Cesium.Color.fromCssColorString('#E5A93C'),
         outlineWidth: 1.5
       };
-    }
-    if (catId === 2) {
-      return {
+    } else if (catId === 2) {
+      estilo = {
         pixelSize: 7,
         color: window.Cesium.Color.fromCssColorString('#E5A93C'),
         outlineColor: window.Cesium.Color.BLACK,
         outlineWidth: 1
       };
-    }
-    if (catId === 4) {
-      return {
+    } else if (catId === 4) {
+      estilo = {
         pixelSize: 14,
         color: window.Cesium.Color.fromCssColorString('#38BDF8'),
         outlineColor: window.Cesium.Color.WHITE,
         outlineWidth: 2
       };
+    } else {
+      estilo = {
+        pixelSize: 4,
+        color: window.Cesium.Color.fromCssColorString('rgba(52, 211, 153, 0.22)'),
+        outlineColor: window.Cesium.Color.TRANSPARENT,
+        outlineWidth: 0
+      };
     }
-    return {
-      pixelSize: 4,
-      color: window.Cesium.Color.fromCssColorString('rgba(52, 211, 153, 0.22)'),
-      outlineColor: window.Cesium.Color.TRANSPARENT,
-      outlineWidth: 0
+  } else {
+    const corHex = CORES_CATEGORIAS[catId] || '#34D399';
+    estilo = {
+      pixelSize: catId === 4 ? 14 : catId === 5 ? 7 : catId === 2 ? 6 : catId === 3 ? 5 : 7,
+      color: window.Cesium.Color.fromCssColorString(corHex),
+      outlineColor: window.Cesium.Color.BLACK,
+      outlineWidth: catId === 4 ? 2 : 1.5
     };
   }
 
-  const corHex = CORES_CATEGORIAS[catId] || '#34D399';
-  return {
-    pixelSize: catId === 4 ? 14 : catId === 5 ? 7 : catId === 2 ? 6 : catId === 3 ? 5 : 7,
-    color: window.Cesium.Color.fromCssColorString(corHex),
-    outlineColor: window.Cesium.Color.BLACK,
-    outlineWidth: catId === 4 ? 2 : 1.5
-  };
+  cacheEstilosCesium.set(chaveCache, estilo);
+  return estilo;
 }
 
 // Ponto fixo oficial de visão inicial e retorno da câmera (América do Sul / Brasil)
@@ -397,6 +422,8 @@ function App() {
   const pointsRef = useRef(new Map());
   const objetoFocadoRef = useRef(null);
   const workerRef = useRef(null);
+  const loteWorkerIdRef = useRef(0);
+  const satelitesLoteRef = useRef([]);
   const satelitesIndicesRef = useRef([]);
   const entidadeFocadaRef = useRef(null);
   const orbitaEntidadeRef = useRef(null);
@@ -490,13 +517,66 @@ function App() {
       workerRef.current = worker;
 
       worker.onmessage = (e) => {
-        const { tipo, posicoes, tempoCalculoMs, totalSatelites } = e.data;
+        const { tipo, inicial, loteId, posicoes, tempoCalculoMs, totalSatelites } = e.data;
         if (tipo === 'POSICOES' && posicoes && window.Cesium) {
           workerOcupadoRef.current = false;
+          if (typeof loteId === 'number' && loteId !== loteWorkerIdRef.current) {
+            return;
+          }
           if (typeof tempoCalculoMs === 'number') {
             metricasPerformanceRef.current.tempoCalculoMs = tempoCalculoMs;
             metricasPerformanceRef.current.totalObjetosWorker = totalSatelites || metricasPerformanceRef.current.totalObjetosWorker;
           }
+
+          if (inicial === true) {
+            const v = viewerRef.current;
+            if (!v || v.isDestroyed()) return;
+
+            if (!pointCollectionRef.current || pointCollectionRef.current.isDestroyed()) {
+              pointCollectionRef.current = v.scene.primitives.add(new window.Cesium.PointPrimitiveCollection());
+            }
+            const colecao = pointCollectionRef.current;
+            colecao.removeAll();
+            pointsRef.current.clear();
+
+            const lote = satelitesLoteRef.current;
+            const catsAtivas = categoriasAtivasRef.current || {};
+            const regAtivo = regimeAtivoRef.current;
+            const mostrarSimulador = (telaAtivaRef.current === 'simulador') && !modoOrbitalAtivoRef.current;
+            const satSelId = satSelecionadoRef.current ? String(satSelecionadoRef.current.norad_id) : null;
+
+            for (let i = 0; i < lote.length; i++) {
+              const offset = i * 3;
+              const x = posicoes[offset];
+              if (Number.isNaN(x)) continue;
+
+              const sat = lote[i];
+              const noradStr = String(sat.norad_id);
+              const catId = Number(sat.categoria_id);
+              const isEstacaoPrincipal = noradStr === '25544' || noradStr === '48274';
+              const estilo = obterEstiloPontoCesium(catId, 'padrao', sat.norad_id);
+              const isAtiva = (catId in catsAtivas) ? catsAtivas[catId] : true;
+              const matchRegime = !regAtivo || sat.regime === regAtivo;
+
+              const point = colecao.add({
+                id: noradStr,
+                position: new window.Cesium.Cartesian3(x, posicoes[offset + 1], posicoes[offset + 2]),
+                pixelSize: estilo.pixelSize,
+                color: estilo.color,
+                outlineColor: estilo.outlineColor,
+                outlineWidth: estilo.outlineWidth,
+                scaleByDistance: obterEscalaDistanciaCesium(isEstacaoPrincipal),
+                show: mostrarSimulador && isAtiva && matchRegime
+              });
+
+              point._satCategoriaId = catId;
+              point._noradId = noradStr;
+              const satrecInicial = noradStr === satSelId ? obterSatrec(sat) : null;
+              pointsRef.current.set(noradStr, { point, sat, satrec: satrecInicial });
+            }
+            return;
+          }
+
           const indices = satelitesIndicesRef.current;
           const total = indices.length;
           if (!scratchCartesianRef.current) {
@@ -507,18 +587,18 @@ function App() {
 
           for (let i = 0; i < total; i++) {
             const offset = i * 3;
-            const lon = posicoes[offset];
-            if (isNaN(lon)) continue;
+            const x = posicoes[offset];
+            if (Number.isNaN(x)) continue;
 
             const noradId = indices[i];
             if (noradId === satSelecionadoId) continue;
 
             const entry = pointsRef.current.get(noradId);
             if (entry && entry.point && entry.point.show) {
-              const lat = posicoes[offset + 1];
-              const alt = posicoes[offset + 2];
-              const novoPos = window.Cesium.Cartesian3.fromDegrees(lon, lat, alt, undefined, scratch);
-              entry.point.position = novoPos;
+              scratch.x = x;
+              scratch.y = posicoes[offset + 1];
+              scratch.z = posicoes[offset + 2];
+              entry.point.position = scratch;
             }
           }
         }
@@ -1110,6 +1190,14 @@ function App() {
     3: true, // Detrito Espacial
     4: true  // Estações Espaciais Principais
   });
+  const categoriasAtivasRef = useRef(categoriasAtivas);
+  const regimeAtivoRef = useRef(regimeAtivo);
+  useEffect(() => {
+    categoriasAtivasRef.current = categoriasAtivas;
+  }, [categoriasAtivas]);
+  useEffect(() => {
+    regimeAtivoRef.current = regimeAtivo;
+  }, [regimeAtivo]);
   const [modulosEstacao, setModulosEstacao] = useState([]);
   const [carregandoModulos, setCarregandoModulos] = useState(false);
 
@@ -1192,22 +1280,40 @@ function App() {
 
   // 1. CARREGAMENTO INICIAL DE ESTATÍSTICAS
   useEffect(() => {
+    let cancelado = false;
     const carregarEstatisticas = async () => {
+      const chaveStats = `stats:${API_URL}`;
+      const emCache = await lerCacheLocal(chaveStats);
+      if (emCache?.data && !cancelado) {
+        setEstatisticas(emCache.data);
+        if (emCache.isFresh) return;
+      }
+
       try {
         const resStats = await fetch(`${API_URL}/api/estatisticas`);
         if (resStats.ok) {
           const dataStats = await resStats.json();
-          setEstatisticas(dataStats);
+          if (!cancelado) {
+            setEstatisticas(dataStats);
+            salvarCacheLocal(chaveStats, dataStats);
+          }
         }
       } catch (err) {
-        console.error("Erro ao carregar estatísticas orbitais:", err);
+        if (!cancelado) {
+          console.error("Erro ao carregar estatísticas orbitais:", err);
+        }
       }
     };
     carregarEstatisticas();
+    return () => {
+      cancelado = true;
+    };
   }, []);
 
   // 2. CARREGAMENTO REATIVO DE OBJETOS COM BASE NAS 4 CATEGORIAS
   useEffect(() => {
+    const controller = new AbortController();
+
     const carregarObjetosFiltrados = async () => {
       const ativas = Array.from(new Set([
         ...Object.entries(categoriasAtivas).filter(([, ativa]) => ativa).map(([k]) => Number(k)),
@@ -1240,11 +1346,34 @@ function App() {
         return;
       }
 
-      if (objetos.length === 0) {
-        setLoading(true);
-      } else {
-        setRecarregandoAmostra(true);
+      const usarCachePersistente = amostraSeed === 0;
+      const chaveIdb = `objs:${API_URL}:${cacheKey}`;
+      let temStaleLocal = false;
+
+      if (usarCachePersistente) {
+        const emCacheIdb = await lerCacheLocal(chaveIdb);
+        if (controller.signal.aborted) return;
+        if (emCacheIdb?.data && Array.isArray(emCacheIdb.data) && emCacheIdb.data.length > 0) {
+          cacheDensidadeRef.current.set(cacheKey, emCacheIdb.data);
+          if (densidadeCatalogo === 'completo' && !cacheDensidadeRef.current.has(`${cacheBaseKey}_tatica`)) {
+            cacheDensidadeRef.current.set(`${cacheBaseKey}_tatica`, emCacheIdb.data.slice(0, 3000));
+          }
+          setObjetos(emCacheIdb.data);
+          setLoading(false);
+          setRecarregandoAmostra(false);
+          if (emCacheIdb.isFresh) return;
+          temStaleLocal = true;
+        }
       }
+
+      if (!temStaleLocal) {
+        if (objetos.length === 0) {
+          setLoading(true);
+        } else {
+          setRecarregandoAmostra(true);
+        }
+      }
+
       try {
         const limite = densidadeCatalogo === 'tatica' ? 3000 : 10000;
         let url = `${API_URL}/api/objetos?limit=${limite}&seed=${amostraSeed || 0}`;
@@ -1258,29 +1387,40 @@ function App() {
         }
 
         const tInicio = performance.now();
-        const resObjs = await fetch(url);
+        const resObjs = await fetch(url, { signal: controller.signal });
         const tFim = performance.now();
         const latencia = Math.round(tFim - tInicio);
         metricasPerformanceRef.current.latenciaApiMs = latencia;
-        if (resObjs.ok) {
+        if (resObjs.ok && !controller.signal.aborted) {
           const dataObjs = await resObjs.json();
+          if (controller.signal.aborted) return;
           cacheDensidadeRef.current.set(cacheKey, dataObjs);
           if (densidadeCatalogo === 'completo' && !cacheDensidadeRef.current.has(`${cacheBaseKey}_tatica`)) {
             cacheDensidadeRef.current.set(`${cacheBaseKey}_tatica`, dataObjs.slice(0, 3000));
           }
           setObjetos(dataObjs);
+          if (usarCachePersistente && Array.isArray(dataObjs) && dataObjs.length > 0) {
+            salvarCacheLocal(chaveIdb, dataObjs);
+          }
         }
       } catch (err) {
-        console.error("Erro ao carregar objetos orbitais:", err);
+        if (err?.name !== 'AbortError') {
+          console.error("Erro ao carregar objetos orbitais:", err);
+        }
       } finally {
-        setLoading(false);
-        setTimeout(() => {
-          setRecarregandoAmostra(false);
-        }, 400);
+        if (!controller.signal.aborted) {
+          setLoading(false);
+          setTimeout(() => {
+            setRecarregandoAmostra(false);
+          }, 400);
+        }
       }
     };
 
     carregarObjetosFiltrados();
+    return () => {
+      controller.abort();
+    };
   }, [categoriasAtivas, amostraSeed, densidadeCatalogo, regimeAtivo]);
 
   const handleRecarregarAmostra = () => {
@@ -2227,7 +2367,8 @@ function App() {
         !modoOrbitalAtivoRef.current &&
         multAtual > 0
       ) {
-        const intervaloWorkerMs = multAtual > 1 ? 65 : 1000;
+        const tempoWorker = metricasPerformanceRef.current.tempoCalculoMs || 0;
+        const intervaloWorkerMs = multAtual > 1 ? Math.max(65, Math.ceil(tempoWorker * 2.2)) : 1000;
         if (agoraRender - ultimoDisparoWorkerRef.current >= intervaloWorkerMs) {
           ultimoDisparoWorkerRef.current = agoraRender;
           workerOcupadoRef.current = true;
@@ -2242,61 +2383,67 @@ function App() {
       if (satAtivo) {
         const noradStr = String(satAtivo.norad_id);
         const entry = pointsRef.current.get(noradStr);
-        if (entry && entry.satrec && entry.point && entry.point.show) {
+        if (entry && entry.point && entry.point.show) {
           try {
-            const gmst = satellite.gstime(dataSimulada);
-            const pv = satellite.propagate(entry.satrec, dataSimulada);
-            if (pv && pv.position && !isNaN(pv.position.x)) {
-              const gd = satellite.eciToGeodetic(pv.position, gmst);
-              const lon = satellite.degreesLong(gd.longitude);
-              const lat = satellite.degreesLat(gd.latitude);
-              const alt = Math.max(0, gd.height * 1000);
+            if (!entry.satrec) {
+              entry.satrec = obterSatrec(entry.sat);
+            }
+            if (entry.satrec) {
+              const gmst = satellite.gstime(dataSimulada);
+              const cosGmst = Math.cos(gmst);
+              const sinGmst = Math.sin(gmst);
+              entry.satrec.error = 0;
+              const pv = satellite.propagate(entry.satrec, dataSimulada);
+              if (pv && pv.position && !Number.isNaN(pv.position.x)) {
+                if (!scratchSelectedPosRef.current) {
+                  scratchSelectedPosRef.current = new window.Cesium.Cartesian3();
+                }
+                scratchSelectedPosRef.current.x = (pv.position.x * cosGmst + pv.position.y * sinGmst) * 1000;
+                scratchSelectedPosRef.current.y = (-pv.position.x * sinGmst + pv.position.y * cosGmst) * 1000;
+                scratchSelectedPosRef.current.z = pv.position.z * 1000;
+                const posAtual = scratchSelectedPosRef.current;
+                entry.point.position = posAtual;
 
-              if (!scratchSelectedPosRef.current) {
-                scratchSelectedPosRef.current = new window.Cesium.Cartesian3();
-              }
-              const posAtual = window.Cesium.Cartesian3.fromDegrees(lon, lat, alt, undefined, scratchSelectedPosRef.current);
-              entry.point.position = posAtual;
+                // Atualiza a linha de rota sincronizada com a posição simulada
+                const intervaloRotaMs = multAtual > 1 ? 500 : 2500;
+                if (!satHoverIdRef.current && multAtual > 0 && agoraRender - ultimaAtualizacaoRotaRef.current >= intervaloRotaMs) {
+                  ultimaAtualizacaoRotaRef.current = agoraRender;
+                  desenharTrilhaOrbital(viewerRef.current, satAtivo);
+                }
 
-              // Atualiza a linha de rota sincronizada com a posição simulada
-              const intervaloRotaMs = multAtual > 1 ? 500 : 2500;
-              if (!satHoverIdRef.current && multAtual > 0 && agoraRender - ultimaAtualizacaoRotaRef.current >= intervaloRotaMs) {
-                ultimaAtualizacaoRotaRef.current = agoraRender;
-                desenharTrilhaOrbital(viewerRef.current, satAtivo);
-              }
+                // Acompanhamento orbital suave da câmera
+                if (cameraSeguindoObjetoRef.current === noradStr) {
+                  const posAnt = posicaoAnteriorSatRef.current;
+                  if (posAnt && viewerRef.current) {
+                    const magAnt = window.Cesium.Cartesian3.magnitude(posAnt);
+                    const magAtual = window.Cesium.Cartesian3.magnitude(posAtual);
+                    if (magAnt > 1000 && magAtual > 1000) {
+                      const cosA = window.Cesium.Cartesian3.dot(posAnt, posAtual) / (magAnt * magAtual);
+                      const angle = Math.acos(Math.max(-1, Math.min(1, cosA)));
 
-              // Acompanhamento orbital suave da câmera
-              if (cameraSeguindoObjetoRef.current === noradStr) {
-                const posAnt = posicaoAnteriorSatRef.current;
-                if (posAnt && viewerRef.current) {
-                  const magAnt = window.Cesium.Cartesian3.magnitude(posAnt);
-                  const magAtual = window.Cesium.Cartesian3.magnitude(posAtual);
-                  if (magAnt > 1000 && magAtual > 1000) {
-                    const cosA = window.Cesium.Cartesian3.dot(posAnt, posAtual) / (magAnt * magAtual);
-                    const angle = Math.acos(Math.max(-1, Math.min(1, cosA)));
+                      if (angle > 1e-8 && !isNaN(angle)) {
+                        if (!scratchAxisRef.current) scratchAxisRef.current = new window.Cesium.Cartesian3();
+                        if (!scratchQuatRef.current) scratchQuatRef.current = new window.Cesium.Quaternion();
+                        if (!scratchRotMatRef.current) scratchRotMatRef.current = new window.Cesium.Matrix3();
 
-                    if (angle > 1e-8 && !isNaN(angle)) {
-                      if (!scratchAxisRef.current) scratchAxisRef.current = new window.Cesium.Cartesian3();
-                      if (!scratchQuatRef.current) scratchQuatRef.current = new window.Cesium.Quaternion();
-                      if (!scratchRotMatRef.current) scratchRotMatRef.current = new window.Cesium.Matrix3();
+                        window.Cesium.Cartesian3.cross(posAnt, posAtual, scratchAxisRef.current);
+                        const magAxis = window.Cesium.Cartesian3.magnitude(scratchAxisRef.current);
+                        if (magAxis > 1e-6) {
+                          window.Cesium.Cartesian3.normalize(scratchAxisRef.current, scratchAxisRef.current);
+                          window.Cesium.Quaternion.fromAxisAngle(scratchAxisRef.current, angle, scratchQuatRef.current);
+                          window.Cesium.Matrix3.fromQuaternion(scratchQuatRef.current, scratchRotMatRef.current);
 
-                      window.Cesium.Cartesian3.cross(posAnt, posAtual, scratchAxisRef.current);
-                      const magAxis = window.Cesium.Cartesian3.magnitude(scratchAxisRef.current);
-                      if (magAxis > 1e-6) {
-                        window.Cesium.Cartesian3.normalize(scratchAxisRef.current, scratchAxisRef.current);
-                        window.Cesium.Quaternion.fromAxisAngle(scratchAxisRef.current, angle, scratchQuatRef.current);
-                        window.Cesium.Matrix3.fromQuaternion(scratchQuatRef.current, scratchRotMatRef.current);
-
-                        const cam = viewerRef.current.camera;
-                        window.Cesium.Matrix3.multiplyByVector(scratchRotMatRef.current, cam.position, cam.position);
-                        window.Cesium.Matrix3.multiplyByVector(scratchRotMatRef.current, cam.direction, cam.direction);
-                        window.Cesium.Matrix3.multiplyByVector(scratchRotMatRef.current, cam.up, cam.up);
-                        window.Cesium.Cartesian3.cross(cam.direction, cam.up, cam.right);
+                          const cam = viewerRef.current.camera;
+                          window.Cesium.Matrix3.multiplyByVector(scratchRotMatRef.current, cam.position, cam.position);
+                          window.Cesium.Matrix3.multiplyByVector(scratchRotMatRef.current, cam.direction, cam.direction);
+                          window.Cesium.Matrix3.multiplyByVector(scratchRotMatRef.current, cam.up, cam.up);
+                          window.Cesium.Cartesian3.cross(cam.direction, cam.up, cam.right);
+                        }
                       }
                     }
                   }
+                  posicaoAnteriorSatRef.current = window.Cesium.Cartesian3.clone(posAtual, posicaoAnteriorSatRef.current || new window.Cesium.Cartesian3());
                 }
-                posicaoAnteriorSatRef.current = window.Cesium.Cartesian3.clone(posAtual, posicaoAnteriorSatRef.current || new window.Cesium.Cartesian3());
               }
             }
           } catch {
@@ -2374,115 +2521,50 @@ function App() {
     return () => window.removeEventListener('resize', handleResize);
   }, [viewer]);
 
-  // 5. PROPAGAÇÃO E PLOTAGEM DE SATÉLITES COM POINT PRIMITIVE COLLECTION
+  // Delega propagacao e inicializacao dos pontos ao Web Worker
   useEffect(() => {
-    if (!viewer || objetos.length === 0 || !window.Cesium) return;
-
-    if (!pointCollectionRef.current || pointCollectionRef.current.isDestroyed()) {
-      pointCollectionRef.current = viewer.scene.primitives.add(new window.Cesium.PointPrimitiveCollection());
-    }
-
-    const colecao = pointCollectionRef.current;
-    colecao.removeAll();
-    pointsRef.current.clear();
+    if (!viewer || objetos.length === 0 || !window.Cesium) return undefined;
 
     const satelitesFiltrados = objetos.filter(sat => {
       const catId = Number(sat.categoria_id);
-      // Se houver regime orbital isolado, filtra estritamente por esse regime
       if (regimeAtivo && sat.regime !== regimeAtivo) return false;
 
-      // Estações Espaciais Principais: apenas ISS e Tiangong permanecem renderizadas e fixas
       if (catId === 4) {
-        return (sat.norad_id === '25544' || sat.norad_id === '48274') && Boolean(sat.ultimo_tle);
+        return (String(sat.norad_id) === '25544' || String(sat.norad_id) === '48274') && Boolean(sat.omm || sat.ultimo_tle);
       }
-      // Nunca renderiza módulos acoplados nem componentes de estações no globo
       if (sat.estacao_pai_norad) return false;
       const nomeUpper = String(sat.nome || '').toUpperCase();
-      if (nomeUpper.startsWith('ISS (') && sat.norad_id !== '25544') return false;
-      if (nomeUpper.startsWith('CSS (') && sat.norad_id !== '48274') return false;
+      if (nomeUpper.startsWith('ISS (') && String(sat.norad_id) !== '25544') return false;
+      if (nomeUpper.startsWith('CSS (') && String(sat.norad_id) !== '48274') return false;
 
-      const isAtiva = (catId in categoriasAtivas) && categoriasAtivas[catId];
-      return isAtiva && Boolean(sat.omm || sat.ultimo_tle);
+      return Boolean(sat.omm || sat.ultimo_tle);
     });
 
-    const dataBase = new Date(simulatedTimeMsRef.current);
-    const gmstBase = satellite.gstime(dataBase);
-
-    satelitesFiltrados.forEach(sat => {
-      try {
-        const catId = Number(sat.categoria_id);
-        const satrec = obterSatrec(sat);
-        if (!satrec) return;
-
-        let posAndVel = satellite.propagate(satrec, dataBase);
-        let rMag = posAndVel && posAndVel.position ? Math.sqrt(posAndVel.position.x * posAndVel.position.x + posAndVel.position.y * posAndVel.position.y + posAndVel.position.z * posAndVel.position.z) : 0;
-        let altKm = rMag - 6378.137;
-
-        const isLeoinvalido = sat.regime === 'LEO' && (altKm > 2000 || altKm < 60);
-        const isGeralInvalido = altKm < 60 || altKm > 100000;
-
-        if (!posAndVel || !posAndVel.position || isLeoinvalido || isGeralInvalido) {
-          try {
-            const line2 = sat.ultimo_tle?.linha2 || '';
-            let mm = parseFloat(line2.substring(52, 63).trim()) || sat.omm?.MEAN_MOTION || 15;
-            if (mm <= 0) mm = 15;
-            const periodMs = (1440 / mm) * 60000;
-            const epochyr = satrec.epochyr < 57 ? 2000 + satrec.epochyr : 1900 + satrec.epochyr;
-            const epochDate = new Date(Date.UTC(epochyr, 0, 1) + (satrec.epochdays - 1) * 86400000);
-            const elapsedMs = dataBase.getTime() - epochDate.getTime();
-            const modDate = new Date(epochDate.getTime() + (Math.abs(elapsedMs) % periodMs));
-            const freshSatrec = obterSatrec(sat);
-            if (freshSatrec) {
-              posAndVel = satellite.propagate(freshSatrec, modDate);
-            }
-          } catch {
-            // Mantém cálculo original
-          }
-        }
-
-        if (!posAndVel || !posAndVel.position) return;
-
-        const posGd = satellite.eciToGeodetic(posAndVel.position, gmstBase);
-        const longitude = satellite.degreesLong(posGd.longitude);
-        const latitude = satellite.degreesLat(posGd.latitude);
-        const altitude = posGd.height * 1000;
-        const initialPos = window.Cesium.Cartesian3.fromDegrees(longitude, latitude, altitude);
-
-        const isEstacaoPrincipal = String(sat.norad_id) === '25544' || String(sat.norad_id) === '48274';
-        const estilo = obterEstiloPontoCesium(catId, 'padrao', sat.norad_id);
-        const point = colecao.add({
-          id: String(sat.norad_id),
-          position: initialPos,
-          pixelSize: estilo.pixelSize,
-          color: estilo.color,
-          outlineColor: estilo.outlineColor,
-          outlineWidth: estilo.outlineWidth,
-          scaleByDistance: isEstacaoPrincipal
-            ? new window.Cesium.NearFarScalar(1.5e6, 1.25, 8.0e7, 0.65)
-            : new window.Cesium.NearFarScalar(1.5e6, 1.2, 8.0e7, 0.35),
-          show: (telaAtivaRef.current === 'simulador') && (catId in categoriasAtivas ? categoriasAtivas[catId] : true) && (!regimeAtivo || sat.regime === regimeAtivo)
-        });
-
-        point._satCategoriaId = catId;
-        point._noradId = String(sat.norad_id);
-        pointsRef.current.set(String(sat.norad_id), { point, sat, satrec });
-      } catch {
-        // Ignora objeto com TLE instável
+    if (satelitesFiltrados.length === 0) {
+      if (pointCollectionRef.current && !pointCollectionRef.current.isDestroyed()) {
+        pointCollectionRef.current.removeAll();
       }
-    });
+      pointsRef.current.clear();
+      satelitesIndicesRef.current = [];
+      satelitesLoteRef.current = [];
+      return undefined;
+    }
 
-    // Inicializa lista de satélites no Web Worker
+    const loteId = ++loteWorkerIdRef.current;
+    satelitesLoteRef.current = satelitesFiltrados;
     satelitesIndicesRef.current = satelitesFiltrados.map(s => String(s.norad_id));
+
     if (workerRef.current) {
       workerOcupadoRef.current = true;
       workerRef.current.postMessage({
         tipo: 'INICIALIZAR',
+        loteId,
         timestampMs: simulatedTimeMsRef.current,
         satelites: satelitesFiltrados.map(s => ({
-          norad_id: s.norad_id,
+          norad_id: String(s.norad_id),
           regime: s.regime,
-          ultimo_tle: s.ultimo_tle,
-          omm: s.omm
+          ultimo_tle: s.ultimo_tle ? { linha1: s.ultimo_tle.linha1, linha2: s.ultimo_tle.linha2 } : null,
+          omm: s.omm || s.dados_omm || null
         }))
       });
     }
@@ -2491,10 +2573,8 @@ function App() {
       if (workerRef.current) {
         workerRef.current.postMessage({ tipo: 'PARAR' });
       }
-      colecao.removeAll();
-      pointsRef.current.clear();
     };
-  }, [objetos, categoriasAtivas, regimeAtivo, viewer]);
+  }, [objetos, regimeAtivo, viewer]);
 
   // Sincroniza a visibilidade dos pontos e atividade do Web Worker com a tela ativa
   useEffect(() => {
