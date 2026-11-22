@@ -30,6 +30,12 @@ import './App.css';
 import { calcularParametrosOrbitais, gerarPontosOrbita, classificarRegimeOrbital, obterSatrec } from './utils/orbitalPhysics';
 import { lerCacheLocal, salvarCacheLocal } from './utils/catalogCache';
 import { expandirObjetosRadar } from './utils/radarDecoder';
+import {
+  detectarPerfilInicial,
+  refinarPerfilComWebGL,
+  rebaixarPerfilGrafico,
+  aplicarPerfilGrafico
+} from './utils/graphicsProfile';
 import { obterFichaFactual, GLOSSARIO_ORBITAL } from './data/orbitalEncyclopedia';
 import ErrorBoundary from './components/ErrorBoundary';
 import {
@@ -441,6 +447,14 @@ function App() {
   const scratchRotMatRef = useRef(null);
   const globoEmRotacaoOciosaRef = useRef(true);
   const ultimaAtualizacaoRotaRef = useRef(0);
+  const perfilGraficoRef = useRef(detectarPerfilInicial());
+
+  // Solicita renderizacao sob demanda quando ativa
+  const solicitarRenderizacao = useCallback((v) => {
+    if (v && !v.isDestroyed() && v.scene?.requestRenderMode) {
+      v.scene.requestRender();
+    }
+  }, []);
 
   // Metricas de desempenho armazenadas em ref para evitar re-renders globais
   const metricasPerformanceRef = useRef({
@@ -576,6 +590,7 @@ function App() {
               const satrecInicial = noradStr === satSelId ? obterSatrec(sat) : null;
               pointsRef.current.set(noradStr, { point, sat, satrec: satrecInicial });
             }
+            solicitarRenderizacao(v);
             return;
           }
 
@@ -603,6 +618,7 @@ function App() {
               entry.point.position = scratch;
             }
           }
+          solicitarRenderizacao(viewerRef.current);
         }
       };
 
@@ -613,7 +629,7 @@ function App() {
     } catch (err) {
       console.warn("Falha ao inicializar Web Worker SGP4:", err);
     }
-  }, []);
+  }, [solicitarRenderizacao]);
   const [secaoAtiva, setSecaoAtiva] = useState(() => {
     const params = new URLSearchParams(window.location.search);
     const s = params.get('secao');
@@ -956,6 +972,30 @@ function App() {
     modoOrbitalAtivoRef.current = modoOrbitalAtivo;
   }, [modoOrbitalAtivo]);
 
+  // Alterna renderizacao sob demanda quando a cena estiver estatica
+  const sincronizarModoRenderizacao = useCallback((v) => {
+    if (!v || v.isDestroyed() || !v.scene) return;
+    const modoSobDemanda = modoOrbitalAtivoRef.current || (
+      telaAtivaRef.current === 'simulador' &&
+      multiplicadorTempoRef.current === 0 &&
+      !globoEmRotacaoOciosaRef.current
+    );
+
+    if (v.scene.requestRenderMode !== modoSobDemanda) {
+      v.scene.requestRenderMode = modoSobDemanda;
+      v.scene.maximumRenderTimeChange = Infinity;
+      if (!modoSobDemanda) {
+        const agora = performance.now();
+        ultimoFrameSimulacaoRef.current = agora;
+        fpsUltimoTimestampRef.current = agora;
+        fpsFrameContadorRef.current = 0;
+      }
+      v.scene.requestRender();
+    } else if (modoSobDemanda) {
+      v.scene.requestRender();
+    }
+  }, []);
+
   const [camadaOrbitalAtiva, setCamadaOrbitalAtiva] = useState(null);
   const [pinoOrbitalAtivo, setPinoOrbitalAtivo] = useState(null);
   const entidadesAreas3DRef = useRef(null);
@@ -968,6 +1008,7 @@ function App() {
     if (reproduzirSom) {
       tocarEfeitoSonoro(somFadeOut, 0.65);
     }
+    modoOrbitalAtivoRef.current = false;
     setModoOrbitalAtivo(false);
     setCamadaOrbitalAtiva(null);
     setPinoOrbitalAtivo(null);
@@ -1029,13 +1070,16 @@ function App() {
       } : {
         heading: camTarget.orientation.heading,
         pitch: camTarget.orientation.pitch,
-        roll: camTarget.orientation.roll
+        roll: camTarget.roll !== undefined ? camTarget.roll : camTarget.orientation.roll
       },
       duration: 1.5,
       complete: () => {
         globoEmRotacaoOciosaRef.current = true;
+        sincronizarModoRenderizacao(v);
       }
     });
+    sincronizarModoRenderizacao(v);
+    solicitarRenderizacao(v);
   };
 
   const handleAlternarModoOrbital = () => {
@@ -1045,6 +1089,7 @@ function App() {
     if (!modoOrbitalAtivo) {
       tocarEfeitoSonoro(somIniciar, 0.7);
       globoEmRotacaoOciosaRef.current = false;
+      modoOrbitalAtivoRef.current = true;
       setModoOrbitalAtivo(true);
       setCamadaOrbitalAtiva('leo');
       setPinoOrbitalAtivo(null);
@@ -1070,6 +1115,9 @@ function App() {
 
       removerMarcadoresEventos3D(v, entidadesEventos3DRef.current);
       entidadesEventos3DRef.current = criarMarcadoresEventos3D(v);
+
+      sincronizarModoRenderizacao(v);
+      solicitarRenderizacao(v);
     } else {
       handleDesativarModoOrbital(true);
     }
@@ -1079,15 +1127,16 @@ function App() {
     setCamadaOrbitalAtiva(camadaId);
     setPinoOrbitalAtivo(null);
     tocarEfeitoSonoro(somTrocaSlide, 0.45);
-    destacarCamadaOrbital(entidadesAreas3DRef.current, camadaId);
+    destacarCamadaOrbital(entidadesAreas3DRef.current, camadaId, viewerRef.current);
     if (viewerRef.current) {
       posicionarCameraModoOrbital(viewerRef.current, camadaId, 0.85);
     }
     if (entidadesEventos3DRef.current) {
       entidadesEventos3DRef.current.forEach((ent) => {
-        destacarPinoHistorico(ent, false);
+        destacarPinoHistorico(ent, false, viewerRef.current);
       });
     }
+    solicitarRenderizacao(viewerRef.current);
   };
 
   const handleSelecionarPinoOrbital = (pinoId) => {
@@ -1096,25 +1145,27 @@ function App() {
     tocarEfeitoSonoro(somIniciar, 0.7);
     const pinoObj = obterPinoHistorico(pinoId);
     if (pinoObj) {
-      destacarCamadaOrbital(entidadesAreas3DRef.current, pinoObj.camadaId);
+      destacarCamadaOrbital(entidadesAreas3DRef.current, pinoObj.camadaId, viewerRef.current);
     }
     if (entidadesEventos3DRef.current) {
       entidadesEventos3DRef.current.forEach((ent) => {
         const pId = ent.properties?.pinoId?.getValue();
-        destacarPinoHistorico(ent, pId === pinoId);
+        destacarPinoHistorico(ent, pId === pinoId, viewerRef.current);
       });
     }
+    solicitarRenderizacao(viewerRef.current);
   };
 
   const handleResetarModoOrbital = () => {
     setCamadaOrbitalAtiva(null);
     setPinoOrbitalAtivo(null);
-    destacarCamadaOrbital(entidadesAreas3DRef.current, null);
+    destacarCamadaOrbital(entidadesAreas3DRef.current, null, viewerRef.current);
     if (entidadesEventos3DRef.current) {
       entidadesEventos3DRef.current.forEach((ent) => {
-        destacarPinoHistorico(ent, false);
+        destacarPinoHistorico(ent, false, viewerRef.current);
       });
     }
+    solicitarRenderizacao(viewerRef.current);
   };
 
   // Efeitos sonoros estaveis para o hub de missoes
@@ -1479,6 +1530,7 @@ function App() {
       tempoAoVivoRef.current = false;
       setTempoAoVivo(false);
     }
+    sincronizarModoRenderizacao(viewerRef.current);
   };
 
   // Ressincroniza o relogio simulado com o horario real atual
@@ -1494,6 +1546,7 @@ function App() {
     setMultiplicadorTempo(1);
     tempoAoVivoRef.current = true;
     setTempoAoVivo(true);
+    sincronizarModoRenderizacao(viewerRef.current);
 
     if (workerRef.current) {
       workerOcupadoRef.current = true;
@@ -1544,7 +1597,8 @@ function App() {
 
     try {
       const tempoBase = new Date(simulatedTimeMsRef.current);
-      const pontos = gerarPontosOrbita(tleOuSat, tempoBase, 180);
+      const segmentos = perfilGraficoRef.current?.segmentosTrilha || 180;
+      const pontos = gerarPontosOrbita(tleOuSat, tempoBase, segmentos);
       if (!pontos || pontos.length < 10) return;
 
       const entidadeExistente = viewerInstance.entities.getById('trilha-orbital-dinamica');
@@ -1564,6 +1618,7 @@ function App() {
         });
         orbitaEntidadeRef.current = entidadeOrbita;
       }
+      solicitarRenderizacao(viewerInstance);
     } catch (e) {
       console.warn("Falha ao traçar polilinha da órbita:", e);
     }
@@ -1575,6 +1630,7 @@ function App() {
       const entidade = viewerInstance.entities.getById('trilha-orbital-dinamica');
       if (entidade) {
         viewerInstance.entities.remove(entidade);
+        solicitarRenderizacao(viewerInstance);
       }
       orbitaEntidadeRef.current = null;
     } catch {
@@ -1720,6 +1776,8 @@ function App() {
     if (focarCamera && v) {
       centralizarCameraNoObjeto(sat);
     }
+    sincronizarModoRenderizacao(v);
+    solicitarRenderizacao(v);
 
     // Busca dados enriquecidos sob demanda (COSPAR, local de lançamento, status e histórico SATCAT)
     if (sat && sat.norad_id) {
@@ -1779,6 +1837,7 @@ function App() {
         duration: 1.2,
         complete: () => {
           globoEmRotacaoOciosaRef.current = true;
+          sincronizarModoRenderizacao(v);
         }
       });
     } else {
@@ -1796,9 +1855,12 @@ function App() {
         duration: 1.2,
         complete: () => {
           globoEmRotacaoOciosaRef.current = true;
+          sincronizarModoRenderizacao(v);
         }
       });
     }
+    sincronizarModoRenderizacao(v);
+    solicitarRenderizacao(v);
   };
 
   // Funções de Descoberta Rápida e Investigação Guiada (Passo 2.1)
@@ -1894,7 +1956,8 @@ function App() {
     const viewerInstance = new window.Cesium.Viewer('cesium-container', {
       contextOptions: {
         webgl: {
-          alpha: true
+          alpha: true,
+          powerPreference: 'high-performance'
         }
       },
       animation: false,
@@ -1917,10 +1980,13 @@ function App() {
     viewerInstance.scene.globe.showAtmosphere = true;
     viewerInstance.scene.globe.atmosphereLightIntensity = 1.3;
     viewerInstance.scene.globe.depthTestAgainstTerrain = false;
-    viewerInstance.scene.globe.tileCacheSize = 200;
     viewerInstance.scene.globe.preloadAncestors = true;
     viewerInstance.scene.globe.preloadSiblings = false;
-    viewerInstance.resolutionScale = Math.min(window.devicePixelRatio || 1.0, 1.5);
+
+    const glContexto = viewerInstance.scene?.context?._gl || null;
+    perfilGraficoRef.current = refinarPerfilComWebGL(perfilGraficoRef.current, glContexto);
+    aplicarPerfilGrafico(viewerInstance, perfilGraficoRef.current, containerRef.current);
+    sincronizarModoRenderizacao(viewerInstance);
 
     // Configurações da câmera: trava a rotação e o foco no centro do planeta
     const ctrl = viewerInstance.scene.screenSpaceCameraController;
@@ -1934,23 +2000,69 @@ function App() {
     ctrl.inertiaSpin = 0.85;
     ctrl.inertiaZoom = 0.8;
 
-    // Provedor ArcGIS fotorrealista com fallback NaturalEarthII
+    let camadaBaseTemporaria = null;
+    let camadaArcGis = null;
+    let arcGisTilesProntos = false;
+    let arcGisObservando = false;
+    let removerListenerTiles = null;
+
+    // Carrega camada base local imediata enquanto o mapa ArcGIS e baixado
+    const carregarBaseNaturalEarth = async () => {
+      try {
+        const tmsClass = window.Cesium.TileMapServiceImageryProvider;
+        if (!tmsClass) return null;
+        const urlBase = window.Cesium.buildModuleUrl('Assets/Textures/NaturalEarthII');
+        if (typeof tmsClass.fromUrl === 'function') {
+          return await tmsClass.fromUrl(urlBase, { maximumLevel: 2 });
+        }
+        return new tmsClass({ url: urlBase, maximumLevel: 2 });
+      } catch {
+        return null;
+      }
+    };
+
+    carregarBaseNaturalEarth().then((provider) => {
+      if (!provider || viewerInstance.isDestroyed() || arcGisTilesProntos) return;
+      camadaBaseTemporaria = viewerInstance.imageryLayers.addImageryProvider(provider, 0);
+      solicitarRenderizacao(viewerInstance);
+    });
+
+    const verificarTilesArcGis = (restantes) => {
+      if (!viewerInstance || viewerInstance.isDestroyed() || !arcGisObservando) return;
+      if (camadaArcGis && restantes === 0 && viewerInstance.scene.globe.tilesLoaded) {
+        arcGisTilesProntos = true;
+        if (camadaBaseTemporaria) {
+          try {
+            viewerInstance.imageryLayers.remove(camadaBaseTemporaria, true);
+          } catch {
+            // Camada ja removida
+          }
+          camadaBaseTemporaria = null;
+        }
+        if (removerListenerTiles) {
+          removerListenerTiles();
+          removerListenerTiles = null;
+        }
+        solicitarRenderizacao(viewerInstance);
+      }
+    };
+
     if (window.Cesium.ArcGisMapServerImageryProvider && window.Cesium.ArcGisMapServerImageryProvider.fromUrl) {
       window.Cesium.ArcGisMapServerImageryProvider.fromUrl(
         'https://services.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer'
-      ).then(provider => {
-        if (viewerInstance && !viewerInstance.isDestroyed()) {
-          viewerInstance.imageryLayers.addImageryProvider(provider);
-        }
-      }).catch(() => {
-        try {
-          const provider = new window.Cesium.TileMapServiceImageryProvider({
-            url: window.Cesium.buildModuleUrl('Assets/Textures/NaturalEarthII')
+      ).then((provider) => {
+        if (!viewerInstance || viewerInstance.isDestroyed()) return;
+        camadaArcGis = viewerInstance.imageryLayers.addImageryProvider(provider);
+        removerListenerTiles = viewerInstance.scene.globe.tileLoadProgressEvent.addEventListener(verificarTilesArcGis);
+        solicitarRenderizacao(viewerInstance);
+        requestAnimationFrame(() => {
+          requestAnimationFrame(() => {
+            arcGisObservando = true;
+            verificarTilesArcGis(0);
           });
-          viewerInstance.imageryLayers.addImageryProvider(provider);
-        } catch {
-          // Fallback para mapa base silencioso
-        }
+        });
+      }).catch(() => {
+        // Mantem camada NaturalEarthII caso o servico ArcGIS falhe
       });
     }
 
@@ -1988,6 +2100,7 @@ function App() {
     const iniciarInteracaoCamera = () => {
       globoEmRotacaoOciosaRef.current = false;
       isArrastandoCamera = true;
+      sincronizarModoRenderizacao(viewerInstance);
       if (tooltipEl) tooltipEl.style.display = 'none';
     };
 
@@ -2027,9 +2140,11 @@ function App() {
     clickHandler.setInputAction(encerrarArrasteCamera, window.Cesium.ScreenSpaceEventType.MIDDLE_UP);
     clickHandler.setInputAction(() => {
       globoEmRotacaoOciosaRef.current = false;
+      sincronizarModoRenderizacao(viewerInstance);
     }, window.Cesium.ScreenSpaceEventType.WHEEL);
     clickHandler.setInputAction(() => {
       globoEmRotacaoOciosaRef.current = false;
+      sincronizarModoRenderizacao(viewerInstance);
     }, window.Cesium.ScreenSpaceEventType.PINCH_START);
     window.addEventListener('blur', encerrarArrasteCamera);
 
@@ -2185,10 +2300,10 @@ function App() {
         // Atualização de hover no marcador de pino
         if (lastHoveredEventoEntity !== novoPinoHover) {
           if (lastHoveredEventoEntity) {
-            destacarPinoHistorico(lastHoveredEventoEntity, false);
+            destacarPinoHistorico(lastHoveredEventoEntity, false, viewerInstance);
           }
           if (novoPinoHover) {
-            destacarPinoHistorico(novoPinoHover, true);
+            destacarPinoHistorico(novoPinoHover, true, viewerInstance);
           }
           lastHoveredEventoEntity = novoPinoHover;
         }
@@ -2244,6 +2359,7 @@ function App() {
           if (satData && (satData.ultimo_tle || satData.omm)) {
             desenharTrilhaOrbital(viewerInstance, satData);
           }
+          solicitarRenderizacao(viewerInstance);
         }
 
         // Reconstroi o tooltip ao trocar de satelite ou a cada segundo
@@ -2343,6 +2459,7 @@ function App() {
           } else {
             limparTrilhaOrbital(viewerInstance);
           }
+          solicitarRenderizacao(viewerInstance);
         }
 
         if (tooltipEl) {
@@ -2350,6 +2467,9 @@ function App() {
         }
       }
     }, window.Cesium.ScreenSpaceEventType.MOUSE_MOVE);
+
+    const inicioViewerMs = performance.now();
+    let janelasFpsBaixo = 0;
 
     // Acompanhamento do objeto focado, relogio simulado e giro ocioso no preRender
     const removerPreRender = viewerInstance.scene.preRender.addEventListener(() => {
@@ -2392,8 +2512,11 @@ function App() {
         !modoOrbitalAtivoRef.current &&
         multAtual > 0
       ) {
+        const perfilAtual = perfilGraficoRef.current;
         const tempoWorker = metricasPerformanceRef.current.tempoCalculoMs || 0;
-        const intervaloWorkerMs = multAtual > 1 ? Math.max(65, Math.ceil(tempoWorker * 2.2)) : 1000;
+        const fator = perfilAtual?.fatorBackpressureWorker || 2.2;
+        const intervaloTempoReal = perfilAtual?.intervaloWorkerTempoRealMs || 1000;
+        const intervaloWorkerMs = multAtual > 1 ? Math.max(65, Math.ceil(tempoWorker * fator)) : intervaloTempoReal;
         if (agoraRender - ultimoDisparoWorkerRef.current >= intervaloWorkerMs) {
           ultimoDisparoWorkerRef.current = agoraRender;
           workerOcupadoRef.current = true;
@@ -2484,27 +2607,49 @@ function App() {
         }
       }
 
-      // Calculo de FPS em tempo real e consumo de memoria
+      // Mede FPS continuo e rebaixa o perfil grafico em quedas prolongadas
       fpsFrameContadorRef.current += 1;
       const deltaRender = agoraRender - fpsUltimoTimestampRef.current;
       if (deltaRender >= 500) {
-        const fpsAtual = Math.round((fpsFrameContadorRef.current * 1000) / deltaRender);
+        const podeMedirFps = !document.hidden && deltaRender < 2000 && !viewerRef.current.scene.requestRenderMode;
+        const framesContados = fpsFrameContadorRef.current;
         fpsFrameContadorRef.current = 0;
         fpsUltimoTimestampRef.current = agoraRender;
 
-        let memoriaJs = null;
-        if (performance && performance.memory && performance.memory.usedJSHeapSize) {
-          memoriaJs = Math.round(performance.memory.usedJSHeapSize / (1024 * 1024));
-        }
+        if (podeMedirFps) {
+          const fpsAtual = Math.round((framesContados * 1000) / deltaRender);
+          let memoriaJs = null;
+          if (performance && performance.memory && performance.memory.usedJSHeapSize) {
+            memoriaJs = Math.round(performance.memory.usedJSHeapSize / (1024 * 1024));
+          }
 
-        if (satSelecionadoRef.current) {
           metricasPerformanceRef.current.fps = Math.min(144, Math.max(1, fpsAtual));
           metricasPerformanceRef.current.memoriaMb = memoriaJs;
+
+          if (agoraRender - inicioViewerMs > 3000) {
+            const limiarFps = perfilGraficoRef.current.nivel === 'alto' ? 24 : 22;
+            if (fpsAtual < limiarFps) {
+              janelasFpsBaixo += 1;
+              if (janelasFpsBaixo >= 8) {
+                const proximoPerfil = rebaixarPerfilGrafico(perfilGraficoRef.current);
+                if (proximoPerfil) {
+                  perfilGraficoRef.current = proximoPerfil;
+                  aplicarPerfilGrafico(viewerRef.current, proximoPerfil, containerRef.current);
+                }
+                janelasFpsBaixo = 0;
+              }
+            } else {
+              janelasFpsBaixo = 0;
+            }
+          }
+        } else {
+          janelasFpsBaixo = 0;
         }
       }
     });
 
     return () => {
+      if (removerListenerTiles) removerListenerTiles();
       window.removeEventListener('blur', encerrarArrasteCamera);
       removerPreRender();
       clickHandler.destroy();
@@ -2515,18 +2660,26 @@ function App() {
       viewerRef.current = null;
       setViewer(null);
     };
-  }, []);
+  }, [solicitarRenderizacao, sincronizarModoRenderizacao]);
 
   // Pausa render loop do Cesium quando a aba do navegador estiver em segundo plano para economia de CPU/bateria
   useEffect(() => {
     const handleVisibilidade = () => {
       if (viewerRef.current && !viewerRef.current.isDestroyed()) {
-        viewerRef.current.useDefaultRenderLoop = !document.hidden;
+        const visivel = !document.hidden;
+        viewerRef.current.useDefaultRenderLoop = visivel;
+        if (visivel) {
+          const agora = performance.now();
+          ultimoFrameSimulacaoRef.current = agora;
+          fpsUltimoTimestampRef.current = agora;
+          fpsFrameContadorRef.current = 0;
+          solicitarRenderizacao(viewerRef.current);
+        }
       }
     };
     document.addEventListener('visibilitychange', handleVisibilidade);
     return () => document.removeEventListener('visibilitychange', handleVisibilidade);
-  }, []);
+  }, [solicitarRenderizacao]);
 
   // Redimensionamento responsivo do Cesium
   useEffect(() => {
@@ -2535,7 +2688,10 @@ function App() {
     const handleResize = () => {
       try {
         if (viewer && !viewer.isDestroyed()) {
+          const dpr = window.devicePixelRatio || 1.0;
+          viewer.resolutionScale = Math.min(dpr, perfilGraficoRef.current.maxResolutionScale);
           viewer.resize();
+          solicitarRenderizacao(viewer);
         }
       } catch {
         // Redimensionamento silencioso
@@ -2544,7 +2700,13 @@ function App() {
 
     window.addEventListener('resize', handleResize);
     return () => window.removeEventListener('resize', handleResize);
-  }, [viewer]);
+  }, [viewer, solicitarRenderizacao]);
+
+  // Sincroniza modo de renderizacao sob demanda com estado do simulador
+  useEffect(() => {
+    if (!viewer || viewer.isDestroyed()) return;
+    sincronizarModoRenderizacao(viewer);
+  }, [telaAtiva, modoOrbitalAtivo, multiplicadorTempo, viewer, sincronizarModoRenderizacao]);
 
   // Delega propagacao e inicializacao dos pontos ao Web Worker
   useEffect(() => {
@@ -2625,7 +2787,8 @@ function App() {
       const tooltipEl = document.getElementById('hud-tooltip');
       if (tooltipEl) tooltipEl.style.display = 'none';
     }
-  }, [telaAtiva, categoriasAtivas, modoOrbitalAtivo, regimeAtivo, viewer]);
+    solicitarRenderizacao(viewer);
+  }, [telaAtiva, categoriasAtivas, modoOrbitalAtivo, regimeAtivo, viewer, solicitarRenderizacao]);
 
 
   const handleAlternarCategoria = (catId) => {
@@ -2663,6 +2826,8 @@ function App() {
             roll: POSICAO_ORBITAL_PADRAO.roll
           }
         });
+        sincronizarModoRenderizacao(v);
+        solicitarRenderizacao(v);
       }
     } catch (err) {
       console.warn("Aviso ao definir posição inicial do Cesium:", err);

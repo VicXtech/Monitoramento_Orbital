@@ -332,7 +332,7 @@ export function posicionarCameraModoOrbital(viewer, camadaId = 'leo', duracao = 
 }
 
 // Realca visualmente o anel e as bordas da camada orbital selecionada
-export function destacarCamadaOrbital(colecao, camadaIdAtiva) {
+export function destacarCamadaOrbital(colecao, camadaIdAtiva, viewer = null) {
   if (!colecao || !window.Cesium) return;
   const idNormalizado = camadaIdAtiva ? String(camadaIdAtiva).toLowerCase() : null;
   const entidades = colecao.entidades || [];
@@ -371,8 +371,16 @@ export function destacarCamadaOrbital(colecao, camadaIdAtiva) {
       }
     });
 
+    if (atualizado && viewer && !viewer.isDestroyed() && viewer.scene?.requestRenderMode) {
+      viewer.scene.requestRender();
+    }
+
     return atualizado;
   };
+
+  if (viewer && !viewer.isDestroyed() && viewer.scene?.requestRenderMode) {
+    viewer.scene.requestRender();
+  }
 
   if (!aplicarCoresDiscos() && typeof requestAnimationFrame !== 'undefined') {
     requestAnimationFrame(() => {
@@ -382,7 +390,7 @@ export function destacarCamadaOrbital(colecao, camadaIdAtiva) {
 }
 
 // Realca pino historico sob hover ou selecao
-export function destacarPinoHistorico(entidade, isHover) {
+export function destacarPinoHistorico(entidade, isHover, viewer = null) {
   if (!entidade || !entidade.point || !window.Cesium) return;
 
   if (isHover) {
@@ -401,6 +409,10 @@ export function destacarPinoHistorico(entidade, isHover) {
     if (entidade.billboard) {
       entidade.billboard.scale = 1.0;
     }
+  }
+
+  if (viewer && !viewer.isDestroyed() && viewer.scene?.requestRenderMode) {
+    viewer.scene.requestRender();
   }
 }
 

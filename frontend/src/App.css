@@ -238,6 +238,7 @@
   background: var(--bg-panel);
   -webkit-backdrop-filter: blur(12px);
   backdrop-filter: blur(12px);
+  contain: layout style;
   border: 1px solid var(--border-subtle);
   border-radius: 2px;
   display: flex;
@@ -1321,6 +1322,7 @@
   background: var(--bg-panel-elevated);
   -webkit-backdrop-filter: blur(16px);
   backdrop-filter: blur(16px);
+  contain: layout style;
   border: 1px solid var(--border-structural);
   padding: 10px 14px;
   border-radius: 2px;
@@ -12125,4 +12127,38 @@
 .audit-factors-list:hover,
 .normative-framework-card:hover {
   border-color: var(--border-structural);
+}
+
+/* Modo economico para GPUs basicas ou por software */
+.perf-eco {
+  --bg-panel: rgba(11, 15, 23, 0.96);
+  --bg-panel-elevated: rgba(13, 19, 30, 0.98);
+}
+
+.perf-eco .brand-section,
+.perf-eco .search-bar-container,
+.perf-eco .search-suggestions,
+.perf-eco .hud-panel,
+.perf-eco .fiche-image-badge,
+.perf-eco .hud-tooltip,
+.perf-eco .cinema-navbar,
+.perf-eco .cinema-action-btn,
+.perf-eco .cinema-sound-btn,
+.perf-eco .cinema-bracket-btn,
+.perf-eco .tactical-visor-frame,
+.perf-eco .hud-trigger-float-btn,
+.perf-eco .hud-tools-panel,
+.perf-eco .hud-modal-backdrop,
+.perf-eco .hud-modal-card,
+.perf-eco .timeline-bottom-tab-trigger,
+.perf-eco .timeline-expanded-drawer,
+.perf-eco .earth-risk-minimized-pill,
+.perf-eco .earth-risk-hud-widget,
+.perf-eco .orbital-area-detail-panel,
+.perf-eco .orbital-tactical-frame,
+.perf-eco .orbital-mission-hub-panel,
+.perf-eco .orbital-mode-floating-text-wrap,
+.perf-eco .orbital-mode-panel-frame {
+  -webkit-backdrop-filter: none !important;
+  backdrop-filter: none !important;
 }
