@@ -51,6 +51,13 @@ CREATE TABLE IF NOT EXISTS tle_historico (
     CONSTRAINT fk_objeto FOREIGN KEY (objeto_id) REFERENCES objeto_orbital(id) ON DELETE CASCADE
 );
 
+-- Cria a tabela catalogo_metadata
+CREATE TABLE IF NOT EXISTS catalogo_metadata (
+    chave VARCHAR(100) PRIMARY KEY,
+    valor TEXT NOT NULL,
+    atualizado_em TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP
+);
+
 -- Cria índices de busca
 CREATE INDEX IF NOT EXISTS idx_objeto_orbital_norad_id ON objeto_orbital(norad_id);
 CREATE INDEX IF NOT EXISTS idx_objeto_orbital_cospar_id ON objeto_orbital(cospar_id);

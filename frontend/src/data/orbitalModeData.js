@@ -91,8 +91,8 @@ export const CAMADAS_ORBITAIS = {
       }
     },
     acoesNormas: [
-      { badge: 'FCC 22-103', titulo: 'Regra dos 5 Anos', desc: 'Desorbitagem mandatória em até 5 anos após o término da missão.' },
-      { badge: 'ESA Zero Debris', titulo: 'Remoção Ativa', desc: 'Garras robóticas e redes como ClearSpace-1 para capturar sucatas grandes.' },
+      { badge: 'FCC 22-74', titulo: 'Regra dos 5 Anos', desc: 'Desorbitagem mandatória em até 5 anos após o término da missão.' },
+      { badge: 'ESA Zero Debris', titulo: 'Remoção Ativa', desc: 'Garras robóticas e redes como a missão ClearSpace-1 da ESA (prevista para 2030, mirando o satélite PROBA-1) para capturar detritos grandes.' },
       { badge: 'Engenharia Verde', titulo: 'Satélites Limpos', desc: 'Pesquisa com ligas ecológicas e satélites de madeira para eliminar fumaça tóxica.' }
     ],
     velocimetro: {
@@ -337,8 +337,8 @@ export const CAMADAS_ORBITAIS = {
     risco: 'Elevado',
     velocidadeFicha: '1,5 a 10 km/s',
     velocidadeSub: 'Rápida no perigeu, lenta no apogeu',
-    periodoFicha: 'Até 12 horas',
-    periodoSub: 'Varia conforme a elipse',
+    periodoFicha: '12h a 57h+',
+    periodoSub: 'Varia conforme o alongamento da órbita',
     subregioes: [
       {
         nome: 'Transferência GTO',
@@ -466,10 +466,10 @@ export const PINOS_HISTORICOS = [
     id: 'inpe-brasil-1993',
     ano: 1993,
     nome: 'Pioneirismo SCD-1 e Monitoramento INPE',
-    localNome: 'Alcântara / Amazônia, Brasil',
+    localNome: 'Lançado da Flórida (EUA) · Operado pelo INPE (Brasil)',
     posicao: { lat: -2.3, lon: -44.4, altKm: 750 },
     camadaId: 'leo',
-    fatoTecnico: 'SCD-1 superou em 30 vezes sua vida útil projetada de 1 ano; CBERS-4A e Amazonia-1 monitoram a floresta em tempo real.',
+    fatoTecnico: 'Fabricado no Brasil pelo INPE e lançado em 1993 por um foguete Pegasus a partir da Flórida, o SCD-1 superou em mais de 30 vezes sua vida útil projetada de 1 ano; ao lado do CBERS-4A e Amazonia-1, apoia o monitoramento ambiental brasileiro.',
     licaoSustentabilidade: 'Demonstra a dependência direta da preservação orbital para o acompanhamento climático e combate ao desmatamento.'
   },
   {
@@ -487,9 +487,9 @@ export const PINOS_HISTORICOS = [
     ano: 1958,
     nome: 'Vanguard 1 em Órbita',
     localNome: 'Cabo Canaveral, EUA',
-    posicao: { lat: 28.5, lon: -80.5, altKm: 650 },
+    posicao: { lat: 28.5, lon: -80.5, altKm: 2235 },
     camadaId: 'meo',
-    fatoTecnico: 'Objeto humano mais antigo ainda no espaço; perdeu comunicação em 1964 mas permanecerá em órbita por séculos.',
+    fatoTecnico: 'Objeto humano mais antigo ainda no espaço, em órbita elíptica de 654 km a 3.820 km; perdeu comunicação em 1964, mas permanecerá em órbita por séculos.',
     licaoSustentabilidade: 'Símbolo da permanência de satélites desprovidos de mecanismos ativos de desorbitagem controlada.'
   },
   {
@@ -519,7 +519,7 @@ export const PINOS_HISTORICOS = [
     localNome: 'Anel Geoestacionário',
     posicao: { lat: 0.0, lon: -27.5, altKm: 35786 },
     camadaId: 'geo',
-    fatoTecnico: 'Primeiro acoplamento comercial da história para extensão de vida útil de satélite em GEO, restaurando as operações do Intelsat 901 por mais 5 anos.',
+    fatoTecnico: 'Primeiro acoplamento comercial em GEO (2020), estendendo a vida útil do Intelsat 901 por 5 anos. Em abril de 2025, o MEV-1 concluiu a missão, levou o satélite à órbita cemitério e desacoplou com sucesso.',
     licaoSustentabilidade: 'Comprovou a viabilidade prática da manutenção orbital e reboque ativo de satélites sem combustível direto para a órbita cemitério.'
   },
   {

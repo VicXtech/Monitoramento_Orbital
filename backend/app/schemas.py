@@ -111,6 +111,7 @@ class TotaisOficiaisCatalogo(BaseModel):
     celestrak_catalogados: int = 34729
     celestrak_rastreados: int = 31818
     nao_catalogados_estimativa: str = "Mais de 230 milhões"
+    ultima_atualizacao: Optional[str] = None
 
     model_config = ConfigDict(from_attributes=True)
 
@@ -123,5 +124,6 @@ class EstatisticasResponse(BaseModel):
     evolucao_historica: List[EvolucaoHistorica]
     distribuicao_regimes: Optional[DistribuicaoRegimes] = None
     totais_oficiais: Optional[TotaisOficiaisCatalogo] = None
+    ultima_atualizacao: Optional[str] = None
 
     model_config = ConfigDict(from_attributes=True)

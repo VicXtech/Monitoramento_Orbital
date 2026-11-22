@@ -402,7 +402,7 @@ const SOBRE_PLATAFORMA_SECOES = [
   {
     id: 'fontes',
     title: 'FONTES',
-    text: 'Os dados são extraídos diretamente dos maiores catálogos astronômicos e redes de monitoramento global, como o CelesTrak com parâmetros orbitais diários e o Space-Track com rastreamento contínuo por sensores e radares internacionais, garantindo transparência científica com informações públicas.'
+    text: 'Os dados são coletados diretamente da API pública do CelesTrak (elementos orbitais GP/TLE e catálogo SATCAT, originados da rede de vigilância espacial dos EUA / Space-Track), garantindo transparência científica com informações públicas.'
   }
 ];
 
@@ -2916,35 +2916,55 @@ function App() {
     };
   };
 
-  // Dados do Censo de Detritos por País com cálculo dinâmico a partir do catálogo atual
+  // Dados reais do censo por país agregados da API de estatísticas
   const dadosCensoPaises = useMemo(() => {
-    const totais = obterContadoresCategorias();
-    const totalCat = totais.celestrak_catalogados || 34729;
-    const fator = totalCat / 34729;
-
-    // Valores reais consolidados Space-Track
-    const basePaises = [
-      { pais: 'Estados Unidos', detritos: 5210, inativos: 1180, ativos: 11450 },
-      { pais: 'Rússia / URSS', detritos: 5140, inativos: 1580, ativos: 380 },
-      { pais: 'China', detritos: 4480, inativos: 460, ativos: 1520 },
-      { pais: 'Reino Unido / Europa', detritos: 610, inativos: 390, ativos: 1120 },
-      { pais: 'Brasil', detritos: 0, inativos: 9, ativos: 14 },
-      { pais: 'Outros Países', detritos: 720, inativos: 340, ativos: 1167 }
+    const grupos = [
+      { pais: 'Estados Unidos', detritos: 0, inativos: 0, ativos: 0 },
+      { pais: 'Rússia / CEI', detritos: 0, inativos: 0, ativos: 0 },
+      { pais: 'China', detritos: 0, inativos: 0, ativos: 0 },
+      { pais: 'Reino Unido / Europa', detritos: 0, inativos: 0, ativos: 0 },
+      { pais: 'Brasil', detritos: 0, inativos: 0, ativos: 0 },
+      { pais: 'Outros Países', detritos: 0, inativos: 0, ativos: 0 }
     ];
 
-    if (Math.abs(fator - 1) < 0.001) {
-      return basePaises;
+    const listaApi = estatisticas?.distribuicao_paises;
+    if (!Array.isArray(listaApi) || listaApi.length === 0) {
+      return grupos;
     }
 
-    return basePaises.map(item => {
-      if (item.pais === 'Brasil') return item;
-      return {
-        pais: item.pais,
-        detritos: Math.round(item.detritos * fator),
-        inativos: Math.round(item.inativos * fator),
-        ativos: Math.round(item.ativos * fator)
-      };
+    const euaSet = new Set(['Estados Unidos', 'Estados Unidos / ESA', 'Globalstar', 'Intelsat', 'Orbcomm', 'Iridium']);
+    const russiaSet = new Set(['Rússia', 'Cazaquistão', 'Ucrânia']);
+    const europaSet = new Set([
+      'Reino Unido', 'União Europeia', 'França', 'Alemanha', 'Itália', 'Espanha',
+      'Suécia', 'Noruega', 'Holanda', 'Dinamarca', 'Finlândia', 'Polônia',
+      'República Tcheca', 'Eutelsat', 'SES', 'EUMETSAT'
+    ]);
+    const brasilSet = new Set(['Brasil', 'Brasil/China']);
+
+    listaApi.forEach((item) => {
+      const origem = String(item?.pais || '').trim();
+      let alvoIdx = 5;
+      if (euaSet.has(origem)) alvoIdx = 0;
+      else if (russiaSet.has(origem)) alvoIdx = 1;
+      else if (origem === 'China') alvoIdx = 2;
+      else if (europaSet.has(origem)) alvoIdx = 3;
+      else if (brasilSet.has(origem)) alvoIdx = 4;
+
+      grupos[alvoIdx].detritos += Number(item?.detritos) || 0;
+      grupos[alvoIdx].inativos += Number(item?.inativos) || 0;
+      grupos[alvoIdx].ativos += Number(item?.ativos) || 0;
     });
+
+    return grupos;
+  }, [estatisticas]);
+
+  // Data formatada da última atualização do catálogo
+  const dataAtualizacaoCatalogo = useMemo(() => {
+    const iso = estatisticas?.ultima_atualizacao || estatisticas?.totais_oficiais?.ultima_atualizacao;
+    if (!iso) return null;
+    const dt = new Date(iso);
+    if (Number.isNaN(dt.getTime())) return null;
+    return dt.toLocaleDateString('pt-BR', { timeZone: 'UTC' });
   }, [estatisticas]);
 
   // Contadores dinâmicos de objetos atualmente visíveis/plotados no console para cada categoria
@@ -3210,7 +3230,7 @@ function App() {
                           <div className="about-metric-item">
                             <span className="about-metric-val">24h</span>
                             <span className="about-metric-lbl">Atualização</span>
-                            <span className="about-metric-sub">Sincronização diária de TLEs</span>
+                            <span className="about-metric-sub">Sincronização diária com CelesTrak</span>
                           </div>
                         </div>
                       </div>
@@ -3370,7 +3390,7 @@ function App() {
                                 <h4 className="pod-title">DADOS & FÍSICA</h4>
                               </div>
                               <div className="pod-tech-line">
-                                <span>PostgreSQL 16</span> · <span>CelesTrak</span> · <span>Space-Track</span> · <span>TLE / SGP4</span>
+                                <span>PostgreSQL 15</span> · <span>CelesTrak (GP / SATCAT)</span> · <span>TLE / OMM</span> · <span>SGP4</span>
                               </div>
                               <p className="pod-desc">Armazenamento relacional e cálculo de órbitas em tempo real.</p>
                             </div>
@@ -3489,7 +3509,7 @@ function App() {
                             <div className="impact-card-row">
                               <span className="impact-row-tag">IMPACTO NO FUTURO</span>
                               <p className="impact-row-text">
-                                Potencial distorção da ionosfera e enfraquecimento das defesas magnéticas naturais da Terra contra tempestades solares.
+                                Pesquisas recentes investigam se essa poeira metálica pode alterar a ionosfera e, em hipótese ainda em debate científico, interferir no campo magnético terrestre.
                               </p>
                             </div>
                           </div>
@@ -3506,7 +3526,11 @@ function App() {
                                   <CyberTypewriter text="CENSO DE DETRITOS POR ORIGEM" active={secaoVisorExibida === 3} delay={240} speed={25} />
                                 </span>
                               </div>
-                              <span className="tactical-table-source">CATÁLOGO SPACE-TRACK / NASA ODPO</span>
+                              <span className="tactical-table-source">
+                                {dataAtualizacaoCatalogo
+                                  ? `CATÁLOGO CELESTRAK / SATCAT · ATUALIZADO EM ${dataAtualizacaoCatalogo}`
+                                  : 'CATÁLOGO CELESTRAK / SATCAT'}
+                              </span>
                             </div>
 
                             {/* Tabela factual com rolagem horizontal em telas estreitas */}
@@ -4440,6 +4464,7 @@ function App() {
                 <ScenarioSimulatorModal
                   aberto={modalCenariosAberto}
                   onFechar={handleFecharModais}
+                  totaisCatalogo={obterContadoresCategorias()}
                   onTocarSom={(tipo) => {
                     if (tipo === 'iniciar') tocarEfeitoSonoro(somIniciar, 0.65);
                     else if (tipo === 'slide') tocarEfeitoSonoro(somTrocaSlide, 0.55);

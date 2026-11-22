@@ -1,0 +1,52 @@
+name: Sincronizacao Diaria CelesTrak
+
+on:
+  schedule:
+    - cron: '0 6 * * *'
+  workflow_dispatch:
+
+jobs:
+  sincronizar:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Validar configuracao dos segredos
+        env:
+          BACKEND_URL: ${{ secrets.BACKEND_URL }}
+          SYNC_SECRET_TOKEN: ${{ secrets.SYNC_SECRET_TOKEN }}
+        run: |
+          if [ -z "$BACKEND_URL" ] || [ -z "$SYNC_SECRET_TOKEN" ]; then
+            echo "Erro: defina BACKEND_URL e SYNC_SECRET_TOKEN nos Secrets do repositorio"
+            exit 1
+          fi
+
+      - name: Acordar servico e disparar sincronizacao
+        env:
+          BACKEND_URL: ${{ secrets.BACKEND_URL }}
+          SYNC_SECRET_TOKEN: ${{ secrets.SYNC_SECRET_TOKEN }}
+        run: |
+          BASE_URL="${BACKEND_URL%/}"
+          ok=0
+          for i in 1 2 3 4 5 6; do
+            status=$(curl -s -o /dev/null -w "%{http_code}" "${BASE_URL}/ping" || echo "000")
+            echo "Tentativa ${i}/6 de /ping: HTTP ${status}"
+            if [ "$status" = "200" ]; then
+              ok=1
+              break
+            fi
+            sleep 15
+          done
+
+          if [ "$ok" -ne 1 ]; then
+            echo "Erro: backend nao respondeu ao /ping"
+            exit 1
+          fi
+
+          sync_code=$(curl -s -o /tmp/sync_resp.json -w "%{http_code}" \
+            -X POST "${BASE_URL}/api/admin/sincronizar" \
+            -H "X-Sync-Token: ${SYNC_SECRET_TOKEN}")
+          cat /tmp/sync_resp.json
+          echo ""
+          if [ "$sync_code" -lt 200 ] || [ "$sync_code" -ge 300 ]; then
+            echo "Erro: sincronizacao retornou HTTP ${sync_code}"
+            exit 1
+          fi

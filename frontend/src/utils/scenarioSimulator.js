@@ -9,7 +9,7 @@
  * N(t) = N_0 + ∫ [ L(t) - D_pmd(t) - D_arrasto(t) + F_colisao(t) ] dt
  * 
  * Onde:
- * - N_0: População catalogada em 2026 (~11.535 objetos)
+ * - N_0: População catalogada de referência em 2026 (~31.818 objetos)
  * - L(t): Taxa de injeção anual de satélites
  * - D_pmd(t): Taxa de desorbitagem pós-missão bem sucedida (Post-Mission Disposal - PMD)
  * - D_arrasto(t): Decaimento natural por arrasto atmosférico solar/geomagnético
@@ -66,9 +66,10 @@ export const CENARIOS_PREDEFINIDOS = [
  * @param {number} params.taxaDesorbitagemPct - Taxa de desorbitagem pós-missão (20% a 99%)
  * @param {number} params.vidaUtilAnos - Tempo médio de vida útil dos satélites em anos (3 a 15)
  * @param {boolean} [params.adesaoRegra5Anos] - Se aplica a regra estrita dos 5 anos
+ * @param {object} [populacaoInicial] - Totais atuais do catálogo no banco
  * @returns {object} Resultados completos da projeção até 2050
  */
-export function simularCenario2050(params) {
+export function simularCenario2050(params, populacaoInicial = null) {
   const {
     lancamentosAno = 2400,
     taxaDesorbitagemPct = 65,
@@ -78,8 +79,18 @@ export function simularCenario2050(params) {
 
   // Horizonte temporal: de 2026 a 2050 (24 anos)
   const deltaAnos = 24;
-  const popInicial2026 = 11535; // População catalogada de referência em 2026 (~4.918 ativos + ~6.617 inertes)
-  const inertesBase = 6617; // Inativos + foguetes + detritos
+  const popInicial2026 = Math.max(
+    1000,
+    Number(populacaoInicial?.total_console || populacaoInicial?.total) || 31818
+  );
+  const somaInertesReais =
+    (Number(populacaoInicial?.inativos) || 0) +
+    (Number(populacaoInicial?.foguetes) || 0) +
+    (Number(populacaoInicial?.detritos) || 0);
+  const ativosReais = (Number(populacaoInicial?.ativos) || 0) + (Number(populacaoInicial?.estacoes) || 0);
+  const inertesBase = somaInertesReais > 0
+    ? somaInertesReais
+    : (ativosReais > 0 ? Math.max(1000, popInicial2026 - ativosReais) : 16165);
 
   // 1. Injeção acumulada de satélites no período
   const totalLancadosPeriodo = lancamentosAno * deltaAnos;
@@ -120,7 +131,7 @@ export function simularCenario2050(params) {
   // 6. Risco de Cascata de Kessler (0 a 100%)
   const probabilidadeKesslerPct = Math.min(
     95,
-    Math.max(8, Math.round((totalObjetos2050 / 45000) * 85 + (densidadeFator > 1.8 ? 15 : 0)))
+    Math.max(8, Math.round((totalObjetos2050 / 80000) * 85 + (densidadeFator > 1.8 ? 15 : 0)))
   );
 
   // 7. Impacto na Alta Atmosfera (Massa de queima anual de satélites em toneladas de aerossóis)

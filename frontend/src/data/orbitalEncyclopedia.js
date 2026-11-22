@@ -11,7 +11,7 @@
 // 1. CATÁLOGO FACTUAL DE MISSÕES HISTÓRICAS E REAIS
 export const CATALOGO_HISTORICO = {
   // MISSÕES BRASILEIRAS
-  "22823": {
+  "22490": {
     nomeOficial: "SCD-1 - Satélite de Coleta de Dados 1",
     pais: "Brasil",
     operador: "INPE - Instituto Nacional de Pesquisas Espaciais",
@@ -21,7 +21,7 @@ export const CATALOGO_HISTORICO = {
     historico: "Lançado em 9 de fevereiro de 1993 pelo foguete americano Pegasus, o SCD-1 é o primeiro satélite desenvolvido integralmente no Brasil. Projetado originalmente para operar por apenas 1 ano, superou todas as expectativas da engenharia espacial brasileira e permanece em operação contínua e transmitindo dados há mais de 30 anos.",
     relevancia: "Marco pioneiro do Programa Espacial Brasileiro, validou a competência nacional em subsistemas térmicos, de bordo e controle de atitude por rotação."
   },
-  "25400": {
+  "25504": {
     nomeOficial: "SCD-2 - Satélite de Coleta de Dados 2",
     pais: "Brasil",
     operador: "INPE",
@@ -31,7 +31,7 @@ export const CATALOGO_HISTORICO = {
     historico: "Lançado em outubro de 1998 a bordo de um lançador Pegasus XL, o SCD-2 sucedeu o SCD-1 trazendo melhorias nos sistemas de telemetria e baterias solares desenvolvidas no Laboratório de Integração e Testes LIT/INPE.",
     relevancia: "Garante a redundância e a perenidade do Sistema Brasileiro de Coleta de Dados Ambientais."
   },
-  "54380": {
+  "47699": {
     nomeOficial: "Amazonia-1",
     pais: "Brasil",
     operador: "INPE / AEB",
@@ -106,7 +106,7 @@ export const CATALOGO_HISTORICO = {
     anoLancamento: 1993,
     massaKg: 900,
     finalidade: "Satélite de comunicação militar da frota Strela-2M. Encerrou sua vida útil em 1995 e permaneceu como satélite inativo descontrolado.",
-    historico: "Em 10 de fevereiro de 2009, o Cosmos 2251 colidiu catastroficamente a 789 km de altitude com o satélite comercial operacional Iridium 33 a uma velocidade relativa de 42.120 km/h (11,7 km/s). O choque destruiu ambos os satélites e gerou mais de 1.400 fragmentos grandes catalogados de lixo espacial.",
+    historico: "Em 10 de fevereiro de 2009, o Cosmos 2251 colidiu catastroficamente a 789 km de altitude com o satélite comercial operacional Iridium 33 a uma velocidade relativa de 42.120 km/h (11,7 km/s). O choque destruiu ambos os satélites e gerou mais de 2.000 fragmentos catalogados ao todo (somando os dois satélites) de lixo espacial.",
     relevancia: "Primeiro choque acidental hiperveloz entre dois satélites artificiais intactos na história espacial, marco prático do Efeito Kessler."
   },
   "24946": {
@@ -121,59 +121,7 @@ export const CATALOGO_HISTORICO = {
   }
 };
 
-// 2. DIAGNÓSTICO DO SETOR (MACRO) REATIVO AO FILTRO ATIVO DO PAINEL ESQUERDO
-export const DIAGNOSTICO_SETORES = {
-  1: {
-    titulo: "SATÉLITES ATIVOS",
-    itens: [
-      { rotulo: "Densidade Crítica", desc: "87% operando em Órbita Baixa LEO" },
-      { rotulo: "Taxa de Ocupação", desc: "83,7% de satélites funcionais no censo atual" },
-      { rotulo: "Alerta de Tráfego", desc: "Alta densidade de megaconstelações comerciais" }
-    ]
-  },
-  2: {
-    titulo: "SATÉLITES INATIVOS",
-    itens: [
-      { rotulo: "Obsoletos em Órbita", desc: "Carcaças e equipamentos desativados à deriva" },
-      { rotulo: "Risco de Fragmentação", desc: "Baterias e tanques pressurizados residuais" },
-      { rotulo: "Órbitas Cemitério", desc: "Frotas em GEO elevadas a zonas de descarte acima de 36.000 km" }
-    ]
-  },
-  3: {
-    titulo: "DETRITOS ESPACIAIS",
-    itens: [
-      { rotulo: "Risco de Impacto", desc: "Mais de 12.500 fragmentos sem propulsão ou controle" },
-      { rotulo: "Ponto Crítico", desc: "Concentração máxima entre 750 km e 950 km em LEO" },
-      { rotulo: "Dinâmica", desc: "Fragmentos hipersônicos a 27.000 km/h sem manobra evasiva" }
-    ]
-  },
-  4: {
-    titulo: "BASES TRIPULADAS",
-    itens: [
-      { rotulo: "População Orbital", desc: "Estruturas habitadas continuamente como ISS e Tiangong" },
-      { rotulo: "Regime de Voo", desc: "~400 km a 420 km de altitude média" },
-      { rotulo: "Manobras Evasivas", desc: "Requerem queima periódica de propulsores contra detritos" }
-    ]
-  },
-  5: {
-    titulo: "CORPOS DE FOGUETES",
-    itens: [
-      { rotulo: "Massa Crítica", desc: "Estágios superiores descartados como Falcon, Soyuz, Centaur e CZ" },
-      { rotulo: "Risco de Explosão", desc: "Propelente residual e pressurização em tanques esgotados" },
-      { rotulo: "Cinturão Kessler", desc: "Alvos massivos que amplificam potencial de fragmentação" }
-    ]
-  },
-  todos: {
-    titulo: "SATÉLITES ATIVOS",
-    itens: [
-      { rotulo: "Densidade Crítica", desc: "Mais de 16.500 satélites operacionais catalogados" },
-      { rotulo: "Taxa de Ocupação", desc: "Predominância em Órbita Baixa LEO e Geoestacionária" },
-      { rotulo: "Alerta de Tráfego", desc: "Crescimento exponencial de megaconstelações comerciais" }
-    ]
-  }
-};
-
-// 3. GERADOR FACTUAL DINÂMICO PARA SATÉLITES NÃO LISTADOS NOMINALMENTE
+// 2. GERADOR FACTUAL DINÂMICO PARA SATÉLITES NÃO LISTADOS NOMINALMENTE
 export function obterFichaFactual(sat, parametrosOrbitais) {
   if (!sat) return null;
 
@@ -370,7 +318,7 @@ export const GLOSSARIO_ORBITAL = [
       {
         termo: "SGP4 - Modelo de Propagação",
         titulo: "Algoritmo de Cálculo Orbital",
-        definicao: "Fórmula usada para calcular onde cada satélite está em tempo real, levando em conta a gravidade da Terra, da Lua, do Sol e o atrito do ar."
+        definicao: "Modelo matemático usado para calcular a posição dos satélites em tempo real, considerando o achatamento da Terra e o atrito do ar (com o ramo SDP4 incluindo a gravidade da Lua e do Sol para órbitas distantes)."
       },
       {
         termo: "Termo BSTAR",
@@ -430,7 +378,7 @@ export const GLOSSARIO_ORBITAL = [
       {
         termo: "IADC - Inter-Agency Debris Committee",
         titulo: "Comitê Interagências de Detritos",
-        definicao: "Comitê governamental internacional que reúne as principais agências espaciais do mundo como NASA, ESA, JAXA e INPE para estabelecer as diretrizes científicas globais de prevenção ao lixo espacial."
+        definicao: "Comitê internacional que reúne 13 agências espaciais (como NASA, ESA, JAXA, CNSA, Roscosmos e ISRO) para definir diretrizes globais de prevenção ao lixo espacial."
       },
       {
         termo: "FCC - Regra de 5 Anos",

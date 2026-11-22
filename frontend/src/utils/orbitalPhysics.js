@@ -175,7 +175,7 @@ export function calcularParametrosOrbitais(satOuLinha1, linha2OuData = null, dat
     } else if (perigeuKm >= 2000 && apogeuKm < 35500 && excentricidade < 0.25) {
       regimeCodigo = 'MEO';
       regimeNome = 'Órbita Terrestre Média MEO';
-      regimeDescricao = 'Altitude entre 2.000 km e 35.500 km. Região estratégica utilizada por constelações de posicionamento global como GPS, Galileo e Glonass.';
+      regimeDescricao = 'Altitude entre 2.000 km e 35.786 km. Região estratégica utilizada por constelações de posicionamento global como GPS, Galileo e GLONASS.';
     }
 
     // 7. Descrição Didática da Inclinação

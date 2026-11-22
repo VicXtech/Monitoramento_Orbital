@@ -23,7 +23,8 @@ import {
 export default function ScenarioSimulatorModal({
   aberto,
   onFechar,
-  onTocarSom
+  onTocarSom,
+  totaisCatalogo = null
 }) {
   const [cenarioAtivoId, setCenarioAtivoId] = useState('bau');
   const [lancamentosAno, setLancamentosAno] = useState(2400);
@@ -66,12 +67,12 @@ export default function ScenarioSimulatorModal({
         taxaDesorbitagemPct,
         vidaUtilAnos,
         adesaoRegra5Anos
-      });
+      }, totaisCatalogo);
     } catch (err) {
       console.error('Erro ao simular cenário 2050:', err);
       return null;
     }
-  }, [aberto, lancamentosAno, taxaDesorbitagemPct, vidaUtilAnos, adesaoRegra5Anos]);
+  }, [aberto, lancamentosAno, taxaDesorbitagemPct, vidaUtilAnos, adesaoRegra5Anos, totaisCatalogo]);
 
   if (!aberto || !resultadoSimulacao) return null;
 

@@ -1,18 +1,19 @@
 import os
 import json
 import gzip
+import hmac
 import time
 import hashlib
 import logging
 import threading
 from collections import OrderedDict
 from contextlib import asynccontextmanager
-from datetime import datetime, timedelta
+from datetime import datetime, timedelta, timezone
 from types import SimpleNamespace
 from typing import List, Optional
 
 import httpx
-from fastapi import FastAPI, Depends, HTTPException, Query, Request, Response
+from fastapi import FastAPI, Depends, Header, HTTPException, Query, Request, Response
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.middleware.gzip import GZipMiddleware
 from pydantic import TypeAdapter
@@ -32,6 +33,8 @@ logging.basicConfig(
 )
 logger = logging.getLogger("MonitoramentoOrbital")
 conector = APIConector()
+SYNC_LOCK = threading.Lock()
+SYNC_EM_ANDAMENTO = False
 
 # Satélites fixos de alto valor científico, missões brasileiras e estações espaciais (sempre preservados)
 PINNED_NORAD_IDS = [
@@ -45,9 +48,11 @@ PINNED_NORAD_IDS = [
     "20580",  # Telescópio Espacial Hubble (HST)
     "24946",  # Iridium 33 (Colisão histórica de 2009)
     "22675",  # Cosmos 2251 (Colisão histórica de 2009)
+    "25730",  # Fengyun-1C (Teste ASAT de 2007)
     "43013",  # NOAA-20 / JPSS-1
-    "00012",  # Vanguard 1 R/B (Pioneiro histórico)
-    "00016"   # Vanguard 2 R/B
+    "5",      # Vanguard 1 (Mais antigo ainda em órbita)
+    "12",     # Vanguard 2 R/B
+    "16",     # Vanguard 1 R/B
 ]
 ESTACOES_PRINCIPAIS_NORAD = ["25544", "48274"]
 ADAPTER_OBJETOS_LISTA = TypeAdapter(List[schemas.ObjetoOrbitalResponse])
@@ -136,6 +141,13 @@ def garantir_schema_e_backfill_tles(db: Session):
         "ALTER TABLE objeto_orbital ADD COLUMN IF NOT EXISTS ultimo_tle_linha1 CHAR(69)",
         "ALTER TABLE objeto_orbital ADD COLUMN IF NOT EXISTS ultimo_tle_linha2 CHAR(69)",
         "ALTER TABLE objeto_orbital ADD COLUMN IF NOT EXISTS ultimo_tle_epoch TIMESTAMP WITH TIME ZONE",
+        (
+            "CREATE TABLE IF NOT EXISTS catalogo_metadata ("
+            "  chave VARCHAR(100) PRIMARY KEY,"
+            "  valor TEXT NOT NULL,"
+            "  atualizado_em TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP"
+            ")"
+        ),
         "CREATE INDEX IF NOT EXISTS idx_tle_historico_objeto_id_desc ON tle_historico(objeto_id, id DESC)",
         "CREATE INDEX IF NOT EXISTS idx_tle_historico_data_captura ON tle_historico(data_captura)",
         (
@@ -424,8 +436,17 @@ def _anexar_ultimo_tle_rapido(objetos: List[ObjetoOrbital], db: Session):
                 obj.ultimo_tle = por_objeto[obj.id]
 
 
+from fastapi.responses import JSONResponse
+
 # Consolida estatisticas do catalogo em bytes JSON
 def computar_estatisticas_json_bytes(db: Session) -> bytes:
+    metadata = {}
+    try:
+        meta_rows = db.execute(text("SELECT chave, valor FROM catalogo_metadata")).fetchall()
+        metadata = {r.chave: r.valor for r in meta_rows}
+    except Exception:
+        metadata = {}
+
     totais_row = db.execute(
         text(
             """
@@ -434,7 +455,8 @@ def computar_estatisticas_json_bytes(db: Session) -> bytes:
                 count(*) FILTER (
                     WHERE data_decaimento IS NULL
                       AND (codigo_status IS NULL OR codigo_status <> 'D')
-                ) AS total_em_orbita
+                ) AS total_em_orbita,
+                MAX(ultimo_tle_epoch) AS max_tle_epoch
             FROM objeto_orbital
             """
         )
@@ -442,6 +464,15 @@ def computar_estatisticas_json_bytes(db: Session) -> bytes:
 
     total_banco = int(totais_row.total_banco or 0)
     total_em_orbita = int(totais_row.total_em_orbita or 0) or total_banco
+
+    ultima_atualizacao = metadata.get("ultima_sincronizacao_utc")
+    if not ultima_atualizacao and totais_row.max_tle_epoch:
+        dt = totais_row.max_tle_epoch
+        if dt.tzinfo is None:
+            dt = dt.replace(tzinfo=timezone.utc)
+        else:
+            dt = dt.astimezone(timezone.utc)
+        ultima_atualizacao = dt.isoformat()
 
     paises_query = (
         db.query(
@@ -452,6 +483,10 @@ def computar_estatisticas_json_bytes(db: Session) -> bytes:
             func.count(case((ObjetoOrbital.categoria_id == 3, 1))).label("detritos"),
             func.count(case((ObjetoOrbital.categoria_id == 4, 1))).label("estacoes"),
             func.count(case((ObjetoOrbital.categoria_id == 5, 1))).label("foguetes"),
+        )
+        .filter(
+            ObjetoOrbital.data_decaimento.is_(None),
+            (ObjetoOrbital.codigo_status.is_(None) | (ObjetoOrbital.codigo_status != "D")),
         )
         .group_by(ObjetoOrbital.pais)
         .order_by(func.count(ObjetoOrbital.id).desc())
@@ -526,7 +561,7 @@ def computar_estatisticas_json_bytes(db: Session) -> bytes:
         logger.warning(f"Aviso ao calcular distribuicao_regimes: {e}")
         distribuicao_regimes = schemas.DistribuicaoRegimes(leo=8831, meo=290, geo=1282, heo=1132)
 
-    if total_banco < 30000:
+    if total_banco == 0:
         ativos_em_orbita = 15651
         inativos_em_orbita = 3530
         detritos_em_orbita = 9167
@@ -536,11 +571,11 @@ def computar_estatisticas_json_bytes(db: Session) -> bytes:
         total_em_orbita = 31841
         total_console = 31818
     else:
-        ativos_em_orbita = contagens_cat.get(1, 15651)
-        inativos_em_orbita = contagens_cat.get(2, 3530)
-        detritos_em_orbita = contagens_cat.get(3, 9167)
-        estacoes_em_orbita = 2
-        foguetes_em_orbita = contagens_cat.get(5, 3468)
+        ativos_em_orbita = contagens_cat.get(1, 0)
+        inativos_em_orbita = contagens_cat.get(2, 0)
+        detritos_em_orbita = contagens_cat.get(3, 0)
+        estacoes_em_orbita = contagens_cat.get(4, 2) or 2
+        foguetes_em_orbita = contagens_cat.get(5, 0)
         total_console = (
             ativos_em_orbita
             + inativos_em_orbita
@@ -548,6 +583,13 @@ def computar_estatisticas_json_bytes(db: Session) -> bytes:
             + detritos_em_orbita
             + estacoes_em_orbita
         )
+
+    satcat_meta = metadata.get("satcat_total_em_orbita")
+    try:
+        satcat_total = int(satcat_meta) if satcat_meta else 0
+    except ValueError:
+        satcat_total = 0
+    celestrak_catalogados = satcat_total if satcat_total > 0 else total_em_orbita
 
     totais_oficiais = schemas.TotaisOficiaisCatalogo(
         total=total_banco,
@@ -558,9 +600,10 @@ def computar_estatisticas_json_bytes(db: Session) -> bytes:
         foguetes=foguetes_em_orbita,
         detritos=detritos_em_orbita,
         estacoes=estacoes_em_orbita,
-        celestrak_catalogados=max(total_banco, 34729),
+        celestrak_catalogados=celestrak_catalogados,
         celestrak_rastreados=total_console,
         nao_catalogados_estimativa="Mais de 230 milhões",
+        ultima_atualizacao=ultima_atualizacao,
     )
 
     perc_detritos = round((detritos_em_orbita / total_em_orbita) * 100.0, 2) if total_em_orbita > 0 else 0.0
@@ -573,6 +616,7 @@ def computar_estatisticas_json_bytes(db: Session) -> bytes:
         evolucao_historica=evolucao_historica,
         distribuicao_regimes=distribuicao_regimes,
         totais_oficiais=totais_oficiais,
+        ultima_atualizacao=ultima_atualizacao,
     )
     return resposta.model_dump_json().encode("utf-8")
 
@@ -635,16 +679,36 @@ def inicializar_recursos_background(scheduler: BackgroundScheduler):
             text("SELECT count(*) FROM (SELECT 1 FROM objeto_orbital LIMIT 1000) s")
         ).scalar() or 0
 
-        if amostra < 1000:
-            logger.info(f"LOG: Banco inicial ({amostra} objetos). Reagendando coleta inicial para 15 segundos...")
-            scheduler.modify_job("coleta_diaria_tles", next_run_time=datetime.now() + timedelta(seconds=15))
-        else:
+        if amostra >= 1000:
             logger.info("LOG: Banco de dados populado. Iniciando pre-aquecimento do cache...")
             stats_bytes = computar_estatisticas_json_bytes(db)
             CACHE_ESTATISTICAS.set("estatisticas_padrao", stats_bytes)
             radar_bytes = computar_radar_json_bytes(db, 3000, [1, 2, 3, 4, 5], None, "0")
             CACHE_RADAR.set("3000_None_1,2,3,4,5_0", radar_bytes)
             logger.info("LOG: Pre-aquecimento de cache concluido.")
+
+        ultima_dt = None
+        try:
+            meta_sync = db.execute(
+                text("SELECT valor FROM catalogo_metadata WHERE chave = 'ultima_sincronizacao_utc'")
+            ).scalar()
+            if meta_sync:
+                ultima_dt = datetime.fromisoformat(meta_sync.replace("Z", "+00:00"))
+        except Exception:
+            ultima_dt = None
+
+        if ultima_dt is None:
+            max_epoch = db.execute(text("SELECT MAX(ultimo_tle_epoch) FROM objeto_orbital")).scalar()
+            if max_epoch:
+                ultima_dt = max_epoch if max_epoch.tzinfo else max_epoch.replace(tzinfo=timezone.utc)
+
+        agora_utc = datetime.now(timezone.utc)
+        desatualizado = ultima_dt is None or (agora_utc - ultima_dt) > timedelta(hours=20)
+
+        if amostra < 1000 or desatualizado:
+            motivo = f"Banco inicial ({amostra} objetos)" if amostra < 1000 else "Dados com mais de 20h"
+            logger.info(f"LOG: {motivo}. Reagendando sincronização para 20 segundos...")
+            scheduler.modify_job("coleta_diaria_tles", next_run_time=datetime.now() + timedelta(seconds=20))
     except Exception as e:
         logger.warning(f"Aviso na inicializacao em segundo plano: {e}")
     finally:
@@ -653,76 +717,76 @@ def inicializar_recursos_background(scheduler: BackgroundScheduler):
 
 def executar_coleta_diaria():
     """Tarefa periódica que consome os TLEs e atualiza o PostgreSQL."""
+    global SYNC_EM_ANDAMENTO
+    with SYNC_LOCK:
+        if SYNC_EM_ANDAMENTO:
+            logger.info("LOG: Sincronização já em andamento, ignorando disparo duplicado.")
+            return
+        SYNC_EM_ANDAMENTO = True
+
     logger.info("LOG: Iniciando sincronização diária automática com CelesTrak...")
     db = SessionLocal()
     try:
-        # 1. Estações Espaciais (Estação Espacial)
-        conector.coletar_e_processar(db=db, grupo="stations", categoria_nome="Estação Espacial")
-        time.sleep(2.5)
-
-        # 2. Catálogo Geral de Satélites Ativos (Satélite Ativo - Tenta obter tudo)
-        conector.coletar_e_processar(db=db, grupo="active", categoria_nome="Satélite Ativo")
-        time.sleep(2.5)
-
-        # 3. Subgrupo Starlink como garantia (Satélite Ativo - Fallback de volume)
-        conector.coletar_e_processar(db=db, grupo="starlink", categoria_nome="Satélite Ativo")
-        time.sleep(2.5)
-
-        # 4. Satélites de Interesse Visual (Satélite Ativo - Educacionais)
-        conector.coletar_e_processar(db=db, grupo="visual", categoria_nome="Satélite Ativo")
-        time.sleep(2.5)
-
-        # 4.1. Subgrupos Ativos Menores e Altamente Resilientes (Garantia de volumetria ativa anti-403)
-        subgrupos_ativos = [
-            "weather", "noaa", "goes", "resource", "amateur",
-            "cubesat", "tle-new", "gps-ops", "galileo", "beidou"
+        lotes = [
+            ("stations", None, None, "Estação Espacial"),
+            ("active", None, None, "Satélite Ativo"),
+            ("starlink", None, None, "Satélite Ativo"),
+            ("visual", None, None, "Satélite Ativo"),
+            ("weather", None, None, "Satélite Ativo"),
+            ("noaa", None, None, "Satélite Ativo"),
+            ("goes", None, None, "Satélite Ativo"),
+            ("resource", None, None, "Satélite Ativo"),
+            ("amateur", None, None, "Satélite Ativo"),
+            ("cubesat", None, None, "Satélite Ativo"),
+            ("tle-new", None, None, "Satélite Ativo"),
+            ("gps-ops", None, None, "Satélite Ativo"),
+            ("galileo", None, None, "Satélite Ativo"),
+            ("beidou", None, None, "Satélite Ativo"),
+            ("fengyun-1c-debris", None, None, "Detrito Espacial"),
+            ("cosmos-2251-debris", None, None, "Detrito Espacial"),
+            ("iridium-33-debris", None, None, "Detrito Espacial"),
+            (None, "R/B", None, "Corpo de Foguete"),
+            (None, None, "GPZ-PLUS", "Satélite Inativo"),
+            ("science", None, None, "Detrito Espacial"),
         ]
-        for sub in subgrupos_ativos:
-            logger.info(f"LOG: Iniciando coleta preventiva do subgrupo ativo '{sub}'...")
-            conector.coletar_e_processar(db=db, grupo=sub, categoria_nome="Satélite Ativo")
-            time.sleep(2.5)
 
-        # 5. Detritos de eventos de fragmentação (Detrito Espacial - Fengyun-1C, Cosmos 2251, Iridium 33)
-        conector.coletar_e_processar(db=db, grupo="fengyun-1c-debris", categoria_nome="Detrito Espacial")
-        time.sleep(2.5)
-        conector.coletar_e_processar(db=db, grupo="cosmos-2251-debris", categoria_nome="Detrito Espacial")
-        time.sleep(2.5)
-        conector.coletar_e_processar(db=db, grupo="iridium-33-debris", categoria_nome="Detrito Espacial")
-        time.sleep(2.5)
+        falhas_consecutivas = 0
+        circuito_aberto = False
+        for grupo, name_param, special_param, cat_nome in lotes:
+            ok = conector.coletar_e_processar(
+                db=db,
+                grupo=grupo,
+                name=name_param,
+                special=special_param,
+                categoria_nome=cat_nome,
+            )
+            if ok:
+                falhas_consecutivas = 0
+                time.sleep(2.5)
+            else:
+                falhas_consecutivas += 1
+                if falhas_consecutivas >= 2:
+                    logger.warning("LOG: Circuito aberto após falhas consecutivas no CelesTrak; pulando lotes restantes.")
+                    circuito_aberto = True
+                    break
 
-        # 6. Corpos de Foguetes Orbitais Reais (Corpo de Foguete - mais de 2.100 objetos do catálogo)
-        conector.coletar_e_processar(db=db, name="R/B", categoria_nome="Corpo de Foguete")
-        time.sleep(2.5)
-
-        # 7. Satélites Inativos e Históricos (GPZ-PLUS)
-        conector.coletar_e_processar(db=db, special="GPZ-PLUS", categoria_nome="Satélite Inativo")
-        time.sleep(2.5)
-
-        # 8. Carga Científica
-        conector.coletar_e_processar(db=db, grupo="science", categoria_nome="Detrito Espacial")
-        time.sleep(2.5)
-
-        # 8.1. Sincronização oficial CelesTrak SATCAT (Cosmódromos, datas reais e status de reentrada)
-        conector.sincronizar_satcat_grupo(db=db, grupo="stations")
-        time.sleep(2.0)
-        conector.sincronizar_satcat_grupo(db=db, grupo="visual")
-        time.sleep(2.0)
-        conector.sincronizar_satcat_grupo(db=db, special="GPZ-PLUS")
-        time.sleep(2.0)
-        conector.sincronizar_satcat_grupo(db=db, grupo="weather")
-
-        # Enriquece os dados de missão
-        conector.enriquecer_missoes(db=db)
+        conector.deduplicar_norads_zeros_esquerda(db)
+        if not circuito_aberto:
+            conector.sincronizar_satcat_completo(db)
+        conector.reparar_dados_locais(db)
+        conector.limpar_historico_tles_antigos(db, manter_por_objeto=2)
 
         CACHE_RADAR.clear()
         CACHE_OBJETOS.clear()
         CACHE_ESTATISTICAS.clear()
         exportar_snapshots_estaticos(db)
-        logger.info("LOG: Sincronização automática concluída com sucesso no Scheduler.")
+        logger.info("LOG: Sincronização automática concluída no Scheduler.")
     except Exception as e:
         logger.error(f"LOG: Falha crítica na sincronização automática do Scheduler: {e}")
     finally:
         db.close()
+        with SYNC_LOCK:
+            SYNC_EM_ANDAMENTO = False
 
 
 @asynccontextmanager
@@ -794,6 +858,25 @@ async def root():
 async def ping():
     """Healthcheck leve sem consumo de conexão do banco de dados."""
     return {"ok": True}
+
+
+@app.post("/api/admin/sincronizar")
+async def acionar_sincronizacao_remota(
+    x_sync_token: Optional[str] = Header(default=None, alias="X-Sync-Token"),
+):
+    """Aciona a rotina diária de sincronização mediante validação por token secreto."""
+    token_esperado = os.getenv("SYNC_SECRET_TOKEN", "").strip()
+    if not token_esperado:
+        raise HTTPException(status_code=503, detail="Sincronização remota não configurada")
+    if not x_sync_token or not hmac.compare_digest(x_sync_token, token_esperado):
+        raise HTTPException(status_code=401, detail="Token de sincronização inválido")
+
+    with SYNC_LOCK:
+        if SYNC_EM_ANDAMENTO:
+            return JSONResponse(status_code=200, content={"status": "already_running"})
+
+    threading.Thread(target=executar_coleta_diaria, daemon=True).start()
+    return JSONResponse(status_code=202, content={"status": "started"})
 
 
 @app.get("/health")

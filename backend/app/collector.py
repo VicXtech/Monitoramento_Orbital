@@ -1,15 +1,27 @@
-import httpx
-import math
-from datetime import datetime, timedelta, date
+import csv
+import io
 import logging
-from sqlalchemy.orm import Session
+import math
+import re
+from datetime import date, datetime, timedelta, timezone
+import httpx
+from sqlalchemy import func, text
 from sqlalchemy.dialects.postgresql import insert as pg_insert
-from sqlalchemy import text, func
-from app.models import CategoriaObjeto, ObjetoOrbital, TLEHistorico, InformacaoMissao
+from sqlalchemy.orm import Session
+from app.models import CategoriaObjeto, InformacaoMissao, ObjetoOrbital, TLEHistorico
 
 # Configurar logging
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger("APIConector")
+
+
+def normalizar_norad_id(norad_id: str) -> str:
+    """Remove espaços e zeros à esquerda de identificadores NORAD numéricos."""
+    s = str(norad_id or "").strip()
+    if s.isdigit():
+        return str(int(s))
+    return s
+
 
 # Mapeamento de módulos e naves filhas das Estações Principais
 MODULOS_ISS = {
@@ -43,37 +55,123 @@ MODULOS_TIANGONG = {
 
 # Mapeamento oficial de bases e cosmódromos (CelesTrak SATCAT LAUNCH_SITE)
 SITES_LANCAMENTO = {
-    "TYMSC": "Cosmódromo de Baikonur (Cazaquistão)",
-    "AFETR": "Cabo Canaveral (EUA)",
-    "CCAFS": "Cabo Canaveral (EUA)",
-    "KSC": "Centro Espacial Kennedy (EUA)",
-    "CSG": "Centro Espacial de Kourou (Guiana Francesa)",
-    "JSC": "Centro de Lançamento de Jiuquan (China)",
-    "TYSC": "Centro de Lançamento de Taiyuan (China)",
-    "XSC": "Centro de Lançamento de Xichang (China)",
-    "XICLF": "Centro de Lançamento de Xichang (China)",
-    "WSC": "Centro de Lançamento de Wenchang (China)",
-    "WENCL": "Centro de Lançamento de Wenchang (China)",
-    "PLMSC": "Cosmódromo de Plesetsk (Rússia)",
-    "VOSTO": "Cosmódromo de Vostochny (Rússia)",
-    "KYMTR": "Cosmódromo de Kapustin Yar (Rússia)",
-    "SVOB": "Cosmódromo de Svobodny (Rússia)",
-    "VAFB": "Base da Força Espacial de Vandenberg (EUA)",
-    "AFWTR": "Base da Força Espacial de Vandenberg (EUA)",
-    "WLPIS": "Wallops Flight Facility (EUA)",
-    "KWAJ": "Atol de Kwajalein (EUA)",
-    "TNSC": "Centro Espacial de Tanegashima (Japão)",
-    "USC": "Centro Espacial de Uchinoura (Japão)",
-    "SRI": "Centro Espacial Satish Dhawan (Índia)",
-    "SEM": "Centro Espacial Semnan (Irã)",
-    "SOE": "Centro de Lançamento de Sohae (Coreia do Norte)",
-    "NAR": "Centro Espacial de Naro (Coreia do Sul)",
-    "PAL": "Base Aérea de Palmachim (Israel)",
-    "ALC": "Centro de Lançamento de Alcântara (Brasil)",
-    "BARN": "Centro de Lançamento da Barreira do Inferno (Brasil)",
-    "AND": "Andøya Space (Noruega)",
-    "ESR": "Esrange Space Center (Suécia)",
-    "RLLB": "Mahia Peninsula (Nova Zelândia)"
+    "AFETR": "Cabo Canaveral CCSFS, Flórida - EUA",
+    "CCAFS": "Cabo Canaveral CCSFS, Flórida - EUA",
+    "KSCUT": "Centro Espacial Kennedy KSC, Flórida - EUA",
+    "KSC": "Centro Espacial Kennedy KSC, Flórida - EUA",
+    "AFWTR": "Base Espacial de Vandenberg, Califórnia - EUA",
+    "VAFB": "Base Espacial de Vandenberg, Califórnia - EUA",
+    "WLPIS": "Instalação de Wallops Island, Virgínia - EUA",
+    "KODAK": "Complexo Espacial de Kodiak, Alasca - EUA",
+    "STBOS": "Starbase Boca Chica, Texas - EUA",
+    "KWJLN": "Atol de Kwajalein Omelek - EUA / Ilhas Marshall",
+    "KWAJ": "Atol de Kwajalein Omelek - EUA / Ilhas Marshall",
+    "FRGUI": "Centro Espacial da Guiana Kourou - Guiana Francesa",
+    "CSG": "Centro Espacial da Guiana Kourou - Guiana Francesa",
+    "ALCNT": "Centro de Lançamento de Alcântara CLA - Brasil",
+    "ALC": "Centro de Lançamento de Alcântara CLA - Brasil",
+    "BARN": "Centro de Lançamento da Barreira do Inferno - Brasil",
+    "TYMSC": "Cosmódromo de Baikonur - Cazaquistão / Rússia",
+    "PLMSC": "Cosmódromo de Plesetsk - Rússia",
+    "VOSTO": "Cosmódromo de Vostochny - Rússia",
+    "KYMSC": "Cosmódromo de Kapustin Yar - Rússia",
+    "KYMTR": "Cosmódromo de Kapustin Yar - Rússia",
+    "SVOBO": "Cosmódromo de Svobodny - Rússia",
+    "SVOB": "Cosmódromo de Svobodny - Rússia",
+    "DOMBA": "Base Aérea de Dombarovsky Yasny - Rússia",
+    "JSC": "Centro de Lançamento de Jiuquan - China",
+    "XSC": "Centro de Lançamento de Xichang - China",
+    "XICLF": "Centro de Lançamento de Xichang - China",
+    "TSC": "Centro de Lançamento de Taiyuan - China",
+    "TYSC": "Centro de Lançamento de Taiyuan - China",
+    "WSC": "Centro de Lançamento de Wenchang Hainan - China",
+    "WENCL": "Centro de Lançamento de Wenchang Hainan - China",
+    "YSLA": "Plataforma Marítima no Mar Amarelo - China",
+    "SRI": "Centro Espacial Satish Dhawan Sriharikota - Índia",
+    "TNSTA": "Centro Espacial de Tanegashima - Japão",
+    "TNSC": "Centro Espacial de Tanegashima - Japão",
+    "UCHRA": "Centro Espacial de Uchinoura Kagoshima - Japão",
+    "USC": "Centro Espacial de Uchinoura Kagoshima - Japão",
+    "RLLC": "Complexo de Lançamento de Mahia - Nova Zelândia",
+    "RLLB": "Complexo de Lançamento de Mahia - Nova Zelândia",
+    "NARO": "Centro Espacial Naro - Coreia do Sul",
+    "NAR": "Centro Espacial Naro - Coreia do Sul",
+    "SOHAE": "Estação de Lançamento de Sohae - Coreia do Norte",
+    "SOE": "Estação de Lançamento de Sohae - Coreia do Norte",
+    "PALB": "Base Aérea de Palmachim - Israel",
+    "PAL": "Base Aérea de Palmachim - Israel",
+    "SEM": "Centro Espacial Imam Khomeini Semnan - Irã",
+    "SHAHR": "Centro Espacial de Shahrud - Irã",
+    "SMTS": "Plataforma Luigi Broglio Malindi - Quênia / Itália",
+    "HGSTR": "Base de Hammaguir - Argélia / França",
+    "WOMRA": "Complexo de Testes de Woomera - Austrália",
+    "ANDSP": "Porto Espacial de Andøya - Noruega",
+    "AND": "Porto Espacial de Andøya - Noruega",
+    "ESR": "Esrange Space Center - Suécia",
+    "SEAL": "Plataforma Marítima Sea Launch - Internacional",
+    "ORBT": "Lançamento Aéreo Pegasus ou LauncherOne - Estratosfera",
+    "ISS": "Ejetado da Estação Espacial Internacional ISS - LEO",
+}
+
+# Mapeamento oficial dos códigos OWNER do CelesTrak SATCAT para países em português
+MAPA_OWNER_SATCAT = {
+    "US": "Estados Unidos",
+    "GLOB": "Estados Unidos",
+    "ORB": "Estados Unidos",
+    "ITSO": "Estados Unidos",
+    "ABS": "Estados Unidos",
+    "CIS": "Rússia",
+    "PRC": "China",
+    "BRAZ": "Brasil",
+    "CB": "Brasil/China",
+    "FR": "França",
+    "UK": "Reino Unido",
+    "IM": "Reino Unido",
+    "ESA": "União Europeia",
+    "EUTE": "União Europeia",
+    "EUM": "União Europeia",
+    "SES": "União Europeia",
+    "O3B": "União Europeia",
+    "JPN": "Japão",
+    "IND": "Índia",
+    "CA": "Canadá",
+    "GER": "Alemanha",
+    "IT": "Itália",
+    "SPN": "Espanha",
+    "SKOR": "Coreia do Sul",
+    "NKOR": "Coreia do Norte",
+    "AUS": "Austrália",
+    "ARGN": "Argentina",
+    "SWED": "Suécia",
+    "NOR": "Noruega",
+    "NETH": "Holanda",
+    "DEN": "Dinamarca",
+    "FIN": "Finlândia",
+    "POL": "Polônia",
+    "CZ": "República Tcheca",
+    "CZCH": "República Tcheca",
+    "TURK": "Turquia",
+    "ISR": "Israel",
+    "MEX": "México",
+    "INDO": "Indonésia",
+    "UAE": "Emirados Árabes Unidos",
+    "ALG": "Argélia",
+    "SAFR": "África do Sul",
+    "UKR": "Ucrânia",
+    "NIG": "Nigéria",
+    "EGYP": "Egito",
+    "THAI": "Tailândia",
+    "MALA": "Malásia",
+    "SING": "Singapura",
+    "PAKI": "Paquistão",
+    "KAZ": "Cazaquistão",
+    "ARAB": "Países Árabes",
+    "SAUD": "Arábia Saudita",
+    "NZ": "Nova Zelândia",
+    "TWN": "Taiwan",
+    "IRAN": "Irã",
+    "ISS": "Multi-Nacional (ISS)",
+    "SEAL": "Internacional",
 }
 
 # Ficha factual e fotografia oficial para grandes satélites históricos e científicos
@@ -85,9 +183,9 @@ SATELLITES_HISTORICOS_INFO = {
         "imagem_url": "https://upload.wikimedia.org/wikipedia/commons/thumb/0/04/International_Space_Station_after_undocking_of_STS-132.jpg/640px-International_Space_Station_after_undocking_of_STS-132.jpg"
     },
     "48274": {
-        "descricao": "Estação Espacial Chinesa Tiangong (CSS) — Módulo central Tianhe da estação espacial orbital permanente da China, conduzindo pesquisas em microgravidade e ciência espacial.",
+        "descricao": "Estação Espacial Chinesa Tiangong (CSS) — Módulo central Tianhe (22,5 t; ~66 t no complexo completo de 3 módulos) da estação espacial orbital permanente da China, conduzindo pesquisas em microgravidade e ciência espacial.",
         "operador": "CMSA (Agência Espacial Tripulada da China)",
-        "massa_kg": 22500.0,
+        "massa_kg": 66000.0,
         "imagem_url": "https://upload.wikimedia.org/wikipedia/commons/thumb/d/d4/Tianhe_core_module_in_orbit.jpg/640px-Tianhe_core_module_in_orbit.jpg"
     },
     "20580": {
@@ -96,19 +194,19 @@ SATELLITES_HISTORICOS_INFO = {
         "massa_kg": 11110.0,
         "imagem_url": "https://upload.wikimedia.org/wikipedia/commons/thumb/3/3f/HST-SM4.jpeg/640px-HST-SM4.jpeg"
     },
-    "22823": {
-        "descricao": "SCD-1 (Satélite de Coleta de Dados 1) — Primeiro satélite inteiramente fabricado e testado no Brasil, operando continuamente desde fevereiro de 1993 em monitoramento ambiental e meteorológico.",
+    "22490": {
+        "descricao": "SCD-1 (Satélite de Coleta de Dados 1) — Primeiro satélite inteiramente fabricado e testado no Brasil pelo INPE, lançado em fevereiro de 1993 para monitoramento ambiental e meteorológico.",
         "operador": "INPE (Brasil)",
         "massa_kg": 115.0,
         "imagem_url": "https://upload.wikimedia.org/wikipedia/commons/thumb/b/b3/SCD-1.jpg/640px-SCD-1.jpg"
     },
-    "25400": {
+    "25504": {
         "descricao": "SCD-2 (Satélite de Coleta de Dados 2) — Segundo satélite brasileiro de coleta de dados ambientais, transmitindo telemetria de plataformas hidrológicas e meteorológicas da Amazônia desde outubro de 1998.",
         "operador": "INPE (Brasil)",
-        "massa_kg": 115.0,
+        "massa_kg": 117.0,
         "imagem_url": "https://upload.wikimedia.org/wikipedia/commons/thumb/5/52/SCD-2_satellite.jpg/640px-SCD-2_satellite.jpg"
     },
-    "54380": {
+    "47699": {
         "descricao": "Amazonia-1 — Primeiro satélite de sensoriamento remoto de grande porte projetado, integrado e testado no Brasil pelo INPE, monitorando o desmatamento na Amazônia e a agricultura.",
         "operador": "INPE (Brasil)",
         "massa_kg": 638.0,
@@ -120,13 +218,25 @@ SATELLITES_HISTORICOS_INFO = {
         "massa_kg": 1980.0,
         "imagem_url": "https://upload.wikimedia.org/wikipedia/commons/thumb/a/a2/CBERS-4A.jpg/640px-CBERS-4A.jpg"
     },
-    "00011": {
+    "40336": {
+        "descricao": "CBERS-4 — Satélite do Programa Sino-Brasileiro de Recursos Terrestres lançado em 2014 para monitoramento ambiental, agrícola e cartográfico contínuo.",
+        "operador": "INPE (Brasil) / CAST (China)",
+        "massa_kg": 1980.0,
+        "imagem_url": None
+    },
+    "5": {
         "descricao": "Vanguard 1 — O mais antigo satélite artificial ainda em órbita na história aeroespacial. Lançado pelos Estados Unidos em 17 de março de 1958.",
         "operador": "U.S. Navy / NASA",
         "massa_kg": 1.47,
         "imagem_url": "https://upload.wikimedia.org/wikipedia/commons/thumb/f/f6/Vanguard_1.jpg/640px-Vanguard_1.jpg"
     },
     "24876": {
+        "descricao": "GPS BIIR-2 (NAVSTAR 43) — Satélite da constelação de radionavegação GPS operando em órbita média (MEO) a cerca de 20.200 km com relógios atômicos de alta precisão.",
+        "operador": "Força Espacial dos EUA",
+        "massa_kg": 2032.0,
+        "imagem_url": None
+    },
+    "24946": {
         "descricao": "Iridium 33 — Satélite de telecomunicações comerciais que protagonizou em 10 de fevereiro de 2009 a primeira colisão orbital hiperveloz de grande porte da história com o Cosmos 2251.",
         "operador": "Iridium Communications (EUA)",
         "massa_kg": 560.0,
@@ -138,7 +248,7 @@ SATELLITES_HISTORICOS_INFO = {
         "massa_kg": 900.0,
         "imagem_url": None
     },
-    "24946": {
+    "25730": {
         "descricao": "Fengyun-1C — Satélite meteorológico chinês em órbita polar destruído intencionalmente em janeiro de 2007 durante um teste cinético de míssil antissatélite (ASAT).",
         "operador": "CMA (Administração Meteorológica da China)",
         "massa_kg": 958.0,
@@ -152,26 +262,30 @@ SATELLITES_HISTORICOS_INFO = {
     }
 }
 
+
 class APIConector:
     def __init__(self):
         self.url_base = "https://celestrak.org/NORAD/elements/gp.php"
         self.url_satcat = "https://celestrak.org/satcat/records.php"
+        self.url_satcat_csv = "https://celestrak.org/pub/satcat.csv"
         self.headers = {
             "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36"
         }
         self.mapeamento_paises = {
             "25544": "Multi-Nacional (ISS)",
             "48274": "China",
-            "22823": "Brasil",
-            "25400": "Brasil",
-            "54380": "Brasil",
+            "22490": "Brasil",
+            "25504": "Brasil",
+            "47699": "Brasil",
             "44883": "Brasil/China",
-            "00011": "Estados Unidos",
+            "40336": "Brasil/China",
+            "5": "Estados Unidos",
             "20580": "Estados Unidos / ESA",
             "24876": "Estados Unidos",
-            "25546": "Estados Unidos",
+            "24946": "Estados Unidos",
             "22675": "Rússia",
-            "24946": "Estados Unidos"
+            "25730": "China",
+            "43013": "Estados Unidos",
         }
 
     def formatar_cospar_de_tle(self, intl_str: str) -> str:
@@ -189,89 +303,113 @@ class APIConector:
 
     def inferir_pais_por_nome(self, nome: str, norad_id: str) -> str:
         """Infere o país de origem didaticamente a partir de termos no nome ou NORAD ID."""
-        norad_id = norad_id.strip()
-        if norad_id in self.mapeamento_paises:
-            return self.mapeamento_paises[norad_id]
-            
-        nome_upper = nome.upper()
-        
+        norad_norm = normalizar_norad_id(norad_id)
+        if norad_norm in self.mapeamento_paises:
+            return self.mapeamento_paises[norad_norm]
+
+        nome_upper = (nome or "").upper()
+
         # Brasil
-        if any(x in nome_upper for x in ["AMAZONIA", "SCD", "ITASAT", "VCUB", "FLORIPASAT", "SPORT", "NANOSATCBR", "PION"]):
+        if any(x in nome_upper for x in ["AMAZONIA", "SCD", "ITASAT", "VCUB", "FLORIPASAT", "NANOSATCBR"]) or re.search(r"\b(SPORT|PION)\b", nome_upper):
             return "Brasil"
-        elif "CBERS" in nome_upper:
+        if "CBERS" in nome_upper:
             return "Brasil/China"
         # Estados Unidos
-        elif any(x in nome_upper for x in ["STARLINK", "GPS", "VANGUARD", "NOAA", "GOES", "NROL", "IRIDIUM", "EXPLORER", "TIROS", "TRANSIT", "LACROSSE", "SBIRS", "DSP", "CREW DRAGON", "DRAGON", "CYGNUS", "SKYLAB", "FALCON", "CENTAUR", "DELTA", "TITAN"]):
+        if any(x in nome_upper for x in ["STARLINK", "GPS", "NAVSTAR", "VANGUARD", "NOAA", "GOES", "NROL", "IRIDIUM", "EXPLORER", "TIROS", "TRANSIT", "LACROSSE", "SBIRS", "DSP", "CREW DRAGON", "DRAGON", "CYGNUS", "SKYLAB", "FALCON", "CENTAUR", "DELTA", "TITAN"]):
             return "Estados Unidos"
         # Rússia
-        elif any(x in nome_upper for x in ["COSMOS", "SOYUZ", "GLONASS", "MOLNIYA", "RADUGA", "GRIF", "EXPRESS", "LUCH", "YANTAR", "PROGRESS", "POISK", "ZVEZDA", "ZARYA", "FREGAT", "SL-", "KOSMOS", "PROTON", "ZENIT"]):
+        if any(x in nome_upper for x in ["COSMOS", "SOYUZ", "GLONASS", "MOLNIYA", "RADUGA", "GRIF", "EXPRESS", "LUCH", "YANTAR", "PROGRESS", "POISK", "ZVEZDA", "ZARYA", "FREGAT", "SL-", "KOSMOS", "PROTON", "ZENIT"]):
             return "Rússia"
         # China
-        elif any(x in nome_upper for x in ["TIANGONG", "BEIDOU", "SHENZHOU", "CHANG'E", "YAOGAN", "GAOFEN", "SHIYAN", "YUNHAI", "JILIN", "ZONGHENG", "FENGYUN", "TIANHE", "WENTIAN", "MENGTIAN", "TIANZHOU", "CZ-", "LONG MARCH"]):
+        if any(x in nome_upper for x in ["TIANGONG", "BEIDOU", "SHENZHOU", "CHANG'E", "YAOGAN", "GAOFEN", "SHIYAN", "YUNHAI", "JILIN", "ZONGHENG", "FENGYUN", "TIANHE", "WENTIAN", "MENGTIAN", "TIANZHOU", "CZ-", "LONG MARCH"]):
             return "China"
+        # França
+        if any(x in nome_upper for x in ["SPOT", "CERISE"]):
+            return "França"
         # Japão
-        elif any(x in nome_upper for x in ["HIMAWARI", "ALOS", "GOSAT", "KAGUYA", "HAYABUSA", "ASNARO", "ETS", "IGS", "HTV", "KIBO", "JEM", "H-2A", "H-II"]):
+        if any(x in nome_upper for x in ["HIMAWARI", "ALOS", "GOSAT", "KAGUYA", "HAYABUSA", "ASNARO", "ETS", "IGS", "HTV", "KIBO", "JEM", "H-2A", "H-II"]):
             return "Japão"
         # Índia
-        elif any(x in nome_upper for x in ["INSAT", "IRS", "GSAT", "CARTOSAT", "RESOURCESAT", "OCEANSAT", "RISAT", "ASTROSAT", "PSLV", "GSLV"]):
+        if any(x in nome_upper for x in ["INSAT", "IRS", "GSAT", "CARTOSAT", "RESOURCESAT", "OCEANSAT", "RISAT", "ASTROSAT", "PSLV", "GSLV"]):
             return "Índia"
         # União Europeia / ESA
-        elif any(x in nome_upper for x in ["ARIANE", "SENTINEL", "GALILEO", "METEOP", "ENVISAT", "ERS", "ISO", "HERSCHEL", "COLUMBUS"]):
+        if any(x in nome_upper for x in ["ARIANE", "SENTINEL", "GALILEO", "METEOP", "METOP", "ENVISAT", "ERS", "ISO", "HERSCHEL", "COLUMBUS"]):
             return "União Europeia"
         # Reino Unido
-        elif any(x in nome_upper for x in ["ONEWEB", "SKYNET"]):
+        if any(x in nome_upper for x in ["ONEWEB", "SKYNET"]):
             return "Reino Unido"
         # Canadá
-        elif any(x in nome_upper for x in ["ANIK", "RADARSAT"]):
+        if any(x in nome_upper for x in ["ANIK", "RADARSAT"]):
             return "Canadá"
         # Coreia do Sul
-        elif any(x in nome_upper for x in ["KOREASAT", "KOMPSAT"]):
+        if any(x in nome_upper for x in ["KOREASAT", "KOMPSAT"]):
             return "Coreia do Sul"
-            
+
         return "Não Identificado"
 
-    def classificar_objeto(self, nome: str, norad_id: str, ano: int, grupo: str = None, name_param: str = None, special: str = None):
+    def classificar_objeto(
+        self,
+        nome: str,
+        norad_id: str,
+        ano: int,
+        grupo: str = None,
+        name_param: str = None,
+        special: str = None,
+        ops_code: str = None,
+        object_type: str = None,
+    ):
         """
         Classifica o objeto orbital em uma das 5 categorias oficiais:
-        1: Satélite Ativo (Verde)
-        2: Satélite Inativo (Laranja)
-        3: Detrito Espacial (Vermelho)
-        4: Estação Espacial (Ciano - ISS e Tiangong)
-        5: Corpo de Foguete (Roxo)
+        1: Satélite Ativo
+        2: Satélite Inativo
+        3: Detrito Espacial
+        4: Estação Espacial
+        5: Corpo de Foguete
         """
-        norad_id = str(norad_id).strip()
-        nome_upper = nome.upper()
+        norad_norm = normalizar_norad_id(norad_id)
+        nome_upper = (nome or "").upper()
+        ops = (ops_code or "").strip().upper()
+        obj_type = (object_type or "").strip().upper()
 
-        # 1. As 2 Estações Espaciais Principais
-        if norad_id == "25544":
+        # Estações espaciais principais e módulos acoplados
+        if norad_norm == "25544":
             return 4, "Ativo (Operacional)", None
-        if norad_id == "48274":
+        if norad_norm == "48274":
             return 4, "Ativo (Operacional)", None
-
-        # 2. Módulos e naves acopladas à ISS
-        if norad_id in MODULOS_ISS or (nome_upper.startswith("ISS (") and norad_id != "25544"):
+        if norad_norm in MODULOS_ISS or (nome_upper.startswith("ISS (") and norad_norm != "25544"):
             return 4, "Módulo / Nave Acoplada", "25544"
-
-        # 3. Módulos e naves acopladas à Tiangong
-        if norad_id in MODULOS_TIANGONG or (nome_upper.startswith("CSS (") and norad_id != "48274"):
+        if norad_norm in MODULOS_TIANGONG or (nome_upper.startswith("CSS (") and norad_norm != "48274"):
             return 4, "Módulo / Nave Acoplada", "48274"
 
-        # 4. Corpos de Foguetes (R/B) - Categoria 5 (Roxo)
-        if any(x in nome_upper for x in [" R/B", "ROCKET", "STAGE", "TRANSTAGE", "CENTAUR", "FALCON 9 R/B", "SL-4 R/B", "SL-8 R/B", "SL-12 R/B", "SL-16 R/B", "CZ-2", "CZ-3", "CZ-4"]) or (name_param and name_param.upper() == "R/B"):
+        # Corpos de foguetes
+        if (
+            obj_type == "R/B"
+            or any(x in nome_upper for x in [" R/B", "ROCKET", "STAGE", "TRANSTAGE", "CENTAUR", "FALCON 9 R/B", "SL-4 R/B", "SL-8 R/B", "SL-12 R/B", "SL-16 R/B", "CZ-2", "CZ-3", "CZ-4"])
+            or (name_param and name_param.upper() == "R/B")
+        ):
             return 5, "Inerte (Estágio Descartado)", None
 
-        # 5. Detritos Espaciais (DEB) - Categoria 3 (Vermelho)
-        if any(x in nome_upper for x in [" DEB", "DEBRIS", "FRAGMENT"]) or (grupo and grupo in ["cosmos-2251-debris", "iridium-33-debris", "fengyun-1c-debris"]):
+        # Detritos espaciais
+        if (
+            obj_type == "DEB"
+            or any(x in nome_upper for x in [" DEB", "DEBRIS", "FRAGMENT"])
+            or (grupo and grupo in ["cosmos-2251-debris", "iridium-33-debris", "fengyun-1c-debris"])
+        ):
             return 3, "Detrito Inerte", None
 
-        # 6. Satélites Inativos Históricos - Categoria 2 (Laranja)
-        # Satélites lançados antes de 2015 não pertencentes a constelações ativas contínuas (GPS, Galileo, etc.) nem ao programa espacial brasileiro protegido
-        constelacoes_ativas = ["GPS", "NAVSTAR", "GLONASS", "GALILEO", "BEIDOU", "AMAZONIA", "SCD"]
-        is_constelacao = any(c in nome_upper for c in constelacoes_ativas)
-        if (ano and ano < 2015 and not is_constelacao and norad_id not in ["22823", "25400"]) or (special and "GPZ" in special.upper()):
+        # Status operacional oficial do SATCAT quando disponível
+        if ops in ("+", "P", "B", "S", "X"):
+            return 1, "Ativo (Operacional)", None
+        if ops == "-":
             return 2, "Inativo (Desativado)", None
 
-        # 7. Satélites Ativos - Categoria 1 (Verde)
+        # Heurística de reserva para cargas sem OPS_STATUS_CODE
+        constelacoes_ativas = ["GPS", "NAVSTAR", "GLONASS", "GALILEO", "BEIDOU", "AMAZONIA", "SCD"]
+        ids_brasileiros_ativos = ["22490", "25504", "47699", "40336", "44883"]
+        is_protegido = any(c in nome_upper for c in constelacoes_ativas) or norad_norm in ids_brasileiros_ativos
+        if (ano and ano < 2015 and not is_protegido) or (special and "GPZ" in special.upper()):
+            return 2, "Inativo (Desativado)", None
+
         return 1, "Ativo (Operacional)", None
 
     def parse_tle_epoch(self, epoch_str: str) -> datetime:
@@ -288,13 +426,7 @@ class APIConector:
 
     @staticmethod
     def classificar_regime_esa(linha1: str, linha2: str) -> str:
-        """
-        Classifica o regime orbital rigorosamente segundo geometria e astrodinâmica:
-        GEO: Sincronizada (~24h, 1350 <= T <= 1650 min) ou anel/cemitério (34000 <= hp e ha <= 50000 km) com e < 0.25
-        LEO: Órbita baixa restrita (hp < 2000 km e ha <= 2000 km e e < 0.25)
-        MEO: Órbita média restrita (hp >= 2000 km e ha < 35500 km e e < 0.25)
-        HEO: Rotas ovais (GTO, Molniya, cruzadoras de altitude e e >= 0.25)
-        """
+        """Classifica o regime orbital (LEO, MEO, GEO, HEO) a partir do TLE."""
         if not linha2 or len(linha2) < 69:
             return "LEO"
         try:
@@ -312,12 +444,11 @@ class APIConector:
 
             if ((1350.0 <= period_min <= 1650.0) or (34000.0 <= h_p and h_a <= 50000.0)) and ecc < 0.25:
                 return "GEO"
-            elif h_p < 2000.0 and h_a <= 2000.0 and ecc < 0.25:
+            if h_p < 2000.0 and h_a <= 2000.0 and ecc < 0.25:
                 return "LEO"
-            elif h_p >= 2000.0 and h_a < 35500.0 and ecc < 0.25:
+            if h_p >= 2000.0 and h_a < 35500.0 and ecc < 0.25:
                 return "MEO"
-            else:
-                return "HEO"
+            return "HEO"
         except Exception:
             return "LEO"
 
@@ -347,7 +478,7 @@ class APIConector:
         except Exception:
             return "LEO"
 
-    def coletar_e_processar(self, db: Session, grupo: str = None, name: str = None, special: str = None, categoria_nome: str = None):
+    def coletar_e_processar(self, db: Session, grupo: str = None, name: str = None, special: str = None, categoria_nome: str = None) -> bool:
         """Consome o endpoint do CelesTrak no formato OMM (JSON) ou TLE legado e salva via Bulk UPSERT no PostgreSQL."""
         origem = grupo or name or special or "desconhecido"
         logger.info(f"Iniciando requisição ao CelesTrak para '{origem}'...")
@@ -358,16 +489,15 @@ class APIConector:
             params["NAME"] = name
         elif special:
             params["SPECIAL"] = special
-        
+
         try:
             with httpx.Client(timeout=20.0, headers=self.headers) as client:
                 response = client.get(self.url_base, params=params)
                 if response.status_code == 403:
                     logger.warning(f"CelesTrak retornou 403 (limitação temporária de taxa) para '{origem}'.")
-                    return
+                    return False
                 response.raise_for_status()
-                
-                # Tenta parsear como JSON OMM (padrão internacional moderno)
+
                 try:
                     dados_json = response.json()
                 except Exception:
@@ -375,16 +505,15 @@ class APIConector:
                 texto_bruto = response.text if dados_json is None else ""
         except httpx.TimeoutException:
             logger.warning(f"Tempo limite (timeout) esgotado para o CelesTrak para '{origem}'. Pulando com segurança.")
-            return
+            return False
         except Exception as e:
             logger.error(f"Falha na requisição HTTP para o CelesTrak para '{origem}': {e}")
-            return
+            return False
 
         objetos_a_inserir = []
         tle_dados_temporarios = []
-        starlinks_processados = 0
 
-        # Fluxo 1: Payload OMM em JSON (Suporta IDs de 6 ou mais dígitos)
+        # Fluxo 1: Payload OMM em JSON
         if isinstance(dados_json, list) and len(dados_json) > 0:
             logger.info(f"Resposta OMM JSON recebida de '{origem}'. Processando {len(dados_json)} objetos orbitais...")
             for item in dados_json:
@@ -392,25 +521,11 @@ class APIConector:
                     continue
 
                 nome = str(item.get("OBJECT_NAME", "")).strip()
-                norad_id = str(item.get("NORAD_CAT_ID", "")).strip()
+                norad_id = normalizar_norad_id(str(item.get("NORAD_CAT_ID", "")))
                 if not norad_id:
                     continue
 
-                # Mantém diversidade limitando Starlinks por lote
-                if "STARLINK" in nome.upper():
-                    if starlinks_processados >= 500:
-                        continue
-                    starlinks_processados += 1
-
                 cospar_id = str(item.get("OBJECT_ID", "")).strip() or None
-                epoch_str = str(item.get("EPOCH", "")).strip()
-                epoch_dt = None
-                if epoch_str:
-                    try:
-                        epoch_dt = datetime.fromisoformat(epoch_str.replace("Z", "+00:00"))
-                    except Exception:
-                        epoch_dt = datetime.utcnow()
-
                 pais = self.inferir_pais_por_nome(nome, norad_id)
 
                 ano = None
@@ -447,19 +562,14 @@ class APIConector:
 
             for i in range(0, total_linhas - 2, 3):
                 linha0 = linhas[i]
-                linha1 = linhas[i+1]
-                linha2 = linhas[i+2]
+                linha1 = linhas[i + 1]
+                linha2 = linhas[i + 2]
 
                 if not (linha1.startswith("1 ") and linha2.startswith("2 ") and len(linha1) >= 69 and len(linha2) >= 69):
                     continue
 
-                if "STARLINK" in linha0.upper():
-                    if starlinks_processados >= 500:
-                        continue
-                    starlinks_processados += 1
-
                 try:
-                    norad_id = linha1[2:7].strip()
+                    norad_id = normalizar_norad_id(linha1[2:7])
                     epoch_str = linha1[18:32].strip()
                     epoch_dt = self.parse_tle_epoch(epoch_str)
                     pais = self.inferir_pais_por_nome(linha0, norad_id)
@@ -507,7 +617,7 @@ class APIConector:
 
         if not objetos_a_inserir:
             logger.info(f"Nenhum objeto válido parseado para a origem '{origem}'.")
-            return
+            return True
 
         # Bulk UPSERT
         objetos_unicos = {}
@@ -540,7 +650,7 @@ class APIConector:
         except Exception as e:
             logger.error(f"Erro ao executar Bulk UPSERT de objetos para a origem '{origem}': {e}")
             db.rollback()
-            return
+            return False
 
         # TLEs
         objeto_ids = list(norad_to_id.values())
@@ -556,7 +666,7 @@ class APIConector:
             obj_id = norad_to_id.get(tle["norad_id"])
             if not obj_id:
                 continue
-            
+
             chave_lote = (obj_id, tle["epoch"])
             if chave_lote in historicos_unicos_lote or chave_lote in historicos_existentes_set:
                 continue
@@ -578,30 +688,42 @@ class APIConector:
             except Exception as e:
                 logger.error(f"Erro ao inserir TLEHistorico em lote: {e}")
                 db.rollback()
-                return
+                return False
 
         db.commit()
-        logger.info(f"LOG: Sincronização do grupo '{grupo}' concluída. {objetos_salvos} objetos processados/atualizados. {historicos_gerados} TLEs adicionados.")
-
+        logger.info(f"LOG: Sincronização do grupo '{origem}' concluída. {objetos_salvos} objetos processados/atualizados. {historicos_gerados} TLEs adicionados.")
+        return True
 
     def reclassificar_todos_objetos(self, db: Session):
-        """
-        Varre todos os objetos no banco e sincroniza categoria_id, status, estacao_pai_norad
-        e regime de acordo com as regras oficiais da ESA e IADC.
-        """
+        """Sincroniza categoria_id, status, estacao_pai_norad e regime com base no código operacional e TLE."""
         logger.info("LOG: Reclassificando todos os objetos orbitais do banco de dados...")
+        objetos = db.query(ObjetoOrbital).all()
+
         subq = db.query(TLEHistorico.objeto_id, func.max(TLEHistorico.id).label("max_id")).group_by(TLEHistorico.objeto_id).subquery()
-        rows = db.query(ObjetoOrbital, TLEHistorico.linha1, TLEHistorico.linha2).outerjoin(
-            subq, ObjetoOrbital.id == subq.c.objeto_id
-        ).outerjoin(
-            TLEHistorico, TLEHistorico.id == subq.c.max_id
+        tle_rows = db.query(TLEHistorico.objeto_id, TLEHistorico.linha1, TLEHistorico.linha2).join(
+            subq, TLEHistorico.id == subq.c.max_id
         ).all()
+        tles_por_obj = {r.objeto_id: (r.linha1, r.linha2) for r in tle_rows}
 
         atualizados = 0
-        for obj, l1, l2 in rows:
+        for obj in objetos:
             ano = obj.data_lancamento.year if obj.data_lancamento else None
-            nova_cat, novo_status, pai_norad = self.classificar_objeto(obj.nome, obj.norad_id, ano, "")
-            novo_regime = self.classificar_regime_esa(l1, l2) if l2 else "LEO"
+            nova_cat, novo_status, pai_norad = self.classificar_objeto(
+                obj.nome,
+                obj.norad_id,
+                ano,
+                ops_code=obj.codigo_status,
+            )
+            l1 = obj.ultimo_tle_linha1
+            l2 = obj.ultimo_tle_linha2
+            if not (l1 and l2) and obj.id in tles_por_obj:
+                l1, l2 = tles_por_obj[obj.id]
+
+            if l1 and l2:
+                novo_regime = self.classificar_regime_esa(l1, l2)
+            else:
+                novo_regime = obj.regime or "LEO"
+
             alterou = False
             if obj.categoria_id != nova_cat:
                 obj.categoria_id = nova_cat
@@ -620,6 +742,230 @@ class APIConector:
         db.commit()
         logger.info(f"LOG: Reclassificação concluída. {atualizados} objetos atualizados no banco.")
 
+    def deduplicar_norads_zeros_esquerda(self, db: Session) -> dict:
+        """Remove duplicatas e normaliza NORAD IDs salvos com zeros à esquerda."""
+        linhas = (
+            db.query(ObjetoOrbital)
+            .filter(text("norad_id ~ '^0+[0-9]+$'"))
+            .order_by(ObjetoOrbital.id.asc())
+            .all()
+        )
+        if not linhas:
+            return {"removidos": 0, "normalizados": 0}
+
+        todos_norads = {
+            r[0]
+            for r in db.query(ObjetoOrbital.norad_id).all()
+        }
+
+        removidos = 0
+        normalizados = 0
+        for obj in linhas:
+            norm_id = normalizar_norad_id(obj.norad_id)
+            if not norm_id or norm_id == obj.norad_id:
+                continue
+            if norm_id in todos_norads:
+                db.delete(obj)
+                removidos += 1
+            else:
+                todos_norads.add(norm_id)
+                obj.norad_id = norm_id
+                normalizados += 1
+
+        db.commit()
+        logger.info(f"LOG: Deduplicação NORAD concluída ({removidos} removidos, {normalizados} normalizados).")
+        return {"removidos": removidos, "normalizados": normalizados}
+
+    def sincronizar_satcat_completo(self, db: Session) -> bool:
+        """Sincroniza metadados oficiais de país, tipo, status operacional e datas via satcat.csv do CelesTrak."""
+        try:
+            with httpx.Client(timeout=45.0, headers=self.headers, follow_redirects=True) as client:
+                resp = client.get(self.url_satcat_csv)
+                if resp.status_code != 200:
+                    logger.warning(f"Aviso ao baixar satcat.csv: HTTP {resp.status_code}")
+                    return False
+                conteudo_csv = resp.text
+        except Exception as e:
+            logger.warning(f"Aviso ao baixar satcat.csv do CelesTrak: {e}")
+            return False
+
+        objetos_banco = db.query(ObjetoOrbital).all()
+        por_norad = {normalizar_norad_id(o.norad_id): o for o in objetos_banco}
+
+        total_em_orbita_satcat = 0
+        atualizados = 0
+        leitor = csv.DictReader(io.StringIO(conteudo_csv))
+
+        for r in leitor:
+            norad = normalizar_norad_id(r.get("NORAD_CAT_ID", ""))
+            if not norad:
+                continue
+
+            decay_str = (r.get("DECAY_DATE") or "").strip()
+            ops_code = (r.get("OPS_STATUS_CODE") or "").strip()
+            if not decay_str and ops_code.upper() != "D":
+                total_em_orbita_satcat += 1
+
+            obj = por_norad.get(norad)
+            if not obj:
+                continue
+
+            cospar = (r.get("OBJECT_ID") or "").strip() or None
+            obj_type = (r.get("OBJECT_TYPE") or "").strip() or None
+            owner_code = (r.get("OWNER") or "").strip().upper()
+            launch_str = (r.get("LAUNCH_DATE") or "").strip()
+            site_code = (r.get("LAUNCH_SITE") or "").strip().upper()
+
+            if cospar:
+                obj.cospar_id = cospar
+            if ops_code:
+                obj.codigo_status = ops_code
+            elif not decay_str and obj.codigo_status == "D":
+                obj.codigo_status = None
+
+            if launch_str:
+                try:
+                    p = launch_str.split("-")
+                    obj.data_lancamento = date(int(p[0]), int(p[1]), int(p[2]))
+                except Exception:
+                    pass
+
+            if decay_str:
+                try:
+                    p = decay_str.split("-")
+                    obj.data_decaimento = date(int(p[0]), int(p[1]), int(p[2]))
+                    obj.codigo_status = "D"
+                except Exception:
+                    pass
+            else:
+                obj.data_decaimento = None
+
+            if site_code:
+                obj.local_lancamento = SITES_LANCAMENTO.get(site_code, f"{site_code} (Base de Lançamento)")
+
+            if norad in self.mapeamento_paises:
+                obj.pais = self.mapeamento_paises[norad]
+            elif owner_code in MAPA_OWNER_SATCAT:
+                obj.pais = MAPA_OWNER_SATCAT[owner_code]
+            elif owner_code:
+                obj.pais = owner_code
+
+            ano = obj.data_lancamento.year if obj.data_lancamento else None
+            nova_cat, novo_status, pai_norad = self.classificar_objeto(
+                obj.nome,
+                norad,
+                ano,
+                ops_code=obj.codigo_status,
+                object_type=obj_type,
+            )
+            obj.categoria_id = nova_cat
+            obj.status = novo_status
+            obj.estacao_pai_norad = pai_norad
+            atualizados += 1
+
+        agora_iso = datetime.now(timezone.utc).isoformat()
+        self._gravar_metadata(db, "satcat_total_em_orbita", str(total_em_orbita_satcat))
+        self._gravar_metadata(db, "ultima_sincronizacao_utc", agora_iso)
+        db.commit()
+        logger.info(f"LOG: SATCAT completo sincronizado ({atualizados} objetos atualizados; {total_em_orbita_satcat} em órbita).")
+        return True
+
+    def _gravar_metadata(self, db: Session, chave: str, valor: str):
+        """Insere ou atualiza chave de metadados do catálogo."""
+        db.execute(
+            text(
+                """
+                INSERT INTO catalogo_metadata (chave, valor, atualizado_em)
+                VALUES (:chave, :valor, CURRENT_TIMESTAMP)
+                ON CONFLICT (chave) DO UPDATE
+                SET valor = EXCLUDED.valor,
+                    atualizado_em = CURRENT_TIMESTAMP
+                """
+            ),
+            {"chave": chave, "valor": valor},
+        )
+
+    def reparar_dados_locais(self, db: Session):
+        """Corrige duplicatas, países incorretos, classificações e fichas históricas no banco local."""
+        self.deduplicar_norads_zeros_esquerda(db)
+
+        # Corrige falsos positivos de país acumulados por regras antigas
+        db.execute(
+            text(
+                """
+                UPDATE objeto_orbital
+                SET pais = 'Não Identificado'
+                WHERE pais = 'Brasil'
+                  AND (nome ILIKE '%TRANSPORTER%' OR nome ILIKE '%SCORPION%')
+                """
+            )
+        )
+        db.execute(text("UPDATE objeto_orbital SET pais = 'Rússia' WHERE norad_id = '25400'"))
+        db.execute(text("UPDATE objeto_orbital SET pais = 'França' WHERE norad_id = '22823'"))
+
+        mapa_operadores = {
+            "Globalstar": "Estados Unidos",
+            "Intelsat": "Estados Unidos",
+            "Orbcomm": "Estados Unidos",
+            "Eutelsat": "União Europeia",
+            "SES": "União Europeia",
+            "EUMETSAT": "União Europeia",
+        }
+        for op_antigo, pais_destino in mapa_operadores.items():
+            db.execute(
+                text("UPDATE objeto_orbital SET pais = :destino WHERE pais = :origem"),
+                {"destino": pais_destino, "origem": op_antigo},
+            )
+
+        for norad_chave, pais_correto in self.mapeamento_paises.items():
+            db.execute(
+                text("UPDATE objeto_orbital SET pais = :pais WHERE norad_id = :norad"),
+                {"pais": pais_correto, "norad": norad_chave},
+            )
+        db.commit()
+
+        self.reclassificar_todos_objetos(db)
+
+        # Remove fichas históricas que apontavam para NORADs errados para regerar corretamente
+        ids_regerar = ["22823", "25400", "54380", "24876", "24946", "11", "25730", "5", "22490", "25504", "47699", "40336", "48274"]
+        db.execute(
+            text(
+                """
+                DELETE FROM informacao_missao
+                WHERE objeto_id IN (
+                    SELECT id FROM objeto_orbital WHERE norad_id = ANY(:ids)
+                )
+                """
+            ),
+            {"ids": ids_regerar},
+        )
+        db.commit()
+
+        self.enriquecer_missoes(db)
+        logger.info("LOG: Reparo local de dados concluído com sucesso.")
+
+    def limpar_historico_tles_antigos(self, db: Session, manter_por_objeto: int = 2) -> int:
+        """Remove TLEs históricos excedentes mantendo os registros mais recentes por objeto."""
+        res = db.execute(
+            text(
+                """
+                DELETE FROM tle_historico
+                WHERE id IN (
+                    SELECT id FROM (
+                        SELECT id, ROW_NUMBER() OVER (PARTITION BY objeto_id ORDER BY id DESC) AS rn
+                        FROM tle_historico
+                    ) sub
+                    WHERE rn > :manter
+                )
+                """
+            ),
+            {"manter": manter_por_objeto},
+        )
+        db.commit()
+        removidos = int(res.rowcount or 0)
+        logger.info(f"LOG: Limpeza de tle_historico concluída ({removidos} registros antigos removidos).")
+        return removidos
+
     def sincronizar_satcat_grupo(self, db: Session, grupo: str = None, name: str = None, special: str = None):
         """Consulta o SATCAT oficial em JSON para o grupo e atualiza cospar, datas, status e cosmódromo."""
         params = {}
@@ -629,7 +975,7 @@ class APIConector:
             params["NAME"] = name
         elif special:
             params["SPECIAL"] = special
-        
+
         if not params:
             return
 
@@ -646,9 +992,9 @@ class APIConector:
             return
 
         norads_unicos = list({
-            str(r.get("NORAD_CAT_ID", "")).strip()
+            normalizar_norad_id(r.get("NORAD_CAT_ID", ""))
             for r in registros
-            if str(r.get("NORAD_CAT_ID", "")).strip()
+            if normalizar_norad_id(r.get("NORAD_CAT_ID", ""))
         })
         por_norad = {}
         for i in range(0, len(norads_unicos), 500):
@@ -658,18 +1004,20 @@ class APIConector:
 
         atualizados = 0
         for r in registros:
-            norad = str(r.get("NORAD_CAT_ID", "")).strip()
+            norad = normalizar_norad_id(r.get("NORAD_CAT_ID", ""))
             if not norad:
                 continue
             obj = por_norad.get(norad)
             if not obj:
                 continue
 
-            cospar = r.get("OBJECT_ID", "").strip() or None
-            launch_str = r.get("LAUNCH_DATE", "").strip()
-            decay_str = r.get("DECAY_DATE", "").strip()
-            site_code = r.get("LAUNCH_SITE", "").strip()
-            ops_code = r.get("OPS_STATUS_CODE", "").strip() or None
+            cospar = (r.get("OBJECT_ID") or "").strip() or None
+            launch_str = (r.get("LAUNCH_DATE") or "").strip()
+            decay_str = (r.get("DECAY_DATE") or "").strip()
+            site_code = (r.get("LAUNCH_SITE") or "").strip().upper()
+            ops_code = (r.get("OPS_STATUS_CODE") or "").strip() or None
+            obj_type = (r.get("OBJECT_TYPE") or "").strip() or None
+            owner_code = (r.get("OWNER") or "").strip().upper()
 
             if cospar:
                 obj.cospar_id = cospar
@@ -692,6 +1040,16 @@ class APIConector:
                 obj.data_decaimento = None
             if site_code:
                 obj.local_lancamento = SITES_LANCAMENTO.get(site_code, f"{site_code} (Base de Lançamento)")
+            if norad not in self.mapeamento_paises and owner_code in MAPA_OWNER_SATCAT:
+                obj.pais = MAPA_OWNER_SATCAT[owner_code]
+
+            ano = obj.data_lancamento.year if obj.data_lancamento else None
+            nova_cat, novo_status, pai_norad = self.classificar_objeto(
+                obj.nome, norad, ano, ops_code=obj.codigo_status, object_type=obj_type
+            )
+            obj.categoria_id = nova_cat
+            obj.status = novo_status
+            obj.estacao_pai_norad = pai_norad
             atualizados += 1
 
         if atualizados > 0:
@@ -700,23 +1058,26 @@ class APIConector:
 
     def obter_satcat_individual(self, norad_id: str, db: Session):
         """Busca pontual no CelesTrak SATCAT para um objeto específico (on demand / cache no banco)."""
+        norad_norm = normalizar_norad_id(norad_id)
         try:
             with httpx.Client(timeout=10.0, headers=self.headers) as client:
-                resp = client.get(self.url_satcat, params={"CATNR": str(norad_id).strip()})
+                resp = client.get(self.url_satcat, params={"CATNR": norad_norm})
                 if resp.status_code != 200:
                     return None
                 data = resp.json()
                 if not data or not isinstance(data, list):
                     return None
                 r = data[0]
-                
-                obj = db.query(ObjetoOrbital).filter(ObjetoOrbital.norad_id == str(norad_id).strip()).first()
+
+                obj = db.query(ObjetoOrbital).filter(ObjetoOrbital.norad_id == norad_norm).first()
                 if obj:
-                    cospar = r.get("OBJECT_ID", "").strip() or None
-                    launch_str = r.get("LAUNCH_DATE", "").strip()
-                    decay_str = r.get("DECAY_DATE", "").strip()
-                    site_code = r.get("LAUNCH_SITE", "").strip()
-                    ops_code = r.get("OPS_STATUS_CODE", "").strip() or None
+                    cospar = (r.get("OBJECT_ID") or "").strip() or None
+                    launch_str = (r.get("LAUNCH_DATE") or "").strip()
+                    decay_str = (r.get("DECAY_DATE") or "").strip()
+                    site_code = (r.get("LAUNCH_SITE") or "").strip().upper()
+                    ops_code = (r.get("OPS_STATUS_CODE") or "").strip() or None
+                    obj_type = (r.get("OBJECT_TYPE") or "").strip() or None
+                    owner_code = (r.get("OWNER") or "").strip().upper()
 
                     if cospar:
                         obj.cospar_id = cospar
@@ -739,10 +1100,20 @@ class APIConector:
                         obj.data_decaimento = None
                     if site_code:
                         obj.local_lancamento = SITES_LANCAMENTO.get(site_code, f"{site_code} (Base de Lançamento)")
+                    if norad_norm not in self.mapeamento_paises and owner_code in MAPA_OWNER_SATCAT:
+                        obj.pais = MAPA_OWNER_SATCAT[owner_code]
+
+                    ano = obj.data_lancamento.year if obj.data_lancamento else None
+                    nova_cat, novo_status, pai_norad = self.classificar_objeto(
+                        obj.nome, norad_norm, ano, ops_code=obj.codigo_status, object_type=obj_type
+                    )
+                    obj.categoria_id = nova_cat
+                    obj.status = novo_status
+                    obj.estacao_pai_norad = pai_norad
                     db.commit()
                     return obj
         except Exception as e:
-            logger.warning(f"Erro ao buscar SATCAT individual para {norad_id}: {e}")
+            logger.warning(f"Erro ao buscar SATCAT individual para {norad_norm}: {e}")
         return None
 
     def enriquecer_missoes(self, db: Session):
