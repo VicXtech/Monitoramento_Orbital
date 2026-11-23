@@ -521,6 +521,11 @@ export default function SatelliteDetailTabs({
         {/* ABA 2: REGISTRO */}
         {abaAtiva === 'registro' && (
           <div className="tab-pane tab-pane-registro">
+            <TypewriterSectionTitle
+              text="Dados de Registro"
+              delay={40}
+              key={`${satSelecionado?.norad_id}-dados-registro`}
+            />
             <div className="fiche-grid">
               <div className="grid-cell">
                 <span className="cell-label">Operador / País</span>
@@ -592,7 +597,7 @@ export default function SatelliteDetailTabs({
               <>
                 <TypewriterSectionTitle
                   text="Sobre"
-                  delay={40}
+                  delay={120}
                   key={`${satSelecionado?.norad_id}-sobre`}
                 />
                 <div className="mission-context-card">
@@ -605,7 +610,7 @@ export default function SatelliteDetailTabs({
               <>
                 <TypewriterSectionTitle
                   text="Agrupamento Orbital"
-                  delay={40}
+                  delay={120}
                   key={`${satSelecionado?.norad_id}-agrupamento`}
                 />
                 <div className="orbital-batch-card">
@@ -656,7 +661,7 @@ export default function SatelliteDetailTabs({
               <>
                 <TypewriterSectionTitle
                   text="Performance"
-                  delay={160}
+                  delay={200}
                   key={`${satSelecionado?.norad_id}-performance`}
                 />
                 <PerformanceMetricsCard
@@ -673,9 +678,14 @@ export default function SatelliteDetailTabs({
           <div className="tab-pane tab-pane-auditoria">
 
             {/* SCORE SIO */}
+            <TypewriterSectionTitle
+              text="Nota de Impacto"
+              delay={40}
+              key={`${satSelecionado?.norad_id}-nota-impacto`}
+            />
             <div className="impact-meter-card">
               <div className="impact-meter-top">
-                <div className="impact-meter-label">SCORE DE IMPACTO ORBITAL SIO</div>
+                <div className="impact-meter-label">SCORE DE IMPACTO AMBIENTAL</div>
                 <div className="impact-meter-score">
                   <span className="score-val" style={{ color: auditoriaSio.overallRating.cor }}>
                     {auditoriaSio.score}
@@ -704,7 +714,7 @@ export default function SatelliteDetailTabs({
             {/* CRITERIOS DE AVALIACAO COM RESPIRO E EXPLICACAO CURTA */}
             <TypewriterSectionTitle
               text="Critérios de Avaliação"
-              delay={40}
+              delay={120}
               key={`${satSelecionado?.norad_id}-criterios`}
             />
             <div className="audit-factors-list">
@@ -733,7 +743,7 @@ export default function SatelliteDetailTabs({
             {/* DESTINO */}
             <TypewriterSectionTitle
               text="Destino"
-              delay={160}
+              delay={200}
               key={`${satSelecionado?.norad_id}-destino`}
             />
             <div className="normative-framework-card">
