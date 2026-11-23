@@ -16,19 +16,31 @@ export default function OrbitalMissionHub({
   painelDireitoAberto = false,
   onTocarSom
 }) {
-  const [historicoIds, setHistoricoIds] = useState([]);
   const [missaoAtual, setMissaoAtual] = useState(() => sortearProximaMissao([]));
   const [tempoRestante, setTempoRestante] = useState(missaoAtual.tempoSegundos || 45);
   const [estadoFase, setEstadoFase] = useState('ACTIVE');
   const [emCooldown, setEmCooldown] = useState(true);
 
-  // Armazena callback de som em ref para evitar quebrar dependencias de timers
+  const historicoIdsRef = useRef([]);
   const onTocarSomRef = useRef(onTocarSom);
+  const contextoAtualRef = useRef({
+    satNorad: satSelecionado?.norad_id,
+    aba: abaDetalheAtiva
+  });
+
   useEffect(() => {
     onTocarSomRef.current = onTocarSom;
   });
 
+  useEffect(() => {
+    contextoAtualRef.current = {
+      satNorad: satSelecionado?.norad_id,
+      aba: abaDetalheAtiva
+    };
+  }, [satSelecionado?.norad_id, abaDetalheAtiva]);
+
   const timerCronometroRef = useRef(null);
+  const timerInicialRef = useRef(null);
   const timerCooldownRef = useRef(null);
   const timerSucessoRef = useRef(null);
   const timerExpiradoRef = useRef(null);
@@ -37,25 +49,25 @@ export default function OrbitalMissionHub({
 
   // Inicia uma nova missao
   const iniciarMissao = useCallback((novaMissao) => {
+    if (timerInicialRef.current) clearTimeout(timerInicialRef.current);
     if (timerCronometroRef.current) clearInterval(timerCronometroRef.current);
     if (timerCooldownRef.current) clearTimeout(timerCooldownRef.current);
     if (timerSucessoRef.current) clearTimeout(timerSucessoRef.current);
     if (timerExpiradoRef.current) clearTimeout(timerExpiradoRef.current);
 
-    estadoNoInicioRef.current = {
-      satNorad: satSelecionado?.norad_id,
-      aba: abaDetalheAtiva
-    };
+    estadoNoInicioRef.current = { ...contextoAtualRef.current };
 
     setMissaoAtual(novaMissao);
     setTempoRestante(novaMissao.tempoSegundos || 45);
     setEstadoFase('ACTIVE');
     setEmCooldown(false);
-  }, [satSelecionado?.norad_id, abaDetalheAtiva]);
+  }, []);
 
   // Entra em estado de cooldown e agenda o proximo spawn silencioso
   const entrarEmCooldown = useCallback(() => {
+    if (timerInicialRef.current) clearTimeout(timerInicialRef.current);
     if (timerCronometroRef.current) clearInterval(timerCronometroRef.current);
+    if (timerCooldownRef.current) clearTimeout(timerCooldownRef.current);
     if (timerSucessoRef.current) clearTimeout(timerSucessoRef.current);
     if (timerExpiradoRef.current) clearTimeout(timerExpiradoRef.current);
     setEmCooldown(true);
@@ -63,12 +75,10 @@ export default function OrbitalMissionHub({
 
     const tempoCooldownMs = Math.floor(Math.random() * 45000) + 45000;
     timerCooldownRef.current = setTimeout(() => {
-      setHistoricoIds((prev) => {
-        const prox = sortearProximaMissao(prev);
-        iniciarMissao(prox);
-        onTocarSomRef.current?.('iniciar');
-        return [...prev, prox.id];
-      });
+      const prox = sortearProximaMissao(historicoIdsRef.current);
+      historicoIdsRef.current = [...historicoIdsRef.current, prox.id];
+      iniciarMissao(prox);
+      onTocarSomRef.current?.('iniciar');
     }, tempoCooldownMs);
   }, [iniciarMissao]);
 
@@ -76,24 +86,24 @@ export default function OrbitalMissionHub({
   useEffect(() => {
     if (!ativo) {
       spawnAgendadoRef.current = false;
+      if (timerInicialRef.current) clearTimeout(timerInicialRef.current);
       if (timerCooldownRef.current) clearTimeout(timerCooldownRef.current);
+      timerInicialRef.current = setTimeout(() => setEmCooldown(true), 0);
       return;
     }
 
     if (spawnAgendadoRef.current) return;
 
-    timerCooldownRef.current = setTimeout(() => {
+    timerInicialRef.current = setTimeout(() => {
       spawnAgendadoRef.current = true;
-      setHistoricoIds((prev) => {
-        const primeira = sortearProximaMissao(prev);
-        iniciarMissao(primeira);
-        onTocarSomRef.current?.('iniciar');
-        return [...prev, primeira.id];
-      });
+      const primeira = sortearProximaMissao(historicoIdsRef.current);
+      historicoIdsRef.current = [...historicoIdsRef.current, primeira.id];
+      iniciarMissao(primeira);
+      onTocarSomRef.current?.('iniciar');
     }, 5000);
 
     return () => {
-      if (timerCooldownRef.current) clearTimeout(timerCooldownRef.current);
+      if (timerInicialRef.current) clearTimeout(timerInicialRef.current);
     };
   }, [ativo, iniciarMissao]);
 
@@ -101,8 +111,8 @@ export default function OrbitalMissionHub({
   const handleTrocar = (e) => {
     if (e) e.stopPropagation();
     onTocarSomRef.current?.('slide');
-    const prox = sortearProximaMissao([...historicoIds, missaoAtual.id]);
-    setHistoricoIds((prev) => [...prev, prox.id]);
+    const prox = sortearProximaMissao([...historicoIdsRef.current, missaoAtual.id]);
+    historicoIdsRef.current = [...historicoIdsRef.current, prox.id];
     iniciarMissao(prox);
   };
 
@@ -164,7 +174,9 @@ export default function OrbitalMissionHub({
       setEstadoFase('SUCCESS');
       onTocarSomRef.current?.('sucesso');
 
-      setHistoricoIds((prev) => (prev.includes(missaoAtual.id) ? prev : [...prev, missaoAtual.id]));
+      if (!historicoIdsRef.current.includes(missaoAtual.id)) {
+        historicoIdsRef.current = [...historicoIdsRef.current, missaoAtual.id];
+      }
 
       // Permanece 4 segundos no estado de sucesso antes de entrar em cooldown
       timerSucessoRef.current = setTimeout(() => {
@@ -190,6 +202,7 @@ export default function OrbitalMissionHub({
   // Limpeza geral ao desmontar
   useEffect(() => {
     return () => {
+      if (timerInicialRef.current) clearTimeout(timerInicialRef.current);
       if (timerCronometroRef.current) clearInterval(timerCronometroRef.current);
       if (timerCooldownRef.current) clearTimeout(timerCooldownRef.current);
       if (timerSucessoRef.current) clearTimeout(timerSucessoRef.current);
