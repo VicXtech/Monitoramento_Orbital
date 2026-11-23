@@ -1244,6 +1244,8 @@ function App() {
   // Estados de Interação
   const [busca, setBusca] = useState('');
   const [sugestoes, setSugestoes] = useState([]);
+  const [sugestoesAbertas, setSugestoesAbertas] = useState(false);
+  const searchSectionRef = useRef(null);
   const [satSelecionado, setSatSelecionado] = useState(null);
   const [parametrosOrbitaisSat, setParametrosOrbitaisSat] = useState(null);
   const [recarregandoAmostra, setRecarregandoAmostra] = useState(false);
@@ -1598,27 +1600,49 @@ function App() {
     }
   };
 
+  // Fecha lista de sugestoes ao clicar fora da busca
+  useEffect(() => {
+    const fecharAoClicarFora = (event) => {
+      if (searchSectionRef.current && !searchSectionRef.current.contains(event.target)) {
+        setSugestoesAbertas(false);
+      }
+    };
+    document.addEventListener('pointerdown', fecharAoClicarFora);
+    return () => document.removeEventListener('pointerdown', fecharAoClicarFora);
+  }, []);
+
   // 3. BUSCA DE SATÉLITES COM DEBOUNCE
   useEffect(() => {
-    if (busca.trim().length < 2) {
+    const termo = busca.trim();
+    if (termo.length < 2) {
       setSugestoes([]);
       return;
     }
 
-    const buscarObjetosAPI = async () => {
+    const controller = new AbortController();
+    const delayDebounce = setTimeout(async () => {
       try {
-        const res = await fetch(`${API_URL}/api/objetos?busca=${encodeURIComponent(busca)}&limit=10`);
-        if (res.ok) {
+        const res = await fetch(
+          `${API_URL}/api/objetos?busca=${encodeURIComponent(termo)}&limit=10`,
+          { signal: controller.signal }
+        );
+        if (res.ok && !controller.signal.aborted) {
           const data = await res.json();
-          setSugestoes(data);
+          if (!controller.signal.aborted) {
+            setSugestoes(data);
+          }
         }
       } catch (err) {
-        console.error("Erro na busca de satélites:", err);
+        if (err?.name !== 'AbortError') {
+          console.error("Erro na busca de satélites:", err);
+        }
       }
-    };
+    }, 300);
 
-    const delayDebounce = setTimeout(buscarObjetosAPI, 300);
-    return () => clearTimeout(delayDebounce);
+    return () => {
+      clearTimeout(delayDebounce);
+      controller.abort();
+    };
   }, [busca]);
 
   // Traça ou atualiza a rota orbital em cinza prateado
@@ -3796,7 +3820,7 @@ function App() {
 
             {/* BUSCADOR DE SATÉLITES TÁTICO (OMITIDO NO MODO ORBITAL) */}
             {!modoOrbitalAtivo && (
-              <div className="search-section">
+              <div className="search-section" ref={searchSectionRef}>
                 <div className="search-bar-container">
                   <Search size={18} className="search-icon" />
                   <input
@@ -3804,18 +3828,31 @@ function App() {
                     className="search-input"
                     placeholder="BUSCAR SATÉLITE OU NORAD ID..."
                     value={busca}
-                    onChange={(e) => setBusca(e.target.value)}
+                    onFocus={() => setSugestoesAbertas(true)}
+                    onChange={(e) => {
+                      setBusca(e.target.value);
+                      setSugestoesAbertas(true);
+                    }}
+                    onKeyDown={(e) => {
+                      if (e.key === 'Escape') {
+                        setSugestoesAbertas(false);
+                      }
+                    }}
                   />
                   {busca && (
                     <X
                       size={16}
                       style={{ cursor: 'pointer', color: 'var(--text-muted)' }}
-                      onClick={() => { setBusca(''); setSugestoes([]); }}
+                      onClick={() => {
+                        setBusca('');
+                        setSugestoes([]);
+                        setSugestoesAbertas(false);
+                      }}
                     />
                   )}
                 </div>
 
-                {sugestoes.length > 0 && (
+                {sugestoesAbertas && busca.trim().length >= 2 && sugestoes.length > 0 && (
                   <div className="search-suggestions">
                     {sugestoes.map((sat) => (
                       <div
@@ -3825,6 +3862,7 @@ function App() {
                           handleSelecionarSat(sat);
                           setBusca('');
                           setSugestoes([]);
+                          setSugestoesAbertas(false);
                         }}
                       >
                         <span>{sat.nome}</span>
