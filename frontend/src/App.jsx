@@ -2039,6 +2039,7 @@ function App() {
     viewerInstance.scene.globe.depthTestAgainstTerrain = false;
     viewerInstance.scene.globe.preloadAncestors = true;
     viewerInstance.scene.globe.preloadSiblings = false;
+    viewerInstance.scene.globe.baseColor = window.Cesium.Color.fromCssColorString('#0a2239');
 
     const glContexto = viewerInstance.scene?.context?._gl || null;
     perfilGraficoRef.current = refinarPerfilComWebGL(perfilGraficoRef.current, glContexto);
@@ -2057,13 +2058,7 @@ function App() {
     ctrl.inertiaSpin = 0.85;
     ctrl.inertiaZoom = 0.8;
 
-    let camadaBaseTemporaria = null;
-    let camadaArcGis = null;
-    let arcGisTilesProntos = false;
-    let arcGisObservando = false;
-    let removerListenerTiles = null;
-
-    // Carrega camada base local imediata enquanto o mapa ArcGIS e baixado
+    // Mantem camada base geografica no indice 0 para cobrir as calotas polares acima de 85.05 graus
     const carregarBaseNaturalEarth = async () => {
       try {
         const tmsClass = window.Cesium.TileMapServiceImageryProvider;
@@ -2079,45 +2074,18 @@ function App() {
     };
 
     carregarBaseNaturalEarth().then((provider) => {
-      if (!provider || viewerInstance.isDestroyed() || arcGisTilesProntos) return;
-      camadaBaseTemporaria = viewerInstance.imageryLayers.addImageryProvider(provider, 0);
+      if (!provider || viewerInstance.isDestroyed()) return;
+      viewerInstance.imageryLayers.addImageryProvider(provider, 0);
       solicitarRenderizacao(viewerInstance);
     });
-
-    const verificarTilesArcGis = (restantes) => {
-      if (!viewerInstance || viewerInstance.isDestroyed() || !arcGisObservando) return;
-      if (camadaArcGis && restantes === 0 && viewerInstance.scene.globe.tilesLoaded) {
-        arcGisTilesProntos = true;
-        if (camadaBaseTemporaria) {
-          try {
-            viewerInstance.imageryLayers.remove(camadaBaseTemporaria, true);
-          } catch {
-            // Camada ja removida
-          }
-          camadaBaseTemporaria = null;
-        }
-        if (removerListenerTiles) {
-          removerListenerTiles();
-          removerListenerTiles = null;
-        }
-        solicitarRenderizacao(viewerInstance);
-      }
-    };
 
     if (window.Cesium.ArcGisMapServerImageryProvider && window.Cesium.ArcGisMapServerImageryProvider.fromUrl) {
       window.Cesium.ArcGisMapServerImageryProvider.fromUrl(
         'https://services.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer'
       ).then((provider) => {
         if (!viewerInstance || viewerInstance.isDestroyed()) return;
-        camadaArcGis = viewerInstance.imageryLayers.addImageryProvider(provider);
-        removerListenerTiles = viewerInstance.scene.globe.tileLoadProgressEvent.addEventListener(verificarTilesArcGis);
+        viewerInstance.imageryLayers.addImageryProvider(provider);
         solicitarRenderizacao(viewerInstance);
-        requestAnimationFrame(() => {
-          requestAnimationFrame(() => {
-            arcGisObservando = true;
-            verificarTilesArcGis(0);
-          });
-        });
       }).catch(() => {
         // Mantem camada NaturalEarthII caso o servico ArcGIS falhe
       });
