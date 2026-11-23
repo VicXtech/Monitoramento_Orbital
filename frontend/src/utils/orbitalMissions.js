@@ -260,10 +260,10 @@ export const MISSOES_ORBITAIS = [
     nivel: 4,
     nivelRotulo: 'Nível 4',
     titulo: 'Registro e Dados',
-    descricao: 'Abra a aba REGISTRO no painel direito para ver país, lançamento e desempenho.',
+    descricao: 'Abra a aba REGISTRO no painel direito para ver país, lançamento e porte do objeto.',
     tempoSegundos: 45,
     dica: 'Selecione um satélite e clique na aba REGISTRO.',
-    explicacaoConclusao: 'Dados de lançamento e desempenho do sistema conferidos com sucesso.',
+    explicacaoConclusao: 'Dados de registro, lançamento e função do objeto conferidos com sucesso.',
     verificar: ({ satSelecionado, abaDetalheAtiva, satNoradNoInicio, abaNoInicio }) => {
       if (!satSelecionado || abaDetalheAtiva !== 'registro') return false;
       if (abaNoInicio === 'registro' && satNoradNoInicio === satSelecionado.norad_id) {

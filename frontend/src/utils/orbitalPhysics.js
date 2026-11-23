@@ -203,10 +203,6 @@ export function calcularParametrosOrbitais(satOuLinha1, linha2OuData = null, dat
       classeInclinacao = 'Órbita Quase-Equatorial';
       classeRotaCurta = 'Quase-Equatorial';
       descricaoInclinacao = 'Órbita com pouca inclinação, acompanhando de perto a linha do equador.';
-    } else if (Math.abs(inclinacaoGraus - 51.6) < 2) {
-      classeInclinacao = 'Órbita Padrão ISS';
-      classeRotaCurta = 'Padrão ISS';
-      descricaoInclinacao = 'Inclinação usada pela ISS para facilitar lançamentos a partir dos EUA e da Rússia.';
     }
 
     // 8. Diagnóstico de Arrasto Atmosférico e Estimativa de Vida em Órbita

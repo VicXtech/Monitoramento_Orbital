@@ -88,81 +88,6 @@ function TypewriterSectionTitle({ text, delay = 0, speed = 25 }) {
   );
 }
 
-// Identifica agrupamento ou lote de lancamento
-function obterAgrupamentoOrbital(sat) {
-  const nome = (sat?.nome || '').toUpperCase();
-  const cospar = sat?.cospar_id || '';
-  const catId = Number(sat?.categoria_id);
-
-  if (nome.includes('STARLINK')) return 'Constelação Starlink - SpaceX';
-  if (nome.includes('ONEWEB')) return 'Constelação OneWeb - Eutelsat';
-  if (nome.includes('IRIDIUM')) return 'Constelação Iridium NEXT';
-  if (nome.includes('GLOBALSTAR')) return 'Constelação Globalstar';
-  if (nome.includes('GPS') || nome.includes('NAVSTAR')) return 'Constelação GPS / Navstar';
-  if (nome.includes('GLONASS')) return 'Constelação GLONASS';
-  if (nome.includes('GALILEO')) return 'Constelação Galileo - União Europeia';
-  if (nome.includes('BEIDOU')) return 'Constelação BeiDou - China';
-  if (catId === 3 || nome.includes('DEB')) {
-    return `Detrito orbital do evento ${cospar ? cospar.slice(0, 8) : 'catalogado'}`;
-  }
-  if (catId === 5 || nome.includes('R/B')) {
-    return `Estágio de foguete do lançamento ${cospar ? cospar.slice(0, 8) : 'catalogado'}`;
-  }
-  if (cospar) {
-    return `Lançamento orbital ${cospar.slice(0, 8)}`;
-  }
-  return 'Lançamento orbital independente';
-}
-
-// Isola atualizacoes periodicas de desempenho neste card
-function PerformanceMetricsCard({ obterMetricasPerformance, metricasIniciais }) {
-  const [metricasLive, setMetricasLive] = useState(() => (
-    obterMetricasPerformance ? obterMetricasPerformance() : metricasIniciais
-  ));
-
-  useEffect(() => {
-    if (!obterMetricasPerformance) return undefined;
-
-    const timer = setInterval(() => {
-      setMetricasLive(obterMetricasPerformance());
-    }, 500);
-
-    return () => clearInterval(timer);
-  }, [obterMetricasPerformance]);
-
-  const metricas = obterMetricasPerformance ? metricasLive : metricasIniciais;
-  if (!metricas) return null;
-
-  return (
-    <div className="engine-performance-card">
-      <div className="engine-performance-grid">
-        <div className="performance-metric-box">
-          <span className="perf-label">Taxa de Quadros</span>
-          <span className="perf-val">{metricas.fps} FPS</span>
-        </div>
-        <div className="performance-metric-box">
-          <span className="perf-label">Cálculo SGP4</span>
-          <span className="perf-val">
-            {metricas.tempoCalculoMs > 0 ? `${metricas.tempoCalculoMs} ms` : '< 1 ms'}
-          </span>
-        </div>
-        <div className="performance-metric-box">
-          <span className="perf-label">Resposta da API</span>
-          <span className="perf-val">
-            {metricas.latenciaApiMs > 0 ? `${metricas.latenciaApiMs} ms` : '--'}
-          </span>
-        </div>
-        <div className="performance-metric-box">
-          <span className="perf-label">Memória JS</span>
-          <span className="perf-val">
-            {metricas.memoriaMb ? `${metricas.memoriaMb} MB` : 'N/D'}
-          </span>
-        </div>
-      </div>
-    </div>
-  );
-}
-
 // Painel de diagnostico orbital em 3 abas
 export default function SatelliteDetailTabs({
   satSelecionado,
@@ -174,8 +99,6 @@ export default function SatelliteDetailTabs({
   carregandoModulos = false,
   handleSelecionarSat,
   onFocarObjeto,
-  metricasPerformance,
-  obterMetricasPerformance,
   obterDataSimulada,
   multiplicadorTempo = 1,
   onMudarAba
@@ -253,7 +176,6 @@ export default function SatelliteDetailTabs({
   const rcsInfo = formatRcsSize(satSelecionado.rcs_size || satSelecionado.dados_omm?.RCS_SIZE, satSelecionado);
   const baseLancamento = formatLaunchSite(satSelecionado.local_lancamento || satSelecionado.site);
   const dataLancamentoFormatada = formatarDataRegistro(satSelecionado.data_lancamento, satSelecionado.cospar_id, formatarDataBrasileira);
-  const agrupamentoTexto = obterAgrupamentoOrbital(satSelecionado);
   const temDossieOficial = Boolean(fichaFactual?.contextoMissao || satSelecionado.missao?.descricao);
 
   const formatoRota = formatarFormatoRota(parametrosOrbitaisSat?.excentricidade);
@@ -528,7 +450,7 @@ export default function SatelliteDetailTabs({
             />
             <div className="fiche-grid">
               <div className="grid-cell">
-                <span className="cell-label">Operador / País</span>
+                <span className="cell-label">PAÍS / ORIGEM</span>
                 <AutoFitValue
                   base={13}
                   min={9.5}
@@ -554,7 +476,7 @@ export default function SatelliteDetailTabs({
               </div>
 
               <div className="grid-cell">
-                <span className="cell-label">Lançamento</span>
+                <span className="cell-label">LANÇAMENTO</span>
                 <AutoFitValue
                   base={13}
                   min={9.5}
@@ -579,7 +501,7 @@ export default function SatelliteDetailTabs({
               </div>
 
               <div className="grid-cell full-width">
-                <span className="cell-label">Base de Lançamento</span>
+                <span className="cell-label">BASE DE LANÇAMENTO</span>
                 <AutoFitValue
                   base={13}
                   min={9.5}
@@ -592,8 +514,8 @@ export default function SatelliteDetailTabs({
               </div>
             </div>
 
-            {/* SOBRE OU AGRUPAMENTO ORBITAL */}
-            {temDossieOficial ? (
+            {/* SOBRE O OBJETO */}
+            {temDossieOficial && (
               <>
                 <TypewriterSectionTitle
                   text="Sobre"
@@ -604,17 +526,6 @@ export default function SatelliteDetailTabs({
                   <blockquote className="mission-context-quote">
                     {fichaFactual?.contextoMissao || satSelecionado.missao?.descricao}
                   </blockquote>
-                </div>
-              </>
-            ) : (
-              <>
-                <TypewriterSectionTitle
-                  text="Agrupamento Orbital"
-                  delay={120}
-                  key={`${satSelecionado?.norad_id}-agrupamento`}
-                />
-                <div className="orbital-batch-card">
-                  <p className="orbital-batch-desc">{agrupamentoTexto}</p>
                 </div>
               </>
             )}
@@ -654,21 +565,6 @@ export default function SatelliteDetailTabs({
                   <div className="modules-empty">Nenhum módulo auxiliar conectado no momento.</div>
                 )}
               </div>
-            )}
-
-            {/* PERFORMANCE DO MOTOR EM TEMPO REAL */}
-            {(obterMetricasPerformance || metricasPerformance) && (
-              <>
-                <TypewriterSectionTitle
-                  text="Performance"
-                  delay={200}
-                  key={`${satSelecionado?.norad_id}-performance`}
-                />
-                <PerformanceMetricsCard
-                  obterMetricasPerformance={obterMetricasPerformance}
-                  metricasIniciais={metricasPerformance}
-                />
-              </>
             )}
           </div>
         )}

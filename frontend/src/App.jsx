@@ -474,7 +474,6 @@ function App() {
     latenciaApiMs: 0,
     memoriaMb: null
   });
-  const obterMetricasPerformance = useCallback(() => ({ ...metricasPerformanceRef.current }), []);
   const obterDataSimulada = useCallback(() => new Date(simulatedTimeMsRef.current), []);
   const fpsFrameContadorRef = useRef(0);
   const fpsUltimoTimestampRef = useRef(performance.now());
@@ -4245,7 +4244,6 @@ function App() {
                         carregandoModulos={carregandoModulos}
                         handleSelecionarSat={handleSelecionarSat}
                         onFocarObjeto={() => centralizarCameraNoObjeto(satSelecionado)}
-                        obterMetricasPerformance={obterMetricasPerformance}
                         obterDataSimulada={obterDataSimulada}
                         multiplicadorTempo={multiplicadorTempo}
                         onMudarAba={(aba) => setAbaDetalheAtiva(aba)}
