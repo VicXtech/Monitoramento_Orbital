@@ -3214,7 +3214,7 @@ function App() {
                           <div className="about-metric-item">
                             <span className="about-metric-val">3.000 / 10.000</span>
                             <span className="about-metric-lbl">Objetos no Globo</span>
-                            <span className="about-metric-sub">Modos Leve e Completo</span>
+                            <span className="about-metric-sub">Modos Leve e Moderado</span>
                           </div>
                           <div className="about-metric-divider"></div>
                           <div className="about-metric-item">
@@ -3866,8 +3866,15 @@ function App() {
                 {/* Metricas principais: console e nao catalogados */}
                 <div className="stat-card" style={{ display: 'flex', flexDirection: 'column', minHeight: '104px', flexShrink: 0, padding: '14px 16px', boxSizing: 'border-box' }}>
                   <div className="stat-label">Objetos no console</div>
-                  <div className="stat-value" style={{ display: 'flex', alignItems: 'baseline', gap: '6px', fontSize: '28px', fontWeight: 600, color: 'var(--text-primary)', marginTop: '6px', lineHeight: 1 }}>
-                    {loading && objetos.length === 0 ? "---" : (obterContadoresCategorias().total_console || 31818).toLocaleString('pt-BR')}
+                  <div className="stat-value" style={{ display: 'flex', alignItems: 'baseline', gap: '6px', fontSize: '26px', fontWeight: 600, color: 'var(--text-primary)', marginTop: '6px', lineHeight: 1, fontVariantNumeric: 'tabular-nums' }}>
+                    {loading && objetos.length === 0 ? "---" : (
+                      <>
+                        <span>{(densidadeCatalogo === 'tatica' ? 3000 : 10000).toLocaleString('pt-BR')}</span>
+                        <span style={{ fontSize: '15px', fontWeight: 500, color: 'var(--text-secondary)' }}>
+                          / {(obterContadoresCategorias().total_console || 31818).toLocaleString('pt-BR')}
+                        </span>
+                      </>
+                    )}
                   </div>
                   <div style={{ display: 'flex', flexDirection: 'column', gap: '5px', marginTop: '10px', paddingTop: '8px', borderTop: '1px solid var(--border-subtle)', fontSize: '11px', color: 'var(--text-secondary)', lineHeight: 1.3 }}>
                     <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
@@ -3888,7 +3895,7 @@ function App() {
                       onClick={() => handleAlternarDensidade('tatica')}
                       title="Mostra 3.000 objetos na proporção real das órbitas"
                     >
-                      <span>LEVE · 3.000</span>
+                      <span>LEVE</span>
                     </button>
                     <button
                       type="button"
@@ -3896,7 +3903,7 @@ function App() {
                       onClick={() => handleAlternarDensidade('completo')}
                       title="Mostra 10.000 objetos na proporção real das órbitas"
                     >
-                      <span>COMPLETA · 10.000</span>
+                      <span>MODERADO</span>
                     </button>
                   </div>
 

@@ -74,11 +74,11 @@ export const MISSOES_ORBITAIS = [
     id: 'n1_capacidade_maxima',
     nivel: 1,
     nivelRotulo: 'Nível 1',
-    titulo: 'Modo Completo',
-    descricao: 'Mude a quantidade no painel esquerdo para "COMPLETA · 10.000".',
+    titulo: 'Modo Moderado',
+    descricao: 'Mude a quantidade no painel esquerdo para "MODERADO".',
     tempoSegundos: 35,
-    dica: 'Clique em "COMPLETA · 10.000" no painel esquerdo.',
-    explicacaoConclusao: 'Modo completo ativado: 10.000 objetos exibidos ao mesmo tempo no globo.',
+    dica: 'Clique em "MODERADO" no painel esquerdo.',
+    explicacaoConclusao: 'Modo moderado ativado: 10.000 objetos exibidos ao mesmo tempo no globo.',
     verificar: ({ densidadeCatalogo }) => {
       return densidadeCatalogo === 'completo';
     }
